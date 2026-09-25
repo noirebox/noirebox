@@ -1,12 +1,15 @@
-"""Database file permissions: the journal may contain personal data, so the
-file (and its WAL sidecars) must never be readable by other local accounts.
+"""Database file permissions (the journal may contain personal data, so the
+file and its WAL sidecars must never be readable by other local accounts) and
+cross-process sealing (the MCP server and the Agent hook are independent
+processes writing the same journal).
 """
 from __future__ import annotations
 
+import multiprocessing
 import stat
 from pathlib import Path
 
-from noirebox.chain import KeyPair
+from noirebox.chain import KeyPair, verify_chain
 from noirebox.store import EventStore
 
 
@@ -49,3 +52,50 @@ def test_wal_sidecars_are_owner_only(tmp_path):
         sidecar = _sidecar(db, suffix, tmp_path)
         if sidecar.exists():
             assert _mode(sidecar) == 0o600
+
+
+def _seal_worker(db, key_path, count, rank, start):
+    """Body of one sealing process, mirroring production: the MCP server and
+    the PostToolUse hook are separate OS processes that each open their own
+    connection to the same journal. The barrier makes all workers hit their
+    first append simultaneously, to maximize contention; the wait is bounded
+    so a crashed worker breaks the barrier instead of hanging the suite."""
+    store = EventStore(db)
+    key = KeyPair.load_or_create(key_path)
+    start.wait(timeout=30)
+    for i in range(count):
+        store.append("proc_test", {"worker": rank, "i": i}, key)
+
+
+def test_concurrent_processes_seal_every_event_without_gap(tmp_path):
+    """Regression: seq allocation used to be guarded by a threading.Lock only
+    (intra-process), so the MCP server and a hook process could read the same
+    max(seq); the loser of the race hit the seq PRIMARY KEY and its event was
+    silently dropped — an unexplained gap in a tamper-evident journal. With
+    BEGIN IMMEDIATE the read-then-insert is one write transaction: every
+    process seals every event, seqs are contiguous, the chain verifies.
+    """
+    db = str(tmp_path / "box.db")
+    key_path = db + ".key"
+    # Created up front: this test isolates the seq race, not key creation and
+    # not journal-mode switching.
+    key = KeyPair.load_or_create(key_path)
+    EventStore(db)
+
+    # spawn: fresh interpreters, no fork into a threaded pytest process.
+    ctx = multiprocessing.get_context("spawn")
+    start = ctx.Barrier(4)
+    procs = [
+        ctx.Process(target=_seal_worker, args=(db, key_path, 6, rank, start))
+        for rank in range(4)
+    ]
+    for proc in procs:
+        proc.start()
+    for rank, proc in enumerate(procs):
+        proc.join(timeout=90)
+        assert proc.exitcode == 0, f"worker {rank} exited {proc.exitcode}"
+
+    # Read back from a fresh connection: 4 workers x 6 events, no gap.
+    events = EventStore(db).all()
+    assert [e["seq"] for e in events] == list(range(1, 25))
+    assert verify_chain(key.public_hex(), events)["valid"]

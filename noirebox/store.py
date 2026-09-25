@@ -4,6 +4,7 @@ import json
 import os
 import sqlite3
 import threading
+import time
 from datetime import UTC, datetime
 
 from .chain import Event, KeyPair, compute_event_hash
@@ -50,36 +51,60 @@ class EventStore:
             if os.path.exists(sidecar):
                 os.chmod(sidecar, 0o600)
 
-        self._conn = sqlite3.connect(path, check_same_thread=False)
+        # isolation_level=None: manual transaction control, so sealing can be
+        # one atomic BEGIN IMMEDIATE transaction (see append).
+        self._conn = sqlite3.connect(path, check_same_thread=False,
+                                     isolation_level=None, timeout=5.0)
         self._lock = threading.Lock()
-        self._conn.execute("PRAGMA journal_mode=WAL")
+        # Switching the journal mode requires exclusive access and does NOT
+        # invoke the busy handler: a hook opening the journal while the server
+        # holds a lock would crash here (and, before the hook reported loudly,
+        # crash silently). The common case — file already in WAL — is skipped;
+        # the rare switch retries briefly.
+        mode = self._conn.execute("PRAGMA journal_mode").fetchone()[0]
+        if mode.lower() != "wal":
+            for attempt in range(50):
+                try:
+                    self._conn.execute("PRAGMA journal_mode=WAL")
+                    break
+                except sqlite3.OperationalError:
+                    if attempt == 49:
+                        raise
+                    time.sleep(0.1)
         self._conn.executescript(_SCHEMA)
-        self._conn.commit()
 
     def append(self, type_: str, payload: dict, key: KeyPair) -> Event:
-        """Inserts a chained, signed event. Critical section under lock.
+        """Inserts a chained, signed event.
 
-        The lock is essential: two simultaneous HTTP requests must read the
-        same "last event", otherwise two events would share the same seq and
-        the chain would be inconsistent from the very first writes.
+        Two levels of serialization, because the journal is written by
+        independent processes (the MCP server AND one hook process per tool
+        call), not just threads:
+        - the threading.Lock serializes threads sharing this connection;
+        - BEGIN IMMEDIATE takes SQLite's write lock BEFORE reading the last
+          event, so a concurrent sealer waits first, then reads our committed
+          row. Two events can never compute the same seq — the PK constraint
+          stops being a silent drop path — and a transaction that dies
+          mid-seal rolls back whole: no gap, no half-written event.
         """
         with self._lock:
-            row = self._conn.execute(
-                "SELECT seq, event_hash FROM events ORDER BY seq DESC LIMIT 1"
-            ).fetchone()
-            seq = (row[0] + 1) if row else 1
-            prev_hash = row[1] if row else "0" * 64
-            ts = now_iso()
-            event_hash = compute_event_hash(seq, ts, type_, payload, prev_hash)
-            signature = key.sign(bytes.fromhex(event_hash))
-            event = Event(seq, ts, type_, payload, prev_hash, event_hash, signature)
-            self._conn.execute(
-                "INSERT INTO events (seq, ts, type, payload, prev_hash, event_hash, signature) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (seq, ts, type_, json.dumps(payload, ensure_ascii=False, sort_keys=True),
-                 prev_hash, event_hash, signature),
-            )
-            self._conn.commit()
+            self._conn.execute("BEGIN IMMEDIATE")
+            try:
+                row = self._conn.execute(
+                    "SELECT seq, event_hash FROM events ORDER BY seq DESC LIMIT 1"
+                ).fetchone()
+                seq = (row[0] + 1) if row else 1
+                prev_hash = row[1] if row else "0" * 64
+                ts = now_iso()
+                event_hash = compute_event_hash(seq, ts, type_, payload, prev_hash)
+                signature = key.sign(bytes.fromhex(event_hash))
+                event = Event(seq, ts, type_, payload, prev_hash, event_hash, signature)
+                self._conn.execute("INSERT INTO events (seq, ts, type, payload, prev_hash, event_hash, signature) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                                   (seq, ts, type_, json.dumps(payload, ensure_ascii=False, sort_keys=True),
+                                    prev_hash, event_hash, signature))
+                self._conn.execute("COMMIT")
+            except BaseException:
+                self._conn.execute("ROLLBACK")
+                raise
             return event
 
     def all(self) -> list[dict]:

@@ -188,7 +188,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 </footer>
 
 <script>
-const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+// esc() must be safe in attribute context too (e.g. class="${esc(e.type)}"):
+// quotes are escaped, so a sealed event can never break out of an attribute.
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 const short = h => h ? h.slice(0,10) + "…" : "—";
 
 function setView(v) {
@@ -270,8 +272,9 @@ async function refresh() {
     }
     for (const k of Object.keys(decisions)) {
       if (!(k in outcomes)) {
-        depRows.push(`<tr><td class="mono">${esc(k)}</td>` +
-          `<td><span class="chip unconfirmed">UNCONFIRMED</span></td></tr>`);
+        // Arrivals board only: the departure already shows its own row as
+        // PENDING — pushing here too would render the same id twice with
+        // contradictory states.
         arrRows.push(`<tr><td class="mono">${esc(k)}</td>` +
           `<td><span class="chip unconfirmed">UNCONFIRMED</span></td></tr>`);
       }
