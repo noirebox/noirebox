@@ -74,7 +74,7 @@ def main() -> None:
         ok_new = verify_inclusion(new_head, proofs[heads[1]], tree.root)
         print("[✗] DETECTED — the new head is not covered by the fleet seal.")
         print(f"    old head covered: {'yes' if ok_old else 'no'}; new one: {'yes' if ok_new else 'NO'}")
-        print("    100% local detection: no TSA called back, no hub contacted —")
+        print("    Entirely local detection: no TSA called back, no hub contacted —")
         print("    the arithmetic decides. Same role as the individual RFC 3161")
         print("    anchor, but ONE anchor covers the whole fleet.")
 

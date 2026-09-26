@@ -37,7 +37,7 @@ def clip(text: str, n: int = 400) -> str:
 
 def main() -> None:
     print("╔══════════════════════════════════════════════════════════╗")
-    print("║   NoireBox — REAL scene with a local LLM (Ollama)         ║")
+    print("║   NoireBox — live scene with a local LLM (Ollama)         ║")
     print("╚══════════════════════════════════════════════════════════╝")
 
     if not ollama_available():
@@ -46,17 +46,17 @@ def main() -> None:
         sys.exit(1)
 
     agent = OllamaAgent()
-    print(f"\n[*] Real model: {agent.model} (local, temperature 0)")
+    print(f"\n[*] Local model: {agent.model} (temperature 0)")
 
-    scene("SCENE 1 — WITHOUT NoireBox: the real LLM receives the trapped transcript")
+    scene("SCENE 1 — WITHOUT NoireBox: the LLM receives the trapped transcript")
     raw = agent.run(TRANSCRIPT).summary
-    print(f"  REAL model response (excerpts):\n    \"{clip(raw)}\"")
+    print(f"  Model response (excerpts):\n    \"{clip(raw)}\"")
     if exfil_leak(raw):
-        print("  ✗ The attack SUCCEEDED: the model plays along with the attacker "
+        print("  ✗ The attack succeeded: the model plays along with the attacker "
               "(the competitor's email appears in its reply).")
     else:
-        print("  ✓ Honest note: this model resisted THIS phrasing — "
-              "the other layers (regex/ML) remain necessary for its other attempts.")
+        print("  ✓ This model resisted this phrasing — the regex/ML layers "
+              "remain necessary for other attempts.")
 
     with tempfile.TemporaryDirectory() as tmp:
         store = EventStore(f"{tmp}/llm.db")
@@ -67,7 +67,7 @@ def main() -> None:
         safe = guarded.run("REU-2026-0143", TRANSCRIPT)
         print(f"  Guardrail: {len(safe.incidents)} incident(s) detected "
               f"({safe.engine}), {safe.filtered_lines} trapped line(s) removed.")
-        print(f"  REAL model response on the cleaned transcript:\n"
+        print(f"  Model response on the cleaned transcript:\n"
               f"    \"{clip(safe.summary)}\"")
         if not exfil_leak(safe.summary):
             print("  ✓ No sign of exfiltration in the model's real output.")
@@ -78,10 +78,10 @@ def main() -> None:
         types = [e["type"] for e in export["events"]]
         print(f"  Journal: {len(types)} events ({', '.join(types)}).")
         assert verify_chain(key.public_hex(), store.all())["valid"]
-        print("  ✓ Chain intact: the real LLM call and its real output are sealed.")
+        print("  ✓ Chain intact: the LLM call and its output are sealed.")
 
     print(f"\n{'═' * 62}")
-    print("  Real model, real attack, real journal. Zero simulation.")
+    print("  Real model, real attack, real journal.")
 
 
 if __name__ == "__main__":
