@@ -38,13 +38,22 @@ une attestation que n'importe qui vérifie hors-ligne — **sans vous faire conf
 
 Les éditeurs IA européens affrontent une réalité de conformité que leurs
 concurrents américains n'ont pas : **prouver** — pas promettre — ce que leurs
-systèmes ont fait. NoireBox est construit autour de cette obligation.
+systèmes ont fait. NoireBox est construit autour de cette obligation. Et
+l'horloge est réelle : le suivi des incidents GPAI est **en vigueur depuis
+août 2025** (art. 55(1)(c)), les obligations de transparence s'appliquent
+depuis août 2026, et la journalisation high-risk arrive le
+**2 décembre 2027** (AI Act tel que modifié par le Digital Omnibus,
+Règl. (UE) 2026/1744) — avec des amendes jusqu'à 35 M€ / 7 % du chiffre
+d'affaires.
 
 | Exigence | Réponse NoireBox |
 |---|---|
 | **RGPD art. 5(2)** — responsabilité : le responsable doit *démontrer* la conformité | Journal inaltérable de ce que l'IA a produit, quand, sur quelle entrée |
 | **RGPD art. 15/20** — droits des personnes (accès, portabilité) | Export signé de tout ce qui touche une réunion — vérifiable *par l'auditeur de la personne elle-même* |
-| **AI Act art. 12** — journalisation automatique des systèmes à risque | Chaque décision d'agent scellée au runtime ; l'intégrité du log est cryptographique, pas une promesse |
+| **AI Act art. 12 + 19/26(6)** — journalisation automatique, conservée ≥ 6 mois | Chaque décision d'agent scellée au runtime ; l'intégrité du log est cryptographique, pas une promesse |
+| **AI Act art. 55(1)(c)** (risque systémique GPAI — en vigueur) | Incidents graves suivis, documentés, signalés — scellés comme événements de première classe (`ai_incident`) |
+| **AI Act Annexe IV §2(f)** — documenter les caractéristiques de journalisation | `noirebox audit-pack` : un dossier pour l'auditeur — export + rapport du vérifieur + description de journalisation générée |
+| **eIDAS art. 41** — l'horodatage qualifié emporte une présomption légale | Profils d'ancrage pour TSA qualifiées eIDAS (Universign, Certigna…), TSA publiques, et Bitcoin via OpenTimestamps — voir [ADR 008/009](docs/ADRs.md) |
 | **AIPD / workflows DPO** | Attestation exportable pour le DPO ; taxonomie d'incidents nourrissant la documentation des risques |
 | **Souveraineté** | Auto-hébergé, zéro télémétrie, zéro dépendance cloud, clés Ed25519 sur votre infrastructure — déploie partout (y compris clouds européens) |
 
@@ -151,32 +160,48 @@ curl -s http://127.0.0.1:8768/api/v1/export > export.json
 > `pip install noirebox` suffit (pas de modèle, pas de framework).
 ```
 
-## Horodatage de la chaîne — le témoin extérieur (RFC 3161)
+## Horodatage de la chaîne — des témoins extérieurs que vous choisissez (RFC 3161 + Bitcoin)
 
 Le journal prouve l'intégrité, mais *quand* a-t-il été scellé ? Un serveur
 qui date lui-même son journal, c'est le suspect qui rédige son procès-verbal.
 Et le threat model gardait un trou : un opérateur possédant la clé privée
 pouvait **régénérer toute la chaîne** avec de vraies signatures.
 
-L'ancre ferme les deux. Un appel scelle la tête de chaîne actuelle à une TSA
-(Timestamp Authority, RFC 3161) : seul le **hash de 32 octets** part (zéro
-donnée, zéro exposition RGPD), la TSA signe « j'ai reçu le hash X à la date
-T », et le jeton est journalisé comme événement `anchor` — le journal scelle
-sa propre preuve extérieure. Une chaîne régénérée porte une tête que
-l'ancien jeton ne couvre pas : **démasquée à la vérification, sans aucune
-publication externe préalable**.
+L'ancrage ferme le trou — avec des **témoins que vous choisissez, en
+couches** ([ADR 006/008/009](docs/ADRs.md)) :
+
+- **TSA qualifiées eIDAS** (Universign, Certigna…) — un horodatage qualifié
+  emporte une *présomption légale* (art. 41) : la date et l'intégrité des
+  données scellées sont présumées jusqu'à contestation ;
+- **TSA publiques** (DigiCert, FreeTSA…) — gratuites, immédiates,
+  organisations indépendantes ; l'auditeur vérifie contre des **racines
+  épinglées dans ce dépôt** ([`verifier/tsa_roots/`](verifier/tsa_roots/)),
+  jamais contre un certificat fourni par l'opérateur ;
+- **OpenTimestamps / Bitcoin** — un reçu qu'aucun opérateur ne peut forger :
+  le forger exigerait de refaire la preuve de travail du réseau ; le
+  vérifier prend ~30 µs de SHA-256, valable aussi longtemps que Bitcoin.
+
+Un seul événement `anchor` porte tous les témoins. Seul le **hash de tête de
+32 octets** quitte l'infrastructure (zéro donnée, zéro exposition RGPD). Et
+l'ancrage est **rétroactif** : une seule ancre externe scelle *tout* le
+passé de la chaîne — une chaîne régénérée montre une tête que les tokens ne
+couvrent pas, démasquée à la vérification sans aucune publication externe
+préalable. Ancrez régulièrement et la fenêtre falsifiable se réduit à la
+queue depuis la dernière ancre.
 
 ```bash
-make tsa                                    # TSA locale : OpenSSL, propre clé, 0 €, marche offline
-NOIREBOX_TSA_URL=http://127.0.0.1:3318 ./start.sh
-curl -X POST localhost:8768/api/v1/anchors  # scelle la tête actuelle
+export NOIREBOX_TSA_PROFILES='[
+  {"name": "freetsa",  "url": "https://freetsa.org/tsr"},
+  {"name": "bitcoin",  "kind": "ots"}]'
+export NOIREBOX_TSA_ALLOWED_HOSTS=freetsa.org
+curl -X POST localhost:8768/api/v1/anchors   # un appel, deux témoins, tout le passé scellé
+noirebox audit-pack ./audit                  # le dossier auditeur : export + rapport + Annexe IV §2(f)
 ```
 
-La TSA est un choix de configuration, pas une dépendance : OpenSSL
-auto-hébergé pour le souverain, n'importe quelle TSA publique ou qualifiée
-en production — même protocole. L'histoire complète et les visuels :
-[docs/VULGARISATION.md §9](docs/VULGARISATION.md), décisions dans
-[ADR 006/007](docs/ADRs.md).
+Une TSA OpenSSL auto-hébergée reste livrée pour les déploiements
+souverains/hors-ligne (`make tsa`) — même frontière de confiance que
+l'opérateur, documentée comme telle. Le mapping réglementaire complet :
+[docs/COMPLIANCE-EU.md](docs/COMPLIANCE-EU.md).
 
 ## Le garde-fou embarqué — un plugin, deux moteurs
 
@@ -382,7 +407,9 @@ domaine = ajouter des exemples au dataset et relancer `make train`.
       l'[issue #3](https://github.com/slabbdev/noirebox/issues/3) (demande communauté),
       sketch du pattern dans [`demo/demo_payout.py`](demo/demo_payout.py)
 - [ ] Hub de flotte : agrégation programmée de N instances (console, alerting)
-- [ ] Rotation des ancres sur plusieurs TSA (distribuer la confiance)
+- [x] **Ancrage multi-témoins + racines épinglées côté auditeur** — `NOIREBOX_TSA_PROFILES`, allowlist d'egress, `verifier/tsa_roots/` ([ADR 008](docs/ADRs.md))
+- [x] **Témoin OpenTimestamps** — un reçu ancré dans Bitcoin dans le même événement `anchor` ([ADR 009](docs/ADRs.md))
+- [x] **Vocabulaire AI Act + audit-pack** — builders art. 12(3), `noirebox audit-pack` ([ADR 010](docs/ADRs.md))
 - [ ] LLM-juge local pour les cas douteux — étage 2 de l'[ADR 001](docs/ADRs.md)
 - [ ] Métriques Prometheus + Grafana
 - [ ] Migration clé privée HSM/KMS ([threat model](docs/THREAT-MODEL.md))

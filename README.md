@@ -38,13 +38,20 @@ an attestation anyone can verify offline — **without trusting you**.
 
 European AI vendors face a compliance reality their US competitors don't:
 **proving** — not promising — what their systems did. NoireBox is engineered
-around exactly that obligation.
+around exactly that obligation. And the clock is real: GPAI incident
+tracking is **live since August 2025** (art. 55(1)(c)), transparency
+obligations applied in August 2026, and high-risk logging lands
+**2 December 2027** (AI Act as amended by the Digital Omnibus,
+Reg. (EU) 2026/1744) — with fines up to €35 M / 7 % of turnover.
 
 | Requirement | How NoireBox answers |
 |---|---|
 | **GDPR art. 5(2)** — accountability: the controller must *demonstrate* compliance | Tamper-evident journal of what the AI produced, when, on which input |
 | **GDPR art. 15/20** — data subject rights (access, portability) | Signed export of everything related to a meeting — verifiable *by the subject's own auditor* |
-| **EU AI Act art. 12** — automatic event logging for risk systems | Every agent decision sealed at runtime; log integrity is cryptographic, not a promise |
+| **EU AI Act art. 12 + 19/26(6)** — automatic event logging, retained ≥ 6 months | Every agent decision sealed at runtime; log integrity is cryptographic, not a promise |
+| **EU AI Act art. 55(1)(c)** (GPAI systemic risk — live) | Serious incidents kept track of, documented and reported — sealed as first-class events (`ai_incident`) |
+| **AI Act Annexe IV §2(f)** — document the logging characteristics | `noirebox audit-pack`: one folder for the auditor — export + verifier report + generated logging description |
+| **eIDAS art. 41** — a qualified timestamp carries a legal presumption | Anchor profiles for qualified eIDAS TSAs (Universign, Certigna…), public TSAs, and Bitcoin via OpenTimestamps — see [ADR 008/009](docs/ADRs.md) |
 | **DPIA / DPO workflows** | Attestation exportable for the DPO; incident taxonomy feeding risk documentation |
 | **Sovereignty** | Self-hosted, no telemetry, no cloud dependency, Ed25519 keys stay on your infrastructure — deploys anywhere (including EU-only clouds) |
 
@@ -145,30 +152,46 @@ curl -s http://127.0.0.1:8768/api/v1/export > export.json
 > The verifier needs the NoireBox package on the auditing machine —
 > `pip install noirebox` is enough (no model, no framework).
 
-## Chain timestamping — the outside witness (RFC 3161)
+## Chain timestamping — outside witnesses you choose (RFC 3161 + Bitcoin)
 
 The journal proves integrity, but *when* was it sealed? A server announcing
 its own dates is the suspect writing its own report. And the threat model
 had one open gap: an operator holding the private key could **regenerate the
 whole chain** with valid signatures.
 
-The anchor closes both. One call seals the current chain head with a TSA
-(Timestamp Authority, RFC 3161): only the **32-byte hash** leaves (zero data,
-zero GDPR exposure), the TSA signs *"I received hash X at time T"*, and the
-token is journaled as an `anchor` event — the journal seals its own external
-proof. A regenerated chain shows a head the old token doesn't cover: **caught
-at verification time, without any prior external publication**.
+Anchoring closes it — with **witnesses you choose, in layers**
+([ADR 006/008/009](docs/ADRs.md)):
+
+- **Qualified eIDAS TSAs** (Universign, Certigna…) — a qualified timestamp
+  carries a *legal presumption* (art. 41): the date and the integrity of the
+  sealed data are presumed until challenged;
+- **Public TSAs** (DigiCert, FreeTSA…) — free, immediate, independent
+  organizations; the auditor verifies against **roots pinned in this
+  repository** ([`verifier/tsa_roots/`](verifier/tsa_roots/)), never against
+  a certificate the operator ships;
+- **OpenTimestamps / Bitcoin** — a receipt no operator can forge: forging it
+  means redoing the network's proof of work; verifying it is ~30 µs of
+  SHA-256, valid as long as Bitcoin exists.
+
+One `anchor` event carries all of them. Only the **32-byte head hash** ever
+leaves (zero data, zero GDPR exposure). And anchoring is **retroactive**: one
+external anchor seals the *entire* prior chain — a regenerated chain shows a
+head the tokens don't cover, caught at verification time without any prior
+external publication. Anchor regularly and the falsifiable window shrinks to
+the tail since the last anchor.
 
 ```bash
-make tsa                                    # local TSA: OpenSSL, own key, 0 €, works offline
-NOIREBOX_TSA_URL=http://127.0.0.1:3318 ./start.sh
-curl -X POST localhost:8768/api/v1/anchors  # seal the current head
+export NOIREBOX_TSA_PROFILES='[
+  {"name": "freetsa",  "url": "https://freetsa.org/tsr"},
+  {"name": "bitcoin",  "kind": "ots"}]'
+export NOIREBOX_TSA_ALLOWED_HOSTS=freetsa.org
+curl -X POST localhost:8768/api/v1/anchors   # one call, both witnesses, the whole past sealed
+noirebox audit-pack ./audit                  # the auditor's folder: export + report + Annexe IV §2(f)
 ```
 
-TSA is a config choice, not a dependency: self-hosted OpenSSL for sovereign
-deployments, any public or qualified TSA for production — same protocol.
-Full story and visuals: [docs/VULGARISATION.md §9](docs/VULGARISATION.md),
-decisions in [ADR 006/007](docs/ADRs.md).
+A self-hosted OpenSSL TSA still ships for sovereign/offline deployments
+(`make tsa`) — same trust boundary as the operator, documented as such.
+Full regulatory mapping: [docs/COMPLIANCE-EU.md](docs/COMPLIANCE-EU.md).
 
 ## The bundled guardrail — one plugin, two engines
 
@@ -363,7 +386,9 @@ the integrity of the journal — the verifier ships as a GitHub Action
       [issue #3](https://github.com/slabbdev/noirebox/issues/3) (community
       request), pattern sketch in [`demo/demo_payout.py`](demo/demo_payout.py)
 - [ ] Fleet hub: scheduled aggregation of many instances (console, alerting)
-- [ ] Rotate TSA anchors across multiple authorities (distribute trust)
+- [x] **Multi-witness anchoring + auditor-pinned roots** — `NOIREBOX_TSA_PROFILES`, egress allowlist, `verifier/tsa_roots/` ([ADR 008](docs/ADRs.md))
+- [x] **OpenTimestamps witness** — a Bitcoin-anchored receipt rides in the same anchor event ([ADR 009](docs/ADRs.md))
+- [x] **AI-Act vocabulary + audit-pack** — art. 12(3) builders, `noirebox audit-pack` ([ADR 010](docs/ADRs.md))
 - [ ] Prometheus + Grafana metrics
 - [ ] HSM/KMS private key migration ([threat model](docs/THREAT-MODEL.md))
 - [x] Product page rebuilt for GitHub Pages — premium dark landing in
