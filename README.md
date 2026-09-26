@@ -369,6 +369,7 @@ the integrity of the journal — the verifier ships as a GitHub Action
 - uses: slabbdev/noirebox-verify@v1
   with:
     export-path: export.json
+    noirebox-ref: v0.5.0   # pin the verifier ref — reproducible audits
 ```
 
 ## Roadmap

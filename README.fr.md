@@ -377,6 +377,7 @@ Action ([Marketplace](https://github.com/marketplace/actions/noirebox-verify)) :
 - uses: slabbdev/noirebox-verify@v1
   with:
     export-path: export.json
+    noirebox-ref: v0.5.0   # fige le ref du vérifieur — audits reproductibles
 ```
 
 ## Cas d'usage — n'importe quel agent qui « décide »

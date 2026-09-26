@@ -39,6 +39,8 @@ dependencies = [
 # The DPO-ready PDF attestation is a convenience layered on the core:
 # reportlab is the heaviest dependency, so it ships as an extra.
 pdf = ["reportlab>=4.0"]
+# The OpenTimestamps witness (ADR 009) shells out to the `ots` CLI.
+ots = ["opentimestamps-client>=0.7"]
 dev = ["pytest>=8", "ruff>=0.4"]
 
 [project.scripts]

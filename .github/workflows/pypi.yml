@@ -1,0 +1,29 @@
+name: PyPI publish
+
+# Publishes on version tags (v*) and on demand. Uses PyPI trusted
+# publishing (OIDC) — no API token secret. One-time setup on pypi.org:
+# project noirebox → Publishing → add GitHub publisher
+# (owner slabbdev, repo noirebox, workflow pypi.yml, environment pypi).
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install build
+      - name: Build sdist and wheel
+        run: python -m build
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

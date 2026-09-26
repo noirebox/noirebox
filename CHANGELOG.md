@@ -6,6 +6,12 @@ versioning according to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Release alignment**: PyPI publish workflow (trusted publishing via OIDC —
+  tags `v*` and manual dispatch; one-time setup on pypi.org, see the
+  workflow header) and an `ots` extra (`opentimestamps-client`) so the
+  ADR 009 witness installs as `pip install noirebox[ots]`. Agent plugin
+  version aligned to 0.5.0 (portable `NOIREBOX_HOME` default still queued
+  as the next plugin item).
 - **AI-Act event vocabulary + audit-pack (ADR 010)**: `noirebox/aiact.py` —
   validated builders for the art. 12(3) fields (`ai_use` with use period /
   reference DB / sha256 input digest only, `ai_verification` with the art.
