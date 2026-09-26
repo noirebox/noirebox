@@ -5,7 +5,15 @@ versioning according to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- `tests/test_guarded_pipeline.py`: the guarded pipeline (scan → filter →
+  journal → LLM → journal) is now covered without a running Ollama, via a
+  stub inner agent standing in for the LLM only. The end-to-end tests
+  previously skipped on CI; both engine paths (ML and regex) are exercised.
+
 ### Changed
+- Incident payload action value `bloque` → `blocked` in the guarded
+  pipeline (consistency of the payload surface with the rest of the API).
 - **Intent-first docstrings, consistent naming** (review pass): tutorial-style
   docstrings rewritten to document intent and constraints; French identifiers
   renamed to English across the public surface — `llm_agent.AgentResult.summary`
