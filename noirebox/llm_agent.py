@@ -94,7 +94,7 @@ class GuardedAgent:
             self._store.append(
                 "incident",
                 {"meeting_id": meeting_id, "engine": engine,
-                 "nb_incidents": len(incidents), "incidents": incidents, "action": "bloque"},
+                 "nb_incidents": len(incidents), "incidents": incidents, "action": "blocked"},
                 self._key,
             )
 
