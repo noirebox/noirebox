@@ -144,7 +144,7 @@ docker run -p 8768:8768 ghcr.io/slabbdev/noirebox:latest
 Démos sans serveur :
 
 ```bash
-make demo                # 100 % réel : micro-modèle → journal → auditeur → pirate démasqué
+make demo                # la scène complète : micro-modèle → journal → auditeur → pirate démasqué
 make demo-mcp            # NoireBox comme outil MCP (protocole agents)
 .venv/bin/python demo/demo_scan.py     # garde-fou regex sur 2 transcripts
 .venv/bin/python demo/demo_tamper.py   # falsification → la chaîne explose
@@ -360,10 +360,11 @@ exemples au dataset, puis `make train`. Architecture par étages :
 
 ## Tests
 
-119 tests : cryptographie (falsification, réordonnancement, mauvaise clé),
-garde-fou regex et **ML sur phrases inédites en FR et EN**, agent API,
+126 tests : cryptographie (falsification, réordonnancement, mauvaise clé),
+garde-fou regex et **ML sur phrases inédites en FR et EN**, le pipeline
+gardé avec un LLM factice (sans Ollama, tourne en CI), agent API,
 serveur MCP, SDK client contre un **vrai serveur uvicorn** (port éphémère),
-agent LLM réel (skip si Ollama absent — jamais simulé), **auth OAuth2 JWT +
+agent LLM réel (skip si Ollama absent), **auth OAuth2 JWT +
 rate limiting + attestation PDF DPO + ancrage RFC 3161 contre une vraie TSA
 locale (dont l'attaque de régénération par l'insider)**, et le contrat
 complet du vérificateur tiers. Tout se rejoue en local : `make test`

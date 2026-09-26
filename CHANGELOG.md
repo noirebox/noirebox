@@ -12,6 +12,11 @@ versioning according to [Semantic Versioning](https://semver.org/).
   previously skipped on CI; both engine paths (ML and regex) are exercised.
 
 ### Changed
+- Tone pass on the demo scripts and README: removed gratuitous ALL-CAPS and
+  "100% real"-style flourishes ("REAL scene" → "live scene", "Zero simulation"
+  dropped, "never simulated" asides dropped). The "Honest …" positioning
+  sections are unchanged; the demo claims stay factual. Also corrected the
+  stale test count in the Tests section (119 → 126).
 - Incident payload action value `bloque` → `blocked` in the guarded
   pipeline (consistency of the payload surface with the rest of the API).
 - **Intent-first docstrings, consistent naming** (review pass): tutorial-style

@@ -37,7 +37,7 @@ def scene(title: str) -> None:
 
 def main() -> None:
     print("╔══════════════════════════════════════════════════════════╗")
-    print("║   NoireBox — full demo, 100% real, one-shot               ║")
+    print("║   NoireBox — the full scene, in one command               ║")
     print("╚══════════════════════════════════════════════════════════╝")
 
     scene("SCENE 1 — The micro-model (293 KB) faces the unknown")

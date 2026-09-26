@@ -18,8 +18,8 @@ And the caller-side reconciliation (the schema of the future plugin,
 issue #3): pair by correlation key, journal the report as an event —
 the journal's auditor is itself audited.
 
-The whole payment flow is SYNTHETIC (payloads marked synthetic:true,
-provider simulated) — but the journal is REAL: chained, signed, verifiable.
+The whole payment flow is synthetic (payloads marked synthetic:true,
+provider simulated) — the journal is real: chained, signed, verifiable.
 """
 from __future__ import annotations
 
