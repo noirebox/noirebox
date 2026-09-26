@@ -115,7 +115,7 @@ def test_insider_regeneration_is_caught_by_anchor(tsa_url, tmp_path):
 
     key = KeyPair.generate()
     store = EventStore(str(tmp_path / "forged.db"))
-    store.append("llm_output", {"compte_rendu": "FALSIFIÉ, chaîne régénérée"}, key)
+    store.append("llm_output", {"summary": "FALSIFIÉ, chaîne régénérée"}, key)
     h_new = store.all()[-1]["event_hash"]
     store.append("anchor", {"head_seq": 2, "head_hash": h_new,
                             "tsr": base64.b64encode(token).decode("ascii"),

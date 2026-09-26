@@ -82,7 +82,6 @@ def build_tree(heads: list[str]) -> MerkleTree:
     while len(levels[-1]) > 1:
 
 
-
         level = list(levels[-1])
         if len(level) % 2:
             level.append(level[-1])

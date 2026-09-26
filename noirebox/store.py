@@ -21,14 +21,19 @@ CREATE TABLE IF NOT EXISTS events (
 );
 """
 
+# WAL switch retries: the mode change needs exclusive access and does not
+# engage SQLite's busy handler, so a contended startup retries on a short
+# backoff instead of failing outright (5 s worst case).
+_WAL_SWITCH_ATTEMPTS = 50
+_WAL_SWITCH_BACKOFF_S = 0.1
+
 
 def now_iso() -> str:
-    """ISO 8601 UTC timestamp with milliseconds.
+    """ISO 8601 UTC timestamp with millisecond precision.
 
-    Always UTC (`timezone.utc`): an audit log mixing local times with and
-    without daylight saving would be unusable. `timespec="ms"` fixes the
-    precision — without it, two close calls would produce strings of
-    different lengths depending on execution speed.
+    Always UTC — an audit log mixing local times with and without daylight
+    saving would be unusable — and fixed precision, so timestamps are
+    comparable strings regardless of execution speed.
     """
     return datetime.now(UTC).isoformat(timespec="milliseconds")
 
@@ -63,14 +68,14 @@ class EventStore:
         # the rare switch retries briefly.
         mode = self._conn.execute("PRAGMA journal_mode").fetchone()[0]
         if mode.lower() != "wal":
-            for attempt in range(50):
+            for attempt in range(_WAL_SWITCH_ATTEMPTS):
                 try:
                     self._conn.execute("PRAGMA journal_mode=WAL")
                     break
                 except sqlite3.OperationalError:
-                    if attempt == 49:
+                    if attempt == _WAL_SWITCH_ATTEMPTS - 1:
                         raise
-                    time.sleep(0.1)
+                    time.sleep(_WAL_SWITCH_BACKOFF_S)
         self._conn.executescript(_SCHEMA)
 
     def append(self, type_: str, payload: dict, key: KeyPair) -> Event:

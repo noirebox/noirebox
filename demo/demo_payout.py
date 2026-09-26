@@ -64,7 +64,7 @@ def main() -> None:
         # correlation key, otherwise the reconciliation would match nothing.
         intents = [f"pi_syn_{vendor.split('-')[0][:6]}{cents}"
                    for vendor, cents in requests]
-        for (vendor, cents), intent in zip(requests, intents):
+        for (vendor, cents), intent in zip(requests, intents, strict=True):
             decision, reason = policy_agent(vendor, cents)
             store.append("policy_decision", {
                 **MARK, "payment_intent_id": intent, "vendor": vendor,

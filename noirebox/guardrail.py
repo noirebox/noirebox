@@ -4,7 +4,6 @@ import re
 from dataclasses import dataclass
 
 
-
 ATTACK_PATTERNS: list[tuple[str, float, list[str]]] = [
     (
         "instruction_override",
