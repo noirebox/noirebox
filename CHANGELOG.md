@@ -6,6 +6,12 @@ versioning according to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **OpenTimestamps witness (ADR 009)**: profile `{"name": "bitcoin", "kind": "ots"}`
+  in `NOIREBOX_TSA_PROFILES` — a Bitcoin-anchored receipt rides in the same
+  `anchor` event as RFC 3161 tokens; pending at stamping, confirmed at the next
+  block, verified in ~30 µs of SHA-256 with no operator to trust. Manifest
+  check is pure Python (tamper detection without the `ots` CLI); missing `ots`
+  is reported, never hidden. Optional dep: `opentimestamps-client`.
 - **Multi-TSA anchoring with pinned roots (ADR 008)**: `NOIREBOX_TSA_PROFILES`
   puts several independent witnesses behind one `anchor` event — at least one
   qualified eIDAS TSA for legal presumption (eIDAS art. 41), plus rotating

@@ -67,6 +67,43 @@ def verify_anchor_token(payload: dict, tok: dict) -> tuple[bool, str, bool]:
     return True, "", bool(pinned)
 
 
+def verify_ots_token(payload: dict, tok: dict) -> tuple[bool, str, bool]:
+    """Verify an OpenTimestamps receipt (ADR 009, compute-grade witness).
+
+    First the pure-Python check: the manifest inside the token must name the
+    anchored head — tamper detection that needs no CLI at all. Then the
+    receipt itself via `ots verify`: 'Success' (Bitcoin-confirmed) counts as
+    checked; 'Pending' is recorded but does not fail — upgrade receipts with
+    `ots upgrade` and re-verify later. A missing `ots` binary is reported,
+    never hidden.
+    """
+    try:
+        manifest = json.loads(base64.b64decode(tok["manifest_b64"]))
+    except Exception:
+        return False, "ots: unreadable manifest", False
+    if (manifest.get("head_hash") != payload.get("head_hash")
+            or manifest.get("head_seq") != payload.get("head_seq")):
+        return False, "ots: manifest does not match the anchored head", False
+    if not shutil.which("ots"):
+        return True, "ots missing — receipt not verified (reported, not hidden)", False
+    with tempfile.TemporaryDirectory() as tmp:
+        m = Path(tmp) / "head.json"
+        r = Path(tmp) / "head.json.ots"
+        m.write_bytes(base64.b64decode(tok["manifest_b64"]))
+        r.write_bytes(base64.b64decode(tok["ots_b64"]))
+        try:
+            proc = subprocess.run(["ots", "verify", str(r)],
+                                  capture_output=True, timeout=60)
+        except subprocess.TimeoutExpired:
+            return True, "ots verify timed out (reported, not hidden)", False
+    out = (proc.stdout + proc.stderr).decode(errors="replace")
+    if "Success" in out:
+        return True, "", False
+    if "Pending" in out:
+        return True, "ots receipt pending Bitcoin confirmation", False
+    return False, f"ots verification failed: {out.strip()[:200]}", False
+
+
 def verify_export(export: dict) -> dict:
     """Recompute the whole chain from the export, without trusting the server."""
     errors: list[dict] = []
@@ -127,7 +164,10 @@ def verify_export(export: dict) -> dict:
         # Multi-witness anchors (ADR 008) carry the tokens in `tokens`;
         # legacy single-TSA anchors are their own only token (flat shape).
         for tok in (payload.get("tokens") or [payload]):
-            ok, reason, pinned = verify_anchor_token(payload, tok)
+            if tok.get("kind") == "ots":
+                ok, reason, pinned = verify_ots_token(payload, tok)
+            else:
+                ok, reason, pinned = verify_anchor_token(payload, tok)
             if not ok:
                 errors.append({"seq": ev["seq"], "reason": reason})
                 continue

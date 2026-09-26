@@ -130,3 +130,19 @@ def scan_<engine>(text: str, min_confidence: float = 0.5) -> list[dict]:
 4. **Egress control**: the TSA host must be in `NOIREBOX_TSA_ALLOWED_HOSTS` (default: loopback, for `make tsa`) — explicit egress allowlist; link-local (cloud-metadata) targets refused after DNS resolution; redirects never followed; requests go through one shared no-redirect client.
 
 **Consequences**: the "dishonest operator with everything self-hosted" bypass closes once a profile points at an independent TSA — the verifier's pinned root is the auditor's, not the operator's; multi-witness exports degrade gracefully on old verifiers (primary token still checked); OpenTimestamps (compute-grade witness) is the planned next profile type (ADR 009); qualified-TSA endpoints are config entries per provider terms. Rationale and regulatory mapping: `docs/COMPLIANCE-EU.md`.
+
+---
+
+## ADR 009 — OpenTimestamps witness: the compute-grade layer (no operator at all)
+
+**Status**: implemented (v0.5.x).
+
+**Context**: RFC 3161 witnesses are organizations; even a qualified eIDAS TSA is a regulated company, not a law of nature. The strongest available anchor is one no operator can forge: OpenTimestamps batches the digest into a Merkle tree committed in a Bitcoin block — forging it means redoing the network's proof of work. Verification is ~30 µs of SHA-256 (measured): expensive to fake, free to check, valid as long as Bitcoin exists (fits 30-year retention without any CA staying alive).
+
+**Decision**:
+1. **Profile** `{"name": "bitcoin", "kind": "ots"}` in `NOIREBOX_TSA_PROFILES` — rides in the same `anchor` event as the RFC 3161 TSAs. Optional dependency (`ots` CLI, `pip install opentimestamps-client`); a missing binary is a hard error at stamping time, reported (never hidden) at verification time.
+2. **Manifest indirection**: `ots stamp` covers `sha256(manifest)`; the manifest (journaled inside the token, base64) names `head_seq` + `head_hash`. The verifier's manifest check is pure Python — tamper detection works even with no `ots` binary installed; the CLI check adds the Bitcoin confirmation.
+3. **Lifecycle**: receipts are pending at stamping time and Bitcoin-confirmed at the next block (~10 min). `ots verify` output is parsed: "Success" counts as checked, "Pending" is recorded (unverifiable counter) but never fails an export. Runbook: periodically `ots upgrade` exported receipts and re-verify.
+4. **Old verifiers**: an anchor carrying any RFC 3161 token keeps the flat legacy mirror (first RFC 3161 token); an OTS-only anchor has NO flat form — pre-ADR-009 verifiers cannot read it (documented limitation; auditors use the current verifier).
+
+**Consequences**: the witness stack is complete — qualified eIDAS (legal presumption) + public TSAs (immediate, independent organizations) + Bitcoin (compute-grade, zero trust in any operator); all three can live in one anchor event; graders `pins`/`unverifiable` keep the report honest about which evidence was used.

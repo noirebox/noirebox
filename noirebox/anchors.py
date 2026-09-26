@@ -4,6 +4,7 @@ import base64
 import ipaddress
 import json
 import os
+import shutil
 import socket
 import subprocess
 import tempfile
@@ -171,8 +172,11 @@ def extract_token_certs(token: bytes) -> str:
         return out.read_text(encoding="ascii")
 
 
-def _token_for(profile: dict, head_hash: str) -> dict:
-    """One witness token: the TSA signs the head hash, we attach its certificate."""
+def _token_for(profile: dict, head_hash: str, head_seq: int) -> dict:
+    """One witness token: a TSA signs the head hash (RFC 3161), or an
+    OpenTimestamps receipt covers a manifest naming it (ADR 009)."""
+    if profile.get("kind") == "ots":
+        return _ots_token(profile.get("name") or "bitcoin", head_hash, head_seq)
     if "base_url" in profile:
         post_url = f"{_checked_endpoint(profile['base_url']).rstrip('/')}/tsa"
         cert_pem = fetch_tsa_cert(profile["base_url"])
@@ -190,6 +194,34 @@ def _token_for(profile: dict, head_hash: str) -> dict:
     return {"tsa": profile.get("name", post_url),
             "tsr": base64.b64encode(token).decode("ascii"),
             "tsa_cert_pem": cert_pem}
+
+
+def _ots_stamp(manifest: bytes) -> bytes:
+    """Stamps a manifest with OpenTimestamps (ADR 009): free, no operator to
+    trust — the proof is Bitcoin's proof of work, pending now, confirmed at
+    the next block. Optional dependency: `pip install opentimestamps-client`."""
+    if not shutil.which("ots"):
+        raise RuntimeError("OTS witness requested but the `ots` CLI is missing "
+                           "(optional: pip install opentimestamps-client)")
+    with tempfile.TemporaryDirectory() as tmp:
+        m, r = Path(tmp) / "head.json", Path(tmp) / "head.json.ots"
+        m.write_bytes(manifest)
+        proc = subprocess.run(["ots", "stamp", str(m)], capture_output=True, timeout=60)
+        if not r.is_file() or r.stat().st_size == 0:
+            raise RuntimeError(f"ots stamp failed: "
+                               f"{(proc.stderr or proc.stdout).decode(errors='replace')[:200]}")
+        return r.read_bytes()
+
+
+def _ots_token(name: str, head_hash: str, head_seq: int) -> dict:
+    """The receipt covers sha256(manifest); the manifest (journaled too)
+    names the anchored head — the verifier checks both, CLI or not."""
+    manifest = json.dumps({"head_seq": head_seq, "head_hash": head_hash,
+                           "witness": name}, sort_keys=True).encode()
+    receipt = _ots_stamp(manifest)
+    return {"tsa": name, "kind": "ots",
+            "manifest_b64": base64.b64encode(manifest).decode("ascii"),
+            "ots_b64": base64.b64encode(receipt).decode("ascii")}
 
 
 def anchor_now(store: EventStore, key: KeyPair, tsa_url: str | None = None,
@@ -212,12 +244,18 @@ def anchor_now(store: EventStore, key: KeyPair, tsa_url: str | None = None,
         else:
             profiles = load_profiles()
 
-    tokens = [_token_for(profile, head_hash) for profile in profiles]
-    primary = tokens[0]
-    payload = {"head_seq": head_seq, "head_hash": head_hash,
-               "tsr": primary["tsr"], "tsa_cert_pem": primary["tsa_cert_pem"],
-               "tsa": primary["tsa"]}
-    if len(tokens) > 1:
+    tokens = [_token_for(profile, head_hash, head_seq) for profile in profiles]
+    payload = {"head_seq": head_seq, "head_hash": head_hash}
+    # Legacy flat mirror: the FIRST RFC 3161 token, so pre-ADR-009 verifiers
+    # (which read tsr/tsa_cert_pem directly) still verify something real.
+    rfc_tokens = [t for t in tokens if t.get("kind", "rfc3161") == "rfc3161"]
+    if rfc_tokens:
+        payload["tsa"] = rfc_tokens[0]["tsa"]
+        payload["tsr"] = rfc_tokens[0]["tsr"]
+        payload["tsa_cert_pem"] = rfc_tokens[0]["tsa_cert_pem"]
+    # `tokens` carries everything for the new verifier — always when an OTS
+    # witness is involved (an OTS-only anchor has no flat form at all).
+    if len(tokens) > 1 or any(t.get("kind") == "ots" for t in tokens):
         payload["tokens"] = tokens
 
     event = store.append("anchor", payload, key)
@@ -225,6 +263,6 @@ def anchor_now(store: EventStore, key: KeyPair, tsa_url: str | None = None,
         "anchor_event_seq": event.seq,
         "anchored_head_seq": head_seq,
         "anchored_head_hash": head_hash,
-        "tsr_bytes": len(primary["tsr"]),
+        "tsr_bytes": len(rfc_tokens[0]["tsr"]) if rfc_tokens else 0,
         "tsas": [t["tsa"] for t in tokens],
     }

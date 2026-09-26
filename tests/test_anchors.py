@@ -1,5 +1,6 @@
 import base64
 import json
+import shutil
 import socket
 import subprocess
 import time
@@ -232,3 +233,59 @@ def test_egress_allowlist_blocks_unknown_host(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError, match="link-local"):
         _checked_endpoint("http://169.254.169.254/tsr")
     assert _checked_endpoint("https://freetsa.org/tsr") == "https://freetsa.org/tsr"
+
+
+@pytest.mark.skipif(shutil.which("ots") is None,
+                    reason="ots (opentimestamps-client) not installed")
+def test_ots_witness_alongside_tsa(tsa_url, tmp_path, monkeypatch):
+    """ADR 009: an OpenTimestamps witness rides in the same anchor event as
+    an RFC 3161 TSA. The flat mirror stays the RFC 3161 token (old
+    verifiers); the new verifier checks both kinds."""
+    monkeypatch.setenv("NOIREBOX_TSA_PROFILES", json.dumps([
+        {"name": "witness", "base_url": tsa_url},
+        {"name": "bitcoin", "kind": "ots"},
+    ]))
+    client = TestClient(create_app(str(tmp_path / "ots.db")))
+    client.post("/api/v1/events", json={"type": "llm_call", "payload": {"p": 1}})
+    r = client.post("/api/v1/anchors")
+    assert r.status_code == 201
+    assert r.json()["tsas"] == ["witness", "bitcoin"]
+
+    export = client.get("/api/v1/export").json()
+    payload = [e for e in export["events"] if e["type"] == "anchor"][0]["payload"]
+    kinds = [t.get("kind", "rfc3161") for t in payload["tokens"]]
+    assert kinds == ["rfc3161", "ots"]
+    assert payload["tsr"] == payload["tokens"][0]["tsr"]  # flat mirror = the RFC 3161 token
+
+    from verifier.verifier import verify_export, verify_ots_token
+
+    report = verify_export(export)
+    assert report["valid"] is True, report["errors"]
+    assert report["anchors_checked"] >= 1          # the RFC 3161 token
+    assert report["anchors_unverifiable"] >= 1     # the fresh OTS receipt: pending, reported
+
+    # The manifest check is pure Python — a manifest naming ANOTHER head is
+    # caught even if the `ots` CLI were absent.
+    anchor_ev = [e for e in export["events"] if e["type"] == "anchor"][0]
+    ots_tok = [t for t in anchor_ev["payload"]["tokens"] if t.get("kind") == "ots"][0]
+    ok, reason, _ = verify_ots_token(anchor_ev["payload"], ots_tok)
+    assert ok is True  # honest manifest (receipt itself is pending)
+
+    forged = dict(ots_tok)
+    manifest = json.loads(base64.b64decode(ots_tok["manifest_b64"]))
+    manifest["head_hash"] = "ff" * 32
+    forged["manifest_b64"] = base64.b64encode(json.dumps(manifest).encode()).decode()
+    ok, reason, _ = verify_ots_token(anchor_ev["payload"], forged)
+    assert ok is False and "manifest" in reason
+
+
+def test_ots_only_profile_has_no_flat_mirror(tsa_url, tmp_path, monkeypatch):
+    """An OTS-only anchor has no RFC 3161 fields at all — the tokens list is
+    the only carrier (documented old-verifier limitation, ADR 009)."""
+    monkeypatch.setenv("NOIREBOX_TSA_PROFILES",
+                       json.dumps([{"name": "bitcoin", "kind": "ots"}]))
+    client = TestClient(create_app(str(tmp_path / "ots_only.db")))
+    client.post("/api/v1/anchors")
+    payload = client.get("/api/v1/export").json()["events"][-1]["payload"]
+    assert "tsr" not in payload
+    assert len(payload["tokens"]) == 1 and payload["tokens"][0]["kind"] == "ots"
