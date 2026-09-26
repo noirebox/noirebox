@@ -146,3 +146,18 @@ def scan_<engine>(text: str, min_confidence: float = 0.5) -> list[dict]:
 4. **Old verifiers**: an anchor carrying any RFC 3161 token keeps the flat legacy mirror (first RFC 3161 token); an OTS-only anchor has NO flat form — pre-ADR-009 verifiers cannot read it (documented limitation; auditors use the current verifier).
 
 **Consequences**: the witness stack is complete — qualified eIDAS (legal presumption) + public TSAs (immediate, independent organizations) + Bitcoin (compute-grade, zero trust in any operator); all three can live in one anchor event; graders `pins`/`unverifiable` keep the report honest about which evidence was used.
+
+---
+
+## ADR 010 — AI-Act-shaped events + audit-pack: speak the regulator's language
+
+**Status**: implemented (v0.5.x).
+
+**Context**: the AI Act (post-Omnibus: Annex III high-risk from 2 Dec 2027) requires automatic event logging (art. 12) with specific contents — art. 12(3)(a) period of each use, (b) reference database, (c) matched input data, (d) identification of the natural persons who verified results (art. 14(5)) — retained ≥ 6 months (art. 19/26(6)); GPAI providers must keep track of and document serious incidents (art. 55(1)(c), LIVE since Aug 2025). Technical documentation must describe the logging characteristics (Annexe IV §2(f)). A generic journal forces every deployer to re-invent this mapping.
+
+**Decision**:
+1. **Vocabulary** (`noirebox/aiact.py`): builders `use_event` (art. 12(3)(a)-(c)), `verification_event` (art. 12(3)(d)), `incident_event` (art. 55(1)(c)/73) produce validated payloads — event types `ai_use`, `ai_verification`, `ai_incident`. Minimization by construction: inputs are sealed as sha256 digests, never raw (the builder refuses non-digest values); an invalid date/threshold cannot be sealed.
+2. **Audit-pack** (`noirebox audit-pack <dir>`): writes `export.json` (full signed export), `verifier_report.json` (the auditor's recomputation) and `ANNEXE-IV-2f.md` — the logging-characteristics description GENERATED from the journal itself: event-type histogram, art. 12(3) mapping table, integrity design, witness list, public key, verification instructions. Regenerating the pack and diffing is itself a tamper check.
+3. The mapping table (`ART12_MAPPING`) is machine-readable in the module — the same source renders the doc and can drive future conformity tooling.
+
+**Consequences**: a deployer of a high-risk system can make the NoireBox journal BE the art. 12 log (the fields the law names have first-class, validated homes); the auditor receives one directory that answers "what do you log, why can it be trusted, how do I check"; no legal advice is claimed — conformity remains the deployer's responsibility (`docs/COMPLIANCE-EU.md`).

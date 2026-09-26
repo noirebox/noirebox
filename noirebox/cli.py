@@ -31,6 +31,12 @@ def main(argv: list[str] | None = None) -> int:
                      help="seal the report as a reconciliation event")
     rec.add_argument("--fail-on-findings", action="store_true",
                      help="exit 2 if any open_gap/orphan/late finding exists (CI-friendly)")
+    pack = sub.add_parser("audit-pack",
+                          help="auditor pack: export + verifier report + "
+                               "Annexe IV §2(f) description (ADR 010)")
+    pack.add_argument("outdir", help="directory to write the pack into")
+    pack.add_argument("--db", default=None,
+                      help="journal path (default: NOIREBOX_DB or data/noirebox.db)")
     args = parser.parse_args(argv)
 
     if args.command == "serve":
@@ -58,6 +64,25 @@ def main(argv: list[str] | None = None) -> int:
             journal_report(store, key, invariants, findings)
             print("[✓] report sealed as a `reconciliation` event")
         return 2 if args.fail_on_findings and findings else 0
+
+    if args.command == "audit-pack":
+        import os
+
+        from noirebox.aiact import audit_pack
+        from noirebox.chain import KeyPair
+        from noirebox.store import EventStore
+
+        db = args.db or os.environ.get("NOIREBOX_DB", "data/noirebox.db")
+        store = EventStore(db)
+        key = KeyPair.load_or_create(db + ".key")
+        report = audit_pack(store, key, args.outdir)
+        print(f"[{'✓' if report['valid'] else '✗'}] verifier report: "
+              f"valid={report['valid']}, {report['nb_events_checked']} events, "
+              f"{report['anchors_checked']} witness tokens checked "
+              f"({report['anchors_pinned']} pinned)")
+        print(f"[✓] pack written to {args.outdir}/ — export.json, "
+              f"verifier_report.json, ANNEXE-IV-2f.md")
+        return 0 if report["valid"] else 1
 
     parser.print_help()
     return 0

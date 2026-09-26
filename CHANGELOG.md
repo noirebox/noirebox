@@ -6,6 +6,13 @@ versioning according to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **AI-Act event vocabulary + audit-pack (ADR 010)**: `noirebox/aiact.py` —
+  validated builders for the art. 12(3) fields (`ai_use` with use period /
+  reference DB / sha256 input digest only, `ai_verification` with the art.
+  14(5) human verifier, `ai_incident` per art. 55(1)(c)/73) and
+  `noirebox audit-pack <dir>` writing `export.json` + `verifier_report.json`
+  + a generated `ANNEXE-IV-2f.md` (logging characteristics, produced from
+  the journal itself).
 - **OpenTimestamps witness (ADR 009)**: profile `{"name": "bitcoin", "kind": "ots"}`
   in `NOIREBOX_TSA_PROFILES` — a Bitcoin-anchored receipt rides in the same
   `anchor` event as RFC 3161 tokens; pending at stamping, confirmed at the next

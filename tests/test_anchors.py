@@ -279,6 +279,8 @@ def test_ots_witness_alongside_tsa(tsa_url, tmp_path, monkeypatch):
     assert ok is False and "manifest" in reason
 
 
+@pytest.mark.skipif(shutil.which("ots") is None,
+                    reason="ots (opentimestamps-client) not installed")
 def test_ots_only_profile_has_no_flat_mirror(tsa_url, tmp_path, monkeypatch):
     """An OTS-only anchor has no RFC 3161 fields at all — the tokens list is
     the only carrier (documented old-verifier limitation, ADR 009)."""
