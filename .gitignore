@@ -14,8 +14,12 @@ data/*.db
 data/*.db-*
 data/*.key
 data/*.jsonl
+data/attestation*.json
 models/*.joblib.tmp
 export*.json
+
+# Local tooling
+.v2c/
 
 # Local TSA crypto material (root + leaf + tokens)
 tsa/material/

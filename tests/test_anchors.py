@@ -1,4 +1,5 @@
 import base64
+import json
 import socket
 import subprocess
 import time
@@ -70,6 +71,7 @@ def client_tsa(tsa_url, tmp_path, monkeypatch):
 
 def test_anchor_503_without_tsa(tmp_path, monkeypatch):
     monkeypatch.delenv("NOIREBOX_TSA_URL", raising=False)
+    monkeypatch.delenv("NOIREBOX_TSA_PROFILES", raising=False)
     client = TestClient(create_app(str(tmp_path / "notsa.db")))
     r = client.post("/api/v1/anchors")
     assert r.status_code == 503
@@ -133,3 +135,100 @@ def test_query_contains_only_a_hash_not_data():
     assert len(query) < 200
 
     assert query[0] == 0x30
+
+
+def test_single_profile_keeps_legacy_flat_payload(client_tsa):
+    """One TSA → the payload shape is exactly the v0.3.0 flat one: an OLD
+    verifier (which reads tsr/tsa_cert_pem directly) must keep working."""
+    client_tsa.post("/api/v1/anchors")
+    payload = client_tsa.get("/api/v1/export").json()["events"][-1]["payload"]
+    assert "tokens" not in payload
+    assert payload["tsr"] and payload["tsa_cert_pem"]
+
+
+def test_multi_tsa_anchor_all_tokens_verified(tsa_url, tmp_path, monkeypatch):
+    """Two witnesses behind ONE anchor event. The flat fields mirror the
+    primary token (old-verifier compatibility) and the new verifier checks
+    every token."""
+    monkeypatch.setenv("NOIREBOX_TSA_PROFILES", json.dumps([
+        {"name": "primary", "base_url": tsa_url},
+        {"name": "witness", "url": f"{tsa_url}/tsa", "cert_url": f"{tsa_url}/cert"},
+    ]))
+    client = TestClient(create_app(str(tmp_path / "multi.db")))
+    client.post("/api/v1/events", json={"type": "llm_call", "payload": {"p": 1}})
+    r = client.post("/api/v1/anchors")
+    assert r.status_code == 201
+    assert r.json()["tsas"] == ["primary", "witness"]
+
+    export = client.get("/api/v1/export").json()
+    payload = [e for e in export["events"] if e["type"] == "anchor"][0]["payload"]
+    assert len(payload["tokens"]) == 2
+    assert payload["tsr"] == payload["tokens"][0]["tsr"]
+
+    from verifier.verifier import verify_export
+
+    report = verify_export(export)
+    assert report["valid"] is True, report["errors"]
+    assert report["anchors_checked"] == 2
+    assert report["anchors_pinned"] == 0  # no roots pinned for these names
+
+
+def test_pinned_root_stronger_than_tofu_and_catches_swapped_tsa(
+        tsa_url, tmp_path, monkeypatch):
+    """ADR 008 policy: a pinned root makes the verifier independent from the
+    certificate the operator ships. Positive: the honest bundle verifies and
+    is reported as pinned. Negative: swap the pinned root for a rogue TSA's
+    root — the same (honest) token must now FAIL, proving the pin actually
+    binds the verification to the auditor's choice of root."""
+    rogue_material = tmp_path / "rogue_material"
+    gen = subprocess.run(["bash", str(ROOT / "tsa" / "gen_tsa.sh"), str(rogue_material)],
+                         capture_output=True)
+    assert gen.returncode == 0, gen.stderr.decode()
+    rogue_root = (rogue_material / "root.pem").read_text()
+
+    roots = tmp_path / "roots"
+    roots.mkdir()
+    import httpx
+
+    good_bundle = httpx.get(f"{tsa_url}/cert", timeout=5).text
+    (roots / "witness.pem").write_text(good_bundle)
+    monkeypatch.setenv("NOIREBOX_TSA_ROOTS_DIR", str(roots))
+    monkeypatch.setenv("NOIREBOX_TSA_PROFILES",
+                       json.dumps([{"name": "witness", "base_url": tsa_url}]))
+    client = TestClient(create_app(str(tmp_path / "pinned.db")))
+    client.post("/api/v1/events", json={"type": "llm_call", "payload": {"p": 1}})
+    client.post("/api/v1/anchors")
+    export = client.get("/api/v1/export").json()
+
+    from verifier.verifier import verify_export
+
+    report = verify_export(export)
+    assert report["valid"] is True, report["errors"]
+    assert report["anchors_pinned"] == 1
+
+    # The swap: same honest journal, auditor pins a DIFFERENT TSA root.
+    (roots / "witness.pem").write_text(rogue_root)
+    report = verify_export(export)
+    assert report["valid"] is False
+    assert any("pinned root" in e["reason"] for e in report["errors"])
+
+
+def test_egress_allowlist_blocks_unknown_host(tmp_path, monkeypatch):
+    """SSRF egress control (ADR 008): a TSA endpoint on a non-allowlisted
+    host is refused before any request; link-local (cloud metadata) is
+    refused even if allowlisted."""
+    from noirebox.anchors import _checked_endpoint
+    import pytest
+
+    monkeypatch.setenv("NOIREBOX_TSA_ALLOWED_HOSTS", "timestamp.example.com")
+    with pytest.raises(RuntimeError, match="not allowed"):
+        _checked_endpoint("http://169.254.169.254/tsr")
+    with pytest.raises(RuntimeError, match="not allowed"):
+        _checked_endpoint("http://evil.internal/tsr")
+    with pytest.raises(RuntimeError, match="not allowed"):
+        _checked_endpoint("https://freetsa.org/tsr")
+
+    monkeypatch.setenv("NOIREBOX_TSA_ALLOWED_HOSTS", "freetsa.org,169.254.169.254")
+    with pytest.raises(RuntimeError, match="link-local"):
+        _checked_endpoint("http://169.254.169.254/tsr")
+    assert _checked_endpoint("https://freetsa.org/tsr") == "https://freetsa.org/tsr"

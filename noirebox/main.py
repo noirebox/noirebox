@@ -175,21 +175,24 @@ def create_app(db_path: str | None = None) -> FastAPI:
 
     @app.post("/api/v1/anchors", status_code=201)
     def create_anchor(client_id: str = Depends(require_auth)) -> dict:
-        """RFC 3161 anchor: seals the current chain head to a TSA.
+        """RFC 3161 anchor: seals the current chain head to one or more TSAs.
 
-        The TSA (separate process with its own key — or a configured external
+        Each TSA (separate process with its own key — or a configured external
         service) signs "this head_hash existed at date T". The anchor is
         logged as an "anchor" event: the journal seals its own external
         proof, and a chain regeneration by an insider holding the key becomes
-        detectable (ADR 006).
+        detectable (ADR 006). Multi-witness profiles (NOIREBOX_TSA_PROFILES,
+        ADR 008) put several independent TSAs behind one anchor event — at
+        least one qualified eIDAS TSA for legal weight, plus rotating public
+        witnesses.
         """
         from .anchors import anchor_now, tsa_configured
 
         if not tsa_configured():
             raise HTTPException(
                 status_code=503,
-                detail="no TSA configured — set NOIREBOX_TSA_URL "
-                       "(e.g. http://127.0.0.1:3318 after `make tsa`)",
+                detail="no TSA configured — set NOIREBOX_TSA_PROFILES (ADR 008) "
+                       "or NOIREBOX_TSA_URL (e.g. http://127.0.0.1:3318 after `make tsa`)",
             )
         try:
             return anchor_now(store, key)

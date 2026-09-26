@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "noirebox"
-version = "0.4.0"
+version = "0.5.0"
 description = "The flight data recorder for AI agents — hash-chained, signed journal with RFC 3161 anchoring and third-party-verifiable exports."
 readme = "README.md"
 requires-python = ">=3.11"

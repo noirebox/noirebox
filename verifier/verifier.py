@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -19,31 +20,51 @@ from noirebox.chain import (
 )
 
 GENESIS = "0" * 64
+ROOTS_DIR = Path(__file__).resolve().parent / "tsa_roots"
 
 
-def verify_anchor_event(payload: dict) -> tuple[bool, str]:
-    """Verify an RFC 3161 token against the chain head it claims to cover.
+def _pinned_root(tsa_name: str) -> str | None:
+    """Pinned trust anchor for a TSA (ADR 008): tsa_roots/<name>.pem, named
+    after the profile that produced the token. NOIREBOX_TSA_ROOTS_DIR
+    overrides the directory (testable, portable). The policy is append-only
+    in practice: a retired root stays here to keep verifying PAST anchors —
+    deleting a root would mean editing the judge, which is the attack this
+    tool exists to prevent."""
+    if not tsa_name:
+        return None
+    override = os.environ.get("NOIREBOX_TSA_ROOTS_DIR")
+    roots_dir = Path(override) if override else ROOTS_DIR
+    candidate = roots_dir / f"{tsa_name}.pem"
+    return str(candidate) if candidate.is_file() else None
 
-    The TSA certificate travels INSIDE the anchor (TOFU, ADR 006): we check
-    that the token is signed by THIS certificate and covers THIS head_hash.
-    A careful deployment can pin the certificate — here, the report states
-    exactly what was checked.
+
+def verify_anchor_token(payload: dict, tok: dict) -> tuple[bool, str, bool]:
+    """Verify ONE TSA token against the chain head it claims to cover.
+
+    Returns (ok, reason, pinned). Trust comes from, strongest first:
+      1. a PINNED root (tsa_roots/<tsa>.pem): the embedded chain must lead
+         to a root the auditor chose (ADR 008);
+      2. TOFU: the certificate that travels inside the anchor (ADR 006).
+    Either way the failure reason states which policy was used.
     """
     if not shutil.which("openssl"):
-        return True, "openssl missing — token not verified (reported, not hidden)"
+        return True, "openssl missing — token not verified (reported, not hidden)", False
+    tsa = tok.get("tsa", "")
+    pinned = _pinned_root(tsa)
     with tempfile.TemporaryDirectory() as tmp:
         tsr = Path(tmp) / "token.tsr"
         cert = Path(tmp) / "tsa.pem"
-        tsr.write_bytes(base64.b64decode(payload["tsr"]))
-        cert.write_text(payload["tsa_cert_pem"], encoding="ascii")
+        tsr.write_bytes(base64.b64decode(tok["tsr"]))
+        cert.write_text(tok["tsa_cert_pem"], encoding="ascii")
         proc = subprocess.run(
             ["openssl", "ts", "-verify", "-digest", payload["head_hash"],
-             "-in", str(tsr), "-CAfile", str(cert), "-untrusted", str(cert)],
+             "-in", str(tsr), "-CAfile", pinned or str(cert), "-untrusted", str(cert)],
             capture_output=True,
         )
     if proc.returncode != 0:
-        return False, f"invalid TSA token: {proc.stderr.decode().strip()[:200]}"
-    return True, ""
+        policy = "pinned root" if pinned else "TOFU"
+        return False, f"invalid TSA token ({policy}): {proc.stderr.decode().strip()[:200]}", False
+    return True, "", bool(pinned)
 
 
 def verify_export(export: dict) -> dict:
@@ -87,14 +108,9 @@ def verify_export(export: dict) -> dict:
 
     chain_report = verify_chain(public_key, events)
 
-
-
-
-
-
-
     anchors_checked = 0
     anchors_unverifiable = 0
+    anchors_pinned = 0
     for ev in events:
         if ev["type"] != "anchor":
             continue
@@ -108,12 +124,16 @@ def verify_export(export: dict) -> dict:
             errors.append({"seq": ev["seq"],
                            "reason": "anchor: cited head_hash does not match the chain (regeneration?)"})
             continue
-        ok, reason = verify_anchor_event(payload)
-        if not ok:
-            errors.append({"seq": ev["seq"], "reason": reason})
-            continue
-        anchors_checked += 1 if reason == "" else 0
-        anchors_unverifiable += 1 if reason != "" else 0
+        # Multi-witness anchors (ADR 008) carry the tokens in `tokens`;
+        # legacy single-TSA anchors are their own only token (flat shape).
+        for tok in (payload.get("tokens") or [payload]):
+            ok, reason, pinned = verify_anchor_token(payload, tok)
+            if not ok:
+                errors.append({"seq": ev["seq"], "reason": reason})
+                continue
+            anchors_pinned += 1 if pinned else 0
+            anchors_checked += 1 if reason == "" else 0
+            anchors_unverifiable += 1 if reason != "" else 0
 
     valid = not errors and chain_report["valid"]
     return {
@@ -121,6 +141,7 @@ def verify_export(export: dict) -> dict:
         "nb_events_checked": len(events),
         "anchors_checked": anchors_checked,
         "anchors_unverifiable": anchors_unverifiable,
+        "anchors_pinned": anchors_pinned,
         "errors": errors,
         "head_hash": events[-1]["event_hash"] if events else None,
     }
@@ -135,7 +156,9 @@ def main() -> int:
 
     if report["valid"]:
         print(f"[✓] INTACT — {report['nb_events_checked']} events verified, "
-              f"attestation valid, head of chain: {report['head_hash'][:16]}…")
+              f"attestation valid, {report['anchors_checked']} anchor tokens "
+              f"({report['anchors_pinned']} against pinned roots), "
+              f"head of chain: {report['head_hash'][:16]}…")
         return 0
 
     print("[✗] TAMPERING DETECTED")

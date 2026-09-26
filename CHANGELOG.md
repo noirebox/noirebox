@@ -5,9 +5,34 @@ versioning according to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Multi-TSA anchoring with pinned roots (ADR 008)**: `NOIREBOX_TSA_PROFILES`
+  puts several independent witnesses behind one `anchor` event — at least one
+  qualified eIDAS TSA for legal presumption (eIDAS art. 41), plus rotating
+  public TSAs (DigiCert, FreeTSA — endpoints live-validated). Legacy
+  `NOIREBOX_TSA_URL` unchanged; single-profile payloads keep the exact
+  v0.3.0 flat shape (old verifiers still verify the primary token).
+- **Auditor-side root pinning**: `verifier/tsa_roots/<profile>.pem` — tokens
+  verified against the auditor's pinned root instead of the operator-shipped
+  certificate (TOFU fallback, reported). Roots `digicert.pem` and
+  `freetsa.pem` shipped; append-only policy (retired roots keep verifying
+  past anchors). `NOIREBOX_TSA_ROOTS_DIR` overrides for tests.
+- **TSA egress control**: `NOIREBOX_TSA_ALLOWED_HOSTS` (default: loopback for
+  `make tsa`) — fail-closed allowlist, link-local (cloud-metadata) refused
+  after DNS resolution, redirects never followed (shared no-redirect client).
+- **EU compliance dossier**: `docs/COMPLIANCE-EU.md` — AI Act art. 12/19/26/55
+  mapping (post–Digital Omnibus calendar, Reg. (EU) 2026/1744), GDPR art. 5.2,
+  eIDAS art. 41, CNIL angle, market whitespace, product plan (ADR 009 OTS,
+  ADR 010 ai-act event vocabulary).
+
+### Changed
+- Anchors now carry the TSA profile name (`tsa` payload key) so pinning works
+  for single-witness journals too; old verifiers ignore the extra key.
+
 ### Planned
 - Local judge model (`llama-guard3:1b` via Ollama) for ambiguous cases — ADR 001 stage 2
-- Rotation of anchors across multiple TSAs (distribute trust)
+- OpenTimestamps profile type — compute-grade witness (ADR 009)
+- `ai-act` event vocabulary + `--audit-pack` export (ADR 010)
 - Prometheus + Grafana metrics
 - HSM/KMS migration for the private key
 

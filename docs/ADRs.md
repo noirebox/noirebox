@@ -114,3 +114,19 @@ def scan_<engine>(text: str, min_confidence: float = 0.5) -> list[dict]:
 **Decision**: the TSA material (`tsa/gen_tsa.sh`) generates a two-certificate chain — self-signed root (CA:TRUE), TSA leaf (CA:FALSE, critical EKU `timeStamping`) signed by the root — and serves the bundle at `GET /cert`. The bundle travels with each anchor and is given to the verifier twice (`-CAfile bundle -untrusted bundle`).
 
 **Consequences**: setup validated experimentally (verify OK for the correct hash, FAILED for a different one); TSA port 3318 (ports < 1024 are privileged); the TSA material (`tsa/material/`) is never committed.
+
+---
+
+## ADR 008 — Multi-TSA anchoring with pinned roots: the trust root leaves the operator's perimeter
+
+**Status**: implemented (v0.3.x).
+
+**Context**: ADR 006 closed the "insider with the key" gap, but a self-hosted TSA sits in the operator's own trust boundary (`docs/THREAT-MODEL.md`): a dishonest operator signs its own tokens and the bypass reopens. EU compliance (GDPR art. 5.2 accountability; AI Act art. 12/19/26 logs — deadlines 2 Dec 2027 after Regulation (EU) 2026/1744) needs evidence whose root of trust is OUTSIDE the auditee's control: qualified eIDAS TSAs for legal presumption (eIDAS art. 41), public TSAs for immediate free coverage. Live-validated endpoints: DigiCert, FreeTSA (tokens verify against public roots; a tampered hash fails).
+
+**Decision**:
+1. **Profiles**: `NOIREBOX_TSA_PROFILES` (JSON list: name, direct RFC 3161 POST endpoint, optional cert_url — else the chain is extracted from the token, certReq). Legacy `NOIREBOX_TSA_URL` keeps working. One `anchor` event carries all tokens; the flat legacy fields mirror the PRIMARY token (put the qualified eIDAS TSA first) so OLD verifiers still validate a real token; the full list travels in `tokens` for the new verifier.
+2. **Pinned roots**: `verifier/tsa_roots/<profile>.pem` — the verifier checks a token against the auditor's pinned root instead of the operator-shipped certificate (TOFU stays as fallback, reported as such). Root policy is append-only in practice (git history): retired roots keep verifying past anchors. Pin ROOTS only; intermediates travel inside tokens.
+3. **Rotation**: each anchor ≥ 1 qualified TSA + rotating public witnesses (no single TSA sees the whole timeline). Anchoring only goes forward — a coverage gap is forever.
+4. **Egress control**: the TSA host must be in `NOIREBOX_TSA_ALLOWED_HOSTS` (default: loopback, for `make tsa`) — explicit egress allowlist; link-local (cloud-metadata) targets refused after DNS resolution; redirects never followed; requests go through one shared no-redirect client.
+
+**Consequences**: the "dishonest operator with everything self-hosted" bypass closes once a profile points at an independent TSA — the verifier's pinned root is the auditor's, not the operator's; multi-witness exports degrade gracefully on old verifiers (primary token still checked); OpenTimestamps (compute-grade witness) is the planned next profile type (ADR 009); qualified-TSA endpoints are config entries per provider terms. Rationale and regulatory mapping: `docs/COMPLIANCE-EU.md`.
