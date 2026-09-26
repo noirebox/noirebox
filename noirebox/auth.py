@@ -8,12 +8,6 @@ import time
 import jwt
 from fastapi import HTTPException, Request
 
-
-
-
-
-
-
 DEFAULT_CLIENTS = {"demo": "demo-secret"}
 
 
@@ -28,8 +22,6 @@ def load_clients() -> dict[str, str]:
     return clients or dict(DEFAULT_CLIENTS)
 
 
-
-
 TOKEN_TTL_SECONDS = 3600
 
 
@@ -39,8 +31,6 @@ def _jwt_secret() -> str:
     secret = os.environ.get("NOIREBOX_JWT_SECRET")
     if secret:
         return secret
-
-
     from .chain import KeyPair
 
     key = KeyPair.load_or_create(os.environ.get("NOIREBOX_DB", "data/noirebox.db") + ".key")
@@ -71,14 +61,12 @@ def verify_token(token: str) -> str | None:
     return payload.get("sub")
 
 
-
-
 class RateLimiter:
     """Per-client counter over a sliding window.
 
-    Why in memory and not SQLite: rate limiting must cost ~0 ms and, above
-    all, never write to the append-only journal (the journal records the
-    business, not the traffic). Redis = the multi-process extension.
+    In memory, not SQLite: rate limiting must cost ~0 ms and never write to
+    the append-only journal (the journal records the business, not the
+    traffic). Redis is the multi-process extension.
     """
 
     def __init__(self, max_requests: int = 60, window_seconds: int = 60):
@@ -96,8 +84,6 @@ class RateLimiter:
         bucket.append(now)
         self._hits[client_id] = bucket
         return True, self.max - len(bucket)
-
-
 
 
 def build_auth_dependency(clients: dict[str, str] | None = None,

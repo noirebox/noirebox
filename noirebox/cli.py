@@ -4,12 +4,9 @@ import argparse
 
 
 def _version() -> str:
-    from importlib.metadata import PackageNotFoundError, version
+    from . import __version__
 
-    try:
-        return version("noirebox")
-    except PackageNotFoundError:  # running from the repo without installation
-        return "0.4.0+unknown"
+    return __version__
 
 
 def main(argv: list[str] | None = None) -> int:

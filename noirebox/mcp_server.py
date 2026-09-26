@@ -4,12 +4,13 @@ import json
 import os
 import sys
 
+from . import __version__
 from .attestation import build_attestation
 from .chain import KeyPair, verify_chain
 from .guardrail import scan_transcript
 from .store import EventStore
 
-SERVER_INFO = {"name": "noirebox", "version": "0.1.0"}
+SERVER_INFO = {"name": "noirebox", "version": __version__}
 DEFAULT_PROTOCOL_VERSION = "2024-11-05"
 
 _JSON_SCHEMA_STRING = {"type": "string"}
@@ -108,8 +109,6 @@ def handle_message(msg: dict, store: EventStore, key: KeyPair) -> dict | None:
 
 
 def main() -> None:
-
-
     path = os.environ.get("NOIREBOX_DB", "data/noirebox.db")
     store = EventStore(path)
     key = KeyPair.load_or_create(path + ".key")

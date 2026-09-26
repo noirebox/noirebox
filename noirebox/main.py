@@ -5,6 +5,7 @@ import os
 from fastapi import Depends, FastAPI, HTTPException, Query, Response
 from fastapi.responses import HTMLResponse
 
+from . import __version__
 from .attestation import build_attestation, verify_attestation
 from .auth import build_auth_dependency, issue_token
 from .chain import KeyPair, verify_chain
@@ -23,15 +24,11 @@ Auth (optional, enabled with `NOIREBOX_CLIENTS=id:secret,...`):
 
 
 def create_app(db_path: str | None = None) -> FastAPI:
-    """Builds the application with its database and key (manual injection).
-
-    No DI container here: the dependencies (store, key) live in closure
-    variables — every route "sees" them without a global registry.
-    app.state exposes the whole set to external tools (tests, interactive docs).
-    """
+    """Builds the application with its store and key injected in closure
+    variables; `app.state` exposes them to tests and external tools."""
     app = FastAPI(
         title="NoireBox",
-        version="0.4.0",
+        version=__version__,
         description=DESCRIPTION,
     )
     path = db_path or os.environ.get("NOIREBOX_DB", "data/noirebox.db")
@@ -40,17 +37,13 @@ def create_app(db_path: str | None = None) -> FastAPI:
     app.state.store = store
     app.state.key = key
 
-
-
-
-
     auth_enabled = bool(os.environ.get("NOIREBOX_CLIENTS"))
     require_auth = build_auth_dependency(enabled=auth_enabled)
     app.state.require_auth = require_auth
 
     @app.get("/health")
     def health() -> dict:
-        return {"status": "ok", "service": "noirebox", "version": "0.1.0"}
+        return {"status": "ok", "service": "noirebox", "version": __version__}
 
     @app.post("/api/v1/token")
     def token(body: TokenIn) -> dict:
@@ -72,7 +65,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
         offset: int = Query(0, ge=0),
         client_id: str = Depends(require_auth),
     ) -> list[dict]:
-        """Paginated list. `Query(ge=…, le=…)` ≈ Assert\\Range on a parameter."""
+        """Paginated list (offset + limit, capped at 1000)."""
         events = store.all()
         return events[offset : offset + limit]
 
