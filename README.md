@@ -329,7 +329,7 @@ examples, then `make train`.
 
 ## Tests
 
-107 tests: cryptography (tampering, reordering, wrong key), regex and **ML
+119 tests: cryptography (tampering, reordering, wrong key), regex and **ML
 guardrails on held-out sentences in FR and EN**, API agent, MCP server, SDK
 client against a **real uvicorn server** (ephemeral port), real LLM agent
 (skipped if Ollama is absent — never simulated), **OAuth2 JWT auth + rate
@@ -337,6 +337,11 @@ limiting + DPO-ready PDF attestation + RFC 3161 anchoring against a real
 local TSA (incl. the insider chain-regeneration attack)**, and the full
 third-party verifier contract. Everything replays locally: `make test`
 re-trains both language models and runs the full suite.
+
+**Static security scanning** runs in CI ([Bandit](https://bandit.readthedocs.io/),
+fails on MEDIUM and above); every recurring LOW finding is baselined with its
+justification in [docs/SECURITY-BASELINE.md](docs/SECURITY-BASELINE.md) — no
+silent noise.
 
 **Consuming AI-agent decisions in your own pipeline?** Gate your builds on
 the integrity of the journal — the verifier ships as a GitHub Action

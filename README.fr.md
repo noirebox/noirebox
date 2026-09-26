@@ -335,7 +335,7 @@ exemples au dataset, puis `make train`. Architecture par étages :
 
 ## Tests
 
-107 tests : cryptographie (falsification, réordonnancement, mauvaise clé),
+119 tests : cryptographie (falsification, réordonnancement, mauvaise clé),
 garde-fou regex et **ML sur phrases inédites en FR et EN**, agent API,
 serveur MCP, SDK client contre un **vrai serveur uvicorn** (port éphémère),
 agent LLM réel (skip si Ollama absent — jamais simulé), **auth OAuth2 JWT +
@@ -343,6 +343,11 @@ rate limiting + attestation PDF DPO + ancrage RFC 3161 contre une vraie TSA
 locale (dont l'attaque de régénération par l'insider)**, et le contrat
 complet du vérificateur tiers. Tout se rejoue en local : `make test`
 ré-entraîne les deux modèles linguistiques et lance la suite complète.
+
+**Scan statique de sécurité** en CI ([Bandit](https://bandit.readthedocs.io/),
+échoue sur MEDIUM et au-dessus) ; chaque finding LOW récurrent est baseliné
+avec sa justification dans [docs/SECURITY-BASELINE.md](docs/SECURITY-BASELINE.md)
+— aucun bruit silencieux.
 
 **Vous consommez des décisions d'agents IA dans votre pipeline ?** Verrouillez
 vos builds sur l'intégrité du journal — le vérificateur existe en GitHub
