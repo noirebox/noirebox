@@ -1,0 +1,25 @@
+name: Security scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  bandit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install bandit
+      - name: Bandit — fail on MEDIUM and above (LOW findings are baselined,
+          see docs/SECURITY-BASELINE.md)
+        run: bandit -r noirebox verifier tsa ml -ll -q
+      - name: Full report, all levels (informational, never gates)
+        if: always()
+        run: bandit -r noirebox verifier tsa ml tests -q -f txt || true
