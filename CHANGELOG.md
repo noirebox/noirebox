@@ -5,6 +5,8 @@ versioning according to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-26
+
 ### Added
 - **Release alignment**: PyPI publish workflow (trusted publishing via OIDC —
   tags `v*` and manual dispatch; one-time setup on pypi.org, see the
