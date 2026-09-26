@@ -48,7 +48,7 @@ def _iso(field: str, value) -> str:
     try:
         datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
-        raise ValueError(f"{field}: not a valid ISO 8601 datetime: {value!r}")
+        raise ValueError(f"{field}: not a valid ISO 8601 datetime: {value!r}") from None
     return value
 
 

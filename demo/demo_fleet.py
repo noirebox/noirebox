@@ -13,20 +13,20 @@ from noirebox.chain import KeyPair
 from noirebox.merkle import build_tree, verify_inclusion
 from noirebox.store import EventStore
 
-NOMS = ["cr-reunion", "support-juridique", "scoring-credit"]
+NAMES = ["cr-reunion", "support-juridique", "scoring-credit"]
 
 
 def main() -> None:
     with tempfile.TemporaryDirectory() as tmp:
 
         heads = []
-        for i, nom in enumerate(NOMS):
-            store = EventStore(f"{tmp}/{nom}.db")
-            key = KeyPair.load_or_create(f"{tmp}/{nom}.key")
-            store.append("llm_call", {"agent": nom, "prompt": "Traite la demande"}, key)
-            store.append("llm_output", {"resume": f"CR {nom} — validé"}, key)
+        for name in NAMES:
+            store = EventStore(f"{tmp}/{name}.db")
+            key = KeyPair.load_or_create(f"{tmp}/{name}.key")
+            store.append("llm_call", {"agent": name, "prompt": "Traite la demande"}, key)
+            store.append("llm_output", {"summary": f"CR {name} — validé"}, key)
             heads.append(store.all()[-1]["event_hash"])
-        print(f"[1] {len(NOMS)} active boxes, each with its signed chain.")
+        print(f"[1] {len(NAMES)} active boxes, each with its signed chain.")
 
 
         tree = build_tree(heads)
@@ -37,9 +37,9 @@ def main() -> None:
 
 
         proofs = {h: tree.proof(h) for h in heads}
-        for h, (nom, p) in zip(heads, zip(NOMS, proofs.values())):
-            ok = verify_inclusion(h, p, tree.root)
-            print(f"    {nom:<18} proof: {len(p)} hashes → {'✓ covered' if ok else '✗'}")
+        for head, (name, proof) in zip(heads, zip(NAMES, proofs.values(), strict=True), strict=True):
+            ok = verify_inclusion(head, proof, tree.root)
+            print(f"    {name:<18} proof: {len(proof)} hashes → {'✓ covered' if ok else '✗'}")
         print(f"[3] Each box proves its place with {len(next(iter(proofs.values())))} hashes — not the whole tree.")
 
 
@@ -55,13 +55,13 @@ def main() -> None:
             print("    Without it, the inclusion proof remains verifiable locally.")
 
 
-        coupable = NOMS[1]
-        rebuilt = EventStore(f"{tmp}/{coupable}-rebuilt.db")
-        rkey = KeyPair.load_or_create(f"{tmp}/{coupable}.key")
-        rebuilt.append("llm_call", {"agent": coupable, "prompt": "Traite la demande"}, rkey)
-        rebuilt.append("llm_output", {"resume": "CR RÉÉCRIT — le client refuse tout"}, rkey)
+        culprit = NAMES[1]
+        rebuilt = EventStore(f"{tmp}/{culprit}-rebuilt.db")
+        rkey = KeyPair.load_or_create(f"{tmp}/{culprit}.key")
+        rebuilt.append("llm_call", {"agent": culprit, "prompt": "Traite la demande"}, rkey)
+        rebuilt.append("llm_output", {"summary": "CR RÉÉCRIT — le client refuse tout"}, rkey)
         new_head = rebuilt.all()[-1]["event_hash"]
-        print(f"[5] {coupable} regenerates its journal: content rewritten, re-chained cleanly.")
+        print(f"[5] {culprit} regenerates its journal: content rewritten, re-chained cleanly.")
         print(f"    new head: {new_head[:16]}…  (old: {heads[1][:16]}…)")
 
 
@@ -82,7 +82,7 @@ def main() -> None:
         hub = EventStore(f"{tmp}/hub.db")
         hub_key = KeyPair.load_or_create(f"{tmp}/hub.key")
         hub.append("fleet_anchor", {
-            "members": NOMS, "size": tree.size, "root": tree.root,
+            "members": NAMES, "size": tree.size, "root": tree.root,
             "leaves": tree.leaves,
         }, hub_key)
         print(f"[7] The hub seals the whole tree as a `fleet_anchor` event (journal #{hub.all()[-1]['seq']}).")

@@ -4,7 +4,8 @@ line-length = 100
 [lint]
 # E4/E7/E9 : erreurs pyflakes essentiels · F : pyflakes · W : warnings pycodestyle
 # EXE : shebangs · ISC : concaténations de chaînes ambiguës
-select = ["E4", "E7", "E9", "F", "W", "EXE", "ISC"]
+# B : bugbear (pièges classiques) · C4 : idiomes collections · SIM : simplifications
+select = ["E4", "E7", "E9", "F", "W", "EXE", "ISC", "B", "C4", "SIM"]
 
 [lint.per-file-ignores]
 # Les scripts (démos, tests, vérificateur) ajoutent la racine au sys.path

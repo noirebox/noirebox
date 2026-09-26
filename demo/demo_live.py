@@ -65,7 +65,7 @@ def main() -> None:
                                   "nb_incidents": len(incidents), "incidents": incidents}, key)
         store.append("llm_call", {"meeting_id": "REU-2026-0143",
                                   "note": "transcript scanned before the agent"}, key)
-        store.append("llm_output", {"compte_rendu": "Devis validé, comité avancé en S42."}, key)
+        store.append("llm_output", {"summary": "Devis validé, comité avancé en S42."}, key)
         print(f"  {len(incidents)} attacks detected → 3 events sealed "
               f"(incident, llm_call, llm_output).")
 
@@ -80,7 +80,7 @@ def main() -> None:
         scene("SCENE 4 — The attacker: rewriting the meeting minutes")
         conn = sqlite3.connect(f"{tmp}/live.db")
         conn.execute("UPDATE events SET payload = ? WHERE seq = 3",
-                     ('{"compte_rendu": "COMPTE RENDU FALSIFIÉ : le client refuse tout."}',))
+                     ('{"summary": "COMPTE RENDU FALSIFIÉ : le client refuse tout."}',))
         conn.commit()
         conn.close()
         print("  Direct UPDATE in the database: \"the client refuses everything\".")

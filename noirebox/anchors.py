@@ -86,8 +86,8 @@ def _checked_endpoint(url: str) -> str:
             f"(explicit egress allowlist, ADR 008)")
     try:
         infos = socket.getaddrinfo(host, None)
-    except socket.gaierror:
-        raise RuntimeError(f"TSA endpoint does not resolve: {host}")
+    except socket.gaierror as exc:
+        raise RuntimeError(f"TSA endpoint does not resolve: {host}") from exc
     for info in infos:
         ip = ipaddress.ip_address(info[4][0])
         if ip.is_link_local:

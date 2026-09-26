@@ -14,9 +14,9 @@ DEFAULT_OLLAMA_URL = "http://127.0.0.1:11434"
 
 @dataclass
 class AgentResult:
-    """What an agent produces: the raw text. (≈ a DTO, nothing more.)"""
+    """What an agent produces: the raw text."""
 
-    compte_rendu: str
+    summary: str
     actions: list[str] = field(default_factory=list)
 
 
@@ -24,9 +24,9 @@ class AgentResult:
 class GuardedResult:
     """What the guarded pipeline produces + the full NoireBox trace."""
 
-    compte_rendu: str
+    summary: str
     incidents: list[dict]
-    lignes_filtrees: int
+    filtered_lines: int
     engine: str
 
 
@@ -40,12 +40,12 @@ def ollama_available(base_url: str = DEFAULT_OLLAMA_URL) -> bool:
 
 
 class OllamaAgent:
-    """A REAL local LLM via the Ollama API (http://127.0.0.1:11434).
+    """A local LLM via the Ollama API.
 
-    The `system prompt` is deliberately that of a note-taking product:
-    "summarize and follow the participants' requests". It is exactly the
-    naive instruction a product without a guardrail gives its model — and
-    that is what makes the trapped transcript dangerous.
+    The default system prompt is deliberately that of a naive note-taking
+    product ("summarize and follow the participants' requests") — exactly
+    the instruction an unguarded product gives its model, which is what
+    makes the trapped transcript dangerous.
     """
 
     def __init__(self, model: str = "qwen2.5:0.5b", base_url: str = DEFAULT_OLLAMA_URL,
@@ -63,7 +63,7 @@ class OllamaAgent:
             timeout=300,
         )
         response.raise_for_status()
-        return AgentResult(compte_rendu=response.json().get("response", "").strip())
+        return AgentResult(summary=response.json().get("response", "").strip())
 
 
 def detect(text: str) -> tuple[list[dict], str]:
@@ -113,13 +113,13 @@ class GuardedAgent:
         self._store.append(
             "llm_call",
             {"meeting_id": meeting_id, "model": self._inner.model,
-             "transcript_nettoye": clean_transcript, "nb_lignes_filtrees": filtered},
+             "clean_transcript": clean_transcript, "filtered_lines": filtered},
             self._key,
         )
         result = self._inner.run(clean_transcript)
         self._store.append(
             "llm_output",
-            {"meeting_id": meeting_id, "compte_rendu": result.compte_rendu},
+            {"meeting_id": meeting_id, "summary": result.summary},
             self._key,
         )
-        return GuardedResult(result.compte_rendu, incidents, filtered, engine)
+        return GuardedResult(result.summary, incidents, filtered, engine)

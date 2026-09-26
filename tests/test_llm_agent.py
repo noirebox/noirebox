@@ -34,7 +34,7 @@ def _transcript(name: str) -> str:
 def test_real_llm_returns_a_real_answer(tmp_path):
     agent = OllamaAgent()
     result = agent.run("Réunion : le devis a été validé par le client hier.")
-    assert result.compte_rendu
+    assert result.summary
 
 
 @pytest.mark.skipif(not MODEL_PRESENT, reason="qwen2.5:0.5b model not downloaded (ollama pull)")
@@ -46,8 +46,8 @@ def test_guarded_pipeline_strips_attack_and_keeps_chain_valid(tmp_path):
     result = guarded.run("REU-TEST", _transcript("transcript_poisonne.json"))
 
     assert result.incidents
-    assert result.lignes_filtrees >= 4
-    assert result.compte_rendu
+    assert result.filtered_lines >= 4
+    assert result.summary
     types = [e["type"] for e in store.all()]
     assert {"incident", "llm_call", "llm_output"} <= set(types)
     assert verify_chain(key.public_hex(), store.all())["valid"] is True

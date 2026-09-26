@@ -5,6 +5,29 @@ versioning according to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- **Intent-first docstrings, consistent naming** (review pass): tutorial-style
+  docstrings rewritten to document intent and constraints; French identifiers
+  renamed to English across the public surface — `llm_agent.AgentResult.summary`
+  (was `compte_rendu`), `GuardedResult.summary` / `.filtered_lines` (was
+  `compte_rendu` / `lignes_filtrees`), demo helpers (`exfil_leak`, `clip`).
+- **Journal payload keys renamed**: `llm_call` now seals `clean_transcript` +
+  `filtered_lines` (was `transcript_nettoye` + `nb_lignes_filtrees`), `llm_output`
+  seals `summary` (was `compte_rendu`). Verification is unaffected (payloads are
+  opaque to the chain); journals written by older versions keep their original keys.
+- **Single version source**: `noirebox.__version__` (package metadata) now feeds
+  the FastAPI app, `/health`, the MCP `serverInfo` and `noirebox --version` —
+  they previously reported 0.4.0 / 0.1.0 / 0.1.0 while pyproject was at 0.6.0.
+- **Lint gate upgraded**: ruff now also runs bugbear (B), flake8-comprehensions
+  (C4) and flake8-simplify (SIM); the six findings it surfaced are fixed
+  (`strict=` on zips, explicit exception chaining, unused loop variable).
+- Named constants for the WAL-switch retry in `store.py`
+  (`_WAL_SWITCH_ATTEMPTS`, `_WAL_SWITCH_BACKOFF_S`); behavior unchanged.
+
+### Removed
+- Dead code: `KeyPair.verify_with_public_key()` (no caller, no test in the
+  repository — the standalone verifier carries its own verification logic).
+
 ## [0.6.0] - 2026-09-26
 
 ### Added

@@ -24,7 +24,6 @@ def _model_path(name: str) -> Path:
     return _ROOT / "models" / name
 
 
-
 _MODEL_PATHS = {
     "fr": _model_path("detector.joblib"),
     "en": _model_path("detector_en.joblib"),
@@ -76,17 +75,14 @@ def predict_line(line: str, lang: str = "fr") -> MLDetection:
 def scan_ml(text: str, min_confidence: float = 0.5, lang: str = "fr") -> list[dict]:
     """Scans a text line by line → incidents in NoireBox format.
 
-    Why line by line: the model was trained on sentences; feeding it 30
-    lines at once would dilute the signals. We keep the granularity
-    "one utterance = one verdict", ideal for the audit report.
-    `min_confidence` discards verdicts that are too uncertain (the optimal
-    threshold is debatable — this is the kind of false-positive/false-negative
-    trade-off we own and document rather than hide).
+    Line by line because the model was trained on sentences — one utterance,
+    one detection. `min_confidence` drops detections below the threshold;
+    the false-positive/false-negative trade-off it sets is a documented
+    product choice, not a hidden one.
 
     The `start`/`end` offsets (position of the line within the full text)
-    are provided just like for regex incidents: the output format is
-    identical, which lets the pipeline filter compromised lines regardless
-    of the engine.
+    match the regex incidents' output format, so the pipeline filters
+    compromised lines regardless of the engine.
     """
     detections = []
     offset = 0

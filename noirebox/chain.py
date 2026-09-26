@@ -19,18 +19,15 @@ from cryptography.hazmat.primitives.serialization import (
 )
 
 
-
 GENESIS = "0" * 64
 
 
 def canonical(obj: object) -> bytes:
     """Deterministic canonical serialization: identical bytes on every machine.
 
-    Why this is critical: the hash is computed over these bytes. If two
-    serializations of the same content produced two different representations
-    (key order, whitespace), third-party verification would fail with no
-    tampering at all. Hence: sorted keys (`sort_keys`), zero superfluous
-    whitespace, explicit UTF-8 (accented text must hash identically everywhere).
+    The hash is computed over these bytes — key order or whitespace drifting
+    across machines would break third-party verification with no tampering
+    at all. Sorted keys, no superfluous whitespace, explicit UTF-8.
     """
     return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
 
@@ -44,12 +41,9 @@ def compute_event_hash(seq: int, ts: str, type_: str, payload: dict, prev_hash: 
 class KeyPair:
     """The instance's Ed25519 key pair.
 
-    Why Ed25519: modern elliptic-curve cryptography, 32-byte keys (versus
-    256+ bytes for RSA), very fast signing and verification, standardized.
-
-    The private key is persisted as PEM (standard text format) with chmod 600:
-    only the server process can read it. The public key, meanwhile, travels
-    in every export/attestation — it is all a third party needs.
+    The private key is persisted as PEM with chmod 600: only the server
+    process reads it. The public key travels in every export/attestation —
+    it is all a third party needs.
     """
 
     def __init__(self, private_key: Ed25519PrivateKey):
@@ -63,11 +57,11 @@ class KeyPair:
 
     @classmethod
     def load_or_create(cls, path: str) -> KeyPair:
-        """Loads the PEM key if it exists, otherwise generates it and writes it chmod 600.
+        """Loads the PEM key if it exists, otherwise generates and writes it.
 
-        `os.open(..., 0o600)`: the file is created with its permissions set
-        right away (atomically), rather than created then chmod'ed — a key
-        file world-readable for even an instant would be a vulnerability.
+        Created via os.open(..., 0o600) — permissions set atomically, never
+        created-then-chmod'ed: a key file world-readable for even an instant
+        would be a vulnerability.
         """
         if os.path.exists(path):
             with open(path, "rb") as f:
@@ -98,17 +92,10 @@ class KeyPair:
         except (InvalidSignature, ValueError):
             return False
 
-    def verify_with_public_key(self, public_hex: str, signature_hex: str, data: bytes) -> bool:
-        """Verifies with an external public key — the third-party auditor case."""
-        return ed25519_verify(public_hex, signature_hex, data)
-
 
 @dataclass
 class Event:
-    """A journal event. `@dataclass` generates __init__/__eq__ automatically.
-
-    The 7 fields below are enough: no getter/setter to write.
-    """
+    """A journal event."""
 
     seq: int
     ts: str
@@ -162,12 +149,11 @@ def verify_event(public_hex: str, ev: dict) -> str | None:
 def verify_chain(public_hex: str, events: list[dict]) -> dict:
     """Verifies the whole chain: order, links, hashes, signatures.
 
-    We stop at the first anomaly and locate it precisely (`first_error.seq`):
-    that is what the auditor wants to see — WHERE it breaks.
+    Stops at the first anomaly and locates it precisely (`first_error.seq`) —
+    the auditor wants to know WHERE it breaks.
     """
     prev = GENESIS
     for expected_seq, ev in enumerate(events, start=1):
-
         if ev["seq"] != expected_seq:
             return {"valid": False, "nb_events": len(events),
                     "first_error": {"seq": ev["seq"], "reason": "broken sequence (reordering or deletion)"}}
