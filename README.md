@@ -140,6 +140,7 @@ make demo                # the full scene: micro-model → journal → auditor �
 make demo-mcp            # NoireBox as an MCP tool (agent protocol)
 .venv/bin/python demo/demo_scan.py     # regex guardrail on 2 transcripts
 .venv/bin/python demo/demo_tamper.py   # tampering → the chain explodes
+.venv/bin/python demo/demo_provenance.py   # provenance sealing vs model collapse (ADR 011)
 ```
 
 Verify an export as a third party (auditor, DPO, client):
