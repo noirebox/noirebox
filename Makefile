@@ -1,5 +1,5 @@
 # NoireBox — shortcuts (make test, make demo, make serve…)
-.PHONY: install test serve demo demo-mcp demo-llm demo-fleet demo-payout ollama-pull tsa dataset train train-en docker clean
+.PHONY: install test bench serve demo demo-mcp demo-llm demo-fleet demo-payout ollama-pull tsa dataset train train-en docker clean
 
 install:
 	python3 -m venv .venv
@@ -8,6 +8,9 @@ install:
 
 test:
 	.venv/bin/pytest -q
+
+bench:
+	.venv/bin/python demo/bench.py
 
 serve:
 	.venv/bin/uvicorn noirebox.main:app --host 127.0.0.1 --port 8768
