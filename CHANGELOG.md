@@ -44,6 +44,12 @@ versioning according to [Semantic Versioning](https://semver.org/).
   time verifies clean forever) and an "Outside v0 scope" entry; the partial
   mitigation (source separation + `noirebox reconcile`) is stated where it
   exists. Raised by Naveen Alavilli during the launch discussion.
+- **`docs/SPECS.md` re-synced with the code**: benchmark table re-measured
+  via `make bench`; `/api/v1/activity` and the `since_seq` cursor documented;
+  the multi-TSA anchor payload (`tokens`) documented; version headers dropped
+  from SPECS and the threat model (they track `noirebox.__version__` — the
+  spec had drifted to v0.1.0 while the package is at 0.6.0, and its limits
+  section still claimed "no authentication", shipped in v0.2.0).
 - Tone pass on the demo scripts and README: removed gratuitous ALL-CAPS and
   "100% real"-style flourishes ("REAL scene" → "live scene", "Zero simulation"
   dropped, "never simulated" asides dropped). The "Honest …" positioning
