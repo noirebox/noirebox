@@ -74,6 +74,17 @@ def create_app(db_path: str | None = None) -> FastAPI:
         """On-the-spot chain verification (internal diagnostic)."""
         return verify_chain(key.public_hex(), store.all())
 
+    @app.get("/api/v1/activity")
+    def activity() -> list[dict]:
+        """Per-day sealed-event counts (UTC) — the dashboard heatmap's source.
+
+        Open like /verify: an aggregate (day → count) carries no payload,
+        and the dashboard fetches are plain browser calls that never carry
+        an Authorization header. Same sensitivity class as the verify
+        diagnostic it sits next to.
+        """
+        return store.activity()
+
     @app.get("/dashboard", include_in_schema=False)
     def dashboard() -> HTMLResponse:
         """Read-only supervision view — renders, never mutates the journal.

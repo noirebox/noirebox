@@ -128,3 +128,21 @@ class EventStore:
             }
             for r in rows
         ]
+
+    def activity(self) -> list[dict]:
+        """Per-day sealed-event counts (UTC), oldest day first, anchor events
+        counted separately — the dashboard heatmap's data source.
+
+        Aggregated in SQL: the answer holds one row per active day instead of
+        the journal's full payload history, so a year-old journal answers in
+        a few hundred bytes. `substr(ts, 1, 10)` is a safe day bucket, not a
+        string gamble: `now_iso` guarantees fixed-precision UTC ISO 8601, so
+        the first ten characters are always `YYYY-MM-DD`.
+        """
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT substr(ts, 1, 10) AS day, COUNT(*) AS n, "
+                "SUM(CASE WHEN type = 'anchor' THEN 1 ELSE 0 END) AS anchors "
+                "FROM events GROUP BY day ORDER BY day ASC"
+            ).fetchall()
+        return [{"day": r[0], "count": r[1], "anchors": r[2]} for r in rows]

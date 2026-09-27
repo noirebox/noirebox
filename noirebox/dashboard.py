@@ -134,6 +134,46 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   body.view-tape .block .seq { position:static; text-align:left; display:block;
     color:var(--red-soft); margin-bottom:6px; }
   body.view-tape .block pre { max-height:110px; overflow:hidden; }
+  /* ── Journal activity heatmap ── */
+  .hm-top { display:flex; align-items:center; justify-content:space-between;
+    flex-wrap:wrap; gap:10px; margin-bottom:14px; }
+  .hm-total { font-size:.78rem; color:var(--dim); }
+  .hm-modes { display:flex; gap:4px; }
+  .hm-mode { font-family:var(--mono); font-size:.62rem; letter-spacing:.12em;
+    padding:5px 12px; border-radius:7px; cursor:pointer;
+    background:transparent; color:var(--dimmer); border:1px solid var(--line); }
+  .hm-mode.on { color:var(--txt); border-color:var(--red-soft);
+    background:rgba(225,6,0,.08); }
+  .hm-scroll { overflow-x:auto; padding-bottom:4px; }
+  .hm-wrap { display:flex; gap:8px; width:100%; }
+  .hm-days { display:grid; grid-template-rows:repeat(7,22px); gap:3px;
+    font-size:.58rem; color:var(--dimmer); flex-shrink:0; }
+  .hm-days span { line-height:22px; }
+  /* Fixed 22px cells: square like the flight-deck instrument language,
+    and 53 of them fill a desktop panel without stretching into slivers. */
+  .hm-grid { display:grid; grid-auto-flow:column;
+    grid-template-rows:repeat(7,22px);
+    grid-template-columns:repeat(53,22px); gap:3px; }
+  .hm-grid.hm-weekly { grid-template-rows:repeat(1,22px); }
+  .hm-cell { height:22px; border-radius:4px;
+    background:rgba(255,255,255,.06); }
+  .hm-cell.future { opacity:.35; }
+  .hm-cell.l1 { background:rgba(225,6,0,.22); }
+  .hm-cell.l2 { background:rgba(225,6,0,.42); }
+  .hm-cell.l3 { background:rgba(225,6,0,.65); }
+  .hm-cell.l4 { background:#e10600; box-shadow:0 0 6px rgba(225,6,0,.4); }
+  .hm-months { position:relative; height:14px; margin-top:6px;
+    font-size:.58rem; color:var(--dimmer); }
+  .hm-months span { position:absolute; top:0; white-space:nowrap; }
+  .hm-tip { position:absolute; display:none; pointer-events:none;
+    background:#161a22; border:1px solid var(--line2); border-radius:8px;
+    padding:7px 11px; font-size:.72rem; color:var(--txt); z-index:10;
+    white-space:nowrap; box-shadow:0 6px 18px rgba(0,0,0,.5); }
+  .hm-tip b { color:var(--red-soft); }
+  .hm-legend { display:flex; align-items:center; gap:4px;
+    justify-content:flex-end; margin-top:8px; font-size:.6rem;
+    color:var(--dimmer); }
+  .hm-legend .hm-cell { display:inline-block; width:22px; }
   footer { margin-top:32px; color:var(--dimmer); font-size:.76rem;
     display:flex; gap:18px; flex-wrap:wrap; }
   footer a { color:var(--red-soft); text-decoration:none; }
@@ -156,6 +196,33 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   <div class="card"><b id="c-head">—</b><span>chain head</span></div>
   <div class="card"><b id="c-last">—</b><span>last event (UTC)</span></div>
   <div class="card"><b id="c-gaps">—</b><span>unpaired intents</span></div>
+</div>
+
+<h2>Journal activity — sealed events per day</h2>
+<div class="panelbox" style="position:relative; padding:16px" id="heatwrap">
+  <div class="hm-top">
+    <span class="hm-total" id="hm-total">—</span>
+    <div class="hm-modes">
+      <button class="hm-mode on" data-m="daily" onclick="setHmMode('daily')">DAILY</button>
+      <button class="hm-mode" data-m="weekly" onclick="setHmMode('weekly')">WEEKLY</button>
+      <button class="hm-mode" data-m="cumulative" onclick="setHmMode('cumulative')">CUMULATIVE</button>
+    </div>
+  </div>
+  <div class="hm-scroll">
+    <div class="hm-wrap">
+      <div class="hm-days" id="hm-days">
+        <span>Mon</span><span></span><span>Wed</span><span></span><span>Fri</span><span></span><span></span>
+      </div>
+      <div>
+        <div class="hm-grid" id="hm-grid"></div>
+        <div class="hm-months" id="hm-months"></div>
+      </div>
+    </div>
+  </div>
+  <div class="hm-legend">less
+    <span class="hm-cell"></span><span class="hm-cell l1"></span><span class="hm-cell l2"></span><span class="hm-cell l3"></span><span class="hm-cell l4"></span>
+  more</div>
+  <div class="hm-tip" id="hm-tip"></div>
 </div>
 
 <h2>The chain — every link visible</h2>
@@ -207,6 +274,191 @@ function setView(v) {
     b.classList.toggle("on", b.dataset.v === saved));
 })();
 
+// ── Journal activity heatmap ──
+// One cell = one day (one week in weekly mode). Only real sealed events are
+// rendered: an empty grid says "nothing sealed", it never decorates.
+let hmMode = "daily";
+let activityData = [];
+try { hmMode = localStorage.getItem("fd-hm") || "daily"; } catch (e) {}
+document.querySelectorAll(".hm-mode").forEach(b =>
+  b.classList.toggle("on", b.dataset.m === hmMode));
+
+function setHmMode(m) {
+  hmMode = m;
+  try { localStorage.setItem("fd-hm", m); } catch (e) {}
+  document.querySelectorAll(".hm-mode").forEach(b =>
+    b.classList.toggle("on", b.dataset.m === m));
+  renderHeatmap();
+}
+
+// Day math stays in UTC end to end: the journal timestamps are UTC
+// (now_iso), so a local-timezone bucketing could shift days for the very
+// sealer whose journal is being read.
+const utcDay = d => d.toISOString().slice(0, 10);
+const asUTC = day => new Date(day + "T00:00:00Z");
+const fmtDay = day => asUTC(day).toLocaleDateString("en-US",
+  { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
+const fmtMonth = day => asUTC(day).toLocaleDateString("en-US",
+  { month: "short", timeZone: "UTC" });
+const mondayOf = day => {
+  const d = asUTC(day);
+  d.setUTCDate(d.getUTCDate() - (d.getUTCDay() + 6) % 7);
+  return utcDay(d);
+};
+const plural = (n, w) => n + " " + w + (n === 1 ? "" : "s");
+
+// Intensity thresholds are the quartiles of the displayed series' nonzero
+// values: a quiet journal and a busy one both get a readable scale, with no
+// magic counts baked in. The last quartile IS the series maximum, so the
+// busiest day always sits at the top of the scale.
+function hmLevel(v, thresholds) {
+  if (v <= 0) return 0;
+  // `<=`, not `<`: with strict comparison a sparse journal (one nonzero
+  // bucket, all quartiles equal to it) collapsed every active day to the
+  // faintest red.
+  return Math.min(4, thresholds.filter(t => t <= v).length + 1);
+}
+
+function renderHeatmap() {
+  const grid = document.getElementById("hm-grid");
+  const months = document.getElementById("hm-months");
+  const daysCol = document.getElementById("hm-days");
+  const total = document.getElementById("hm-total");
+  // A mode switch re-renders the grid under a stationary cursor: no
+  // mouseout fires, so the previous tooltip would linger over cells it no
+  // longer describes. Hide it; the next mouseover reopens it.
+  document.getElementById("hm-tip").style.display = "none";
+
+  const WEEKS = 53;
+  const byDay = new Map(activityData.map(a => [a.day, a]));
+  const sumAll = activityData.reduce((s, a) => s + a.count, 0);
+  total.textContent = sumAll ?
+    plural(sumAll, "event") + " over " + plural(byDay.size, "active day") :
+    "no events sealed yet";
+
+  // Display window: the last 53 weeks ending today. Value maps are computed
+  // over the journal's whole life, so weekly sums and the cumulative total
+  // stay honest even for days older than the window.
+  const today = utcDay(new Date());
+  const winStartDate = asUTC(today);
+  winStartDate.setUTCDate(winStartDate.getUTCDate() - 364);
+  const winStart = mondayOf(utcDay(winStartDate));
+  const axisStart = (activityData.length && activityData[0].day < winStart) ?
+    activityData[0].day : winStart;
+
+  const cum = new Map(), weekSum = new Map(), weekAnchors = new Map();
+  let running = 0;
+  for (let d = asUTC(axisStart); utcDay(d) <= today; d.setUTCDate(d.getUTCDate() + 1)) {
+    const day = utcDay(d);
+    const a = byDay.get(day);
+    running += a ? a.count : 0;
+    cum.set(day, running);
+    if (a) {
+      const wk = mondayOf(day);
+      weekSum.set(wk, (weekSum.get(wk) || 0) + a.count);
+      weekAnchors.set(wk, (weekAnchors.get(wk) || 0) + a.anchors);
+    }
+  }
+
+  const cols = [];
+  for (let c = 0; c < WEEKS; c++) {
+    const col = [];
+    for (let r = 0; r < 7; r++) {
+      const d = asUTC(winStart);
+      d.setUTCDate(d.getUTCDate() + c * 7 + r);
+      col.push(utcDay(d));
+    }
+    cols.push(col);
+  }
+
+  const shown = hmMode === "weekly" ?
+    cols.map(col => weekSum.get(col[0]) || 0) :
+    cols.flat().filter(day => day <= today)
+      .map(day => hmMode === "cumulative" ? (cum.get(day) || 0)
+                                           : (byDay.get(day)?.count || 0));
+  const nz = shown.filter(v => v > 0).sort((a, b) => a - b);
+  const q = p => nz.length ? nz[Math.min(nz.length - 1, Math.floor(p * nz.length))] : 0;
+  const thresholds = [q(.25), q(.5), q(.75), q(.9)];
+
+  grid.classList.toggle("hm-weekly", hmMode === "weekly");
+  daysCol.style.display = hmMode === "weekly" ? "none" : "";
+
+  let html = "";
+  for (let c = 0; c < WEEKS; c++) {
+    if (hmMode === "weekly") {
+      const wk = cols[c][0];
+      if (wk > today) { html += '<span class="hm-cell future"></span>'; continue; }
+      const v = weekSum.get(wk) || 0;
+      html += `<span class="hm-cell l${hmLevel(v, thresholds)}" ` +
+        `data-m="weekly" data-d="${wk}" data-v="${v}"></span>`;
+    } else {
+      for (const day of cols[c]) {
+        if (day > today) { html += '<span class="hm-cell future"></span>'; continue; }
+        const v = hmMode === "cumulative" ? (cum.get(day) || 0)
+                                          : (byDay.get(day)?.count || 0);
+        html += `<span class="hm-cell l${hmLevel(v, thresholds)}" data-m="${hmMode}" ` +
+          `data-d="${day}" data-v="${v}" data-a="${byDay.get(day)?.anchors || 0}"></span>`;
+      }
+    }
+  }
+  grid.innerHTML = html;
+
+  // Month labels ride on the rendered column pitch, not a hardcoded pixel
+  // width: cells are fluid (53 tracks + 52 gaps of 3px), so the pitch is
+  // measured off the grid the browser just laid out.
+  const pitch = (grid.getBoundingClientRect().width + 3) / WEEKS;
+  let mhtml = "", lastM = "";
+  for (let c = 0; c < WEEKS; c++) {
+    const m = fmtMonth(cols[c][0]);
+    if (m !== lastM) {
+      mhtml += `<span style="left:${c * pitch}px">${m}</span>`;
+      lastM = m;
+    }
+  }
+  months.innerHTML = mhtml;
+}
+
+// Tooltip is bound once (delegation survives re-renders) and only ever
+// interpolates generated numbers and locale dates — no sealed string
+// reaches innerHTML.
+(function bindHeatTip() {
+  const wrap = document.getElementById("heatwrap");
+  const tip = document.getElementById("hm-tip");
+  const grid = document.getElementById("hm-grid");
+  grid.addEventListener("mouseover", e => {
+    const cell = e.target.closest(".hm-cell");
+    if (!cell || !cell.dataset.d) return;
+    const m = cell.dataset.m, day = cell.dataset.d, v = +cell.dataset.v;
+    let label;
+    if (m === "weekly") {
+      label = `<b>week of ${fmtDay(day)}</b><br>${plural(v, "event")}`;
+    } else if (m === "cumulative") {
+      label = `<b>${fmtDay(day)}</b><br>${plural(v, "event")} to date`;
+    } else {
+      const a = +cell.dataset.a;
+      label = `<b>${fmtDay(day)}</b><br>${plural(v, "event")}` +
+        (a ? " · " + plural(a, "anchor") : "");
+    }
+    tip.innerHTML = label;
+    tip.style.display = "block";
+    const r = cell.getBoundingClientRect(), wr = wrap.getBoundingClientRect();
+    let left = r.left - wr.left + r.width / 2 - tip.offsetWidth / 2;
+    left = Math.max(4, Math.min(left, wr.width - tip.offsetWidth - 4));
+    tip.style.left = left + "px";
+    // Above the cell by default — but "above" must clear the summary bar
+    // (total + mode buttons), not just the panel edge: the weekly row sits
+    // right under that bar, so overlap there flips the tooltip below.
+    const bar = wrap.querySelector(".hm-top");
+    const barBottom = bar ? bar.getBoundingClientRect().bottom - wr.top + 4 : 0;
+    let top = r.top - wr.top - tip.offsetHeight - 8;
+    if (top < barBottom) top = r.bottom - wr.top + 8;
+    tip.style.top = top + "px";
+  });
+  grid.addEventListener("mouseout", e => {
+    if (e.target.closest(".hm-cell")) tip.style.display = "none";
+  });
+})();
+
 async function refresh() {
   try {
     const verify = await fetch("/api/v1/verify").then(r => r.json());
@@ -215,6 +467,11 @@ async function refresh() {
     const offset = Math.max(0, verify.nb_events - 1000);
     const events = await fetch(`/api/v1/events?limit=1000&offset=${offset}`)
       .then(r => r.json());
+    // Heatmap: keep the last known day-buckets if the aggregate endpoint
+    // hiccups — a transient fetch failure must not blank the whole panel.
+    activityData = await fetch("/api/v1/activity")
+      .then(r => r.json()).catch(() => activityData);
+    renderHeatmap();
 
     const seal = document.getElementById("seal");
     if (verify.valid) {
