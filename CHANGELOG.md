@@ -6,6 +6,16 @@ versioning according to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **The ZCode plugin seals the agent's own flight recorder** (plugin 0.7.0):
+  the existing `PostToolUse` hook now also seals ZCode's per-call
+  `model-io-*.jsonl` files into the journal (ADR 012, `noirebox seal-trajectory
+  --rollout`) — digests only, progressive (`truncated_tail` on a live
+  session, complete log on the next pass), deduped by content digest with
+  the journal as the only register. Toggles: `NOIREBOX_TRAJECTORY_SEAL=0`
+  (pause future seals — past seals are immutable, there is no unseal),
+  `NOIREBOX_TRAJECTORY_INTERVAL_MIN` (scan throttle, default 10),
+  `NOIREBOX_ROLLOUT_DIR`. Containment enforced: a candidate must resolve
+  inside the rollout dir (a planted symlink pulls nothing into the journal).
 - **Model-trajectory sealing** (`noirebox seal-trajectory <model-io.jsonl>`,
   ADR 012): the agent's own flight recorder becomes evidence. A coding
   agent's per-call log (ZCode's `model-io-*.jsonl` — request, response, tool
