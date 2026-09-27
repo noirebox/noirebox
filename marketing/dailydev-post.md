@@ -183,7 +183,7 @@ curl -s localhost:8768/api/v1/export > export.json
 python verifier/verifier.py export.json   # exit 0 = chain intact
 ```
 
-There's also a Docker image (ghcr.io/slabbdev/noirebox) and a demo where
+There's also a Docker image (ghcr.io/noirebox/noirebox) and a demo where
 tampering with a single event visibly explodes the chain.
 
 The EU AI Act makes automatic event logging mandatory for high-risk systems
@@ -191,7 +191,7 @@ from December 2027. Most stacks will check that box with a database table. The
 interesting question for the next two years is who can also prove their logs
 mean something.
 
-Repo: https://github.com/slabbdev/noirebox
+Repo: https://github.com/noirebox/noirebox
 ```
 
 ---
@@ -246,7 +246,7 @@ The fix is RFC 3161 anchoring: only the 32-byte chain head goes to a timestamp
 authority (or OpenTimestamps/Bitcoin), and since the head digests the entire
 past, one anchor retroactively seals everything before it.
 
-I open-sourced the full implementation (MIT): https://github.com/slabbdev/noirebox
+I open-sourced the full implementation (MIT): https://github.com/noirebox/noirebox
 
 Question for the thread: do you trust your own agent's logs enough to show
 them to a client's auditor today?
