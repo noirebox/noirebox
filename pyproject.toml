@@ -47,8 +47,8 @@ dev = ["pytest>=8", "ruff>=0.4"]
 noirebox = "noirebox.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/slabbdev/noirebox"
-Documentation = "https://github.com/slabbdev/noirebox#readme"
+Homepage = "https://github.com/noirebox/noirebox"
+Documentation = "https://github.com/noirebox/noirebox#readme"
 
 [tool.hatch.build.targets.wheel]
 packages = ["noirebox"]

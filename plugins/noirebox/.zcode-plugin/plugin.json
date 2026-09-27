@@ -3,7 +3,7 @@
   "version": "0.5.0",
   "description": "NoireBox inside ZCode: seal every agent decision in the tamper-evident Ed25519 journal, screen texts through the FR/EN injection guardrail, verify the hash chain and export signed attestations.",
   "author": {
-    "name": "slabbdev"
+    "name": "noirebox"
   },
   "skills": "./skills",
   "commands": "./commands",

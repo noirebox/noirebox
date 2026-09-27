@@ -10,7 +10,7 @@
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Lint: ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![Image on GHCR](https://img.shields.io/badge/image-ghcr.io%2Fslabbdev%2Fnoirebox-blue)](https://github.com/slabbdev/noirebox/pkgs/container/noirebox)
+[![Image on GHCR](https://img.shields.io/badge/image-ghcr.io%2Fnoirebox%2Fnoirebox-blue)](https://github.com/noirebox/noirebox/pkgs/container/noirebox)
 [![Made in France](https://img.shields.io/badge/made%20in-France-blue)](#)
 
 **Your AI agent writes meeting notes that bind your clients.
@@ -129,7 +129,7 @@ make demo           # the full story in one command (see below)
 Or with Docker — no Python needed, the ML engine ships inside the image:
 
 ```bash
-docker run -p 8768:8768 ghcr.io/slabbdev/noirebox:latest
+docker run -p 8768:8768 ghcr.io/noirebox/noirebox:latest
 # API + OpenAPI docs on http://127.0.0.1:8768/docs — data persists in ./data
 ```
 
@@ -392,7 +392,7 @@ the integrity of the journal — the verifier ships as a GitHub Action
 - [x] **Reconciliation plugin v0** — invariants over the journal ("every decision
       must have an outcome"): `noirebox/reconcile.py` + CLI
       `noirebox reconcile --fail-on-findings`, schema from
-      [issue #3](https://github.com/slabbdev/noirebox/issues/3) (community
+      [issue #3](https://github.com/noirebox/noirebox/issues/3) (community
       request), pattern sketch in [`demo/demo_payout.py`](demo/demo_payout.py)
 - [ ] Fleet hub: scheduled aggregation of many instances (console, alerting)
 - [x] **Multi-witness anchoring + auditor-pinned roots** — `NOIREBOX_TSA_PROFILES`, egress allowlist, `verifier/tsa_roots/` ([ADR 008](docs/ADRs.md))
@@ -413,6 +413,8 @@ time (or a compliance headache), a coffee is the best way to say it helps:
 <a href="https://buymeacoffee.com/samlabbe"><img src="docs/bmc_qr.png" width="160" alt="Buy Me A Coffee — scan to support NoireBox"></a>
 
 *Scan or click — [buymeacoffee.com/samlabbe](https://buymeacoffee.com/samlabbe)*
+
+NoireBox is created and maintained by [@slabbdev](https://github.com/slabbdev) — built solo, in the Vosges mountains.
 
 ## License
 
