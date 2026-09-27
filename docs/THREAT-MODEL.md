@@ -23,6 +23,7 @@
 | **Model attacker** | bypassing the guardrail through unknown reformulation | probabilistic: measured false negatives are non-zero | ⚠️ stage 2 LLM judge in roadmap |
 | **Dishonest service operator** | modifies the ordinary app logs | exactly the use case: append-only journal + independent third party | ✅ project principle |
 | **External auditor** | wants to verify without trust | export + offline `verifier.py`, zero network calls | ✅ tested |
+| **Lying source** (write-time misreport) | logs “approved by policy X” when the check silently no-opped — the lie ships *at write time*, not after | **outside the chain’s guarantees**: tamper-evidence ≠ accuracy-at-source — the hash proves the record wasn’t altered, not that it was true when sealed; a lie sealed at write time verifies clean forever | ⚠️ partial mitigation shipped: source separation (each truth-source journals its own events) + `noirebox reconcile` — an outcome with no sealed decision behind it surfaces as `orphan_outcome`; fooling it requires lying at every sealing source |
 
 ## Environment assumptions
 
@@ -38,3 +39,4 @@
 - Payload encryption (GDPR minimization is caller responsibility)
 - Multi-tenant, sharding, high availability
 - Full host compromise (OS-level trojan): beyond the scope of an application library; hardware detection (HSM) is on the roadmap
+- **Accuracy-at-source** — the journal proves what was sealed, when, and in what order, never that a sealed claim was true when written (see the “Lying source” actor above); the mitigation is source separation, cross-checked by `noirebox reconcile`
