@@ -97,3 +97,18 @@ def test_attestation_endpoint_roundtrip(tmp_path):
     att = client.get("/api/v1/attestation").json()
     r = client.post("/api/v1/attestation/verify", json=att)
     assert r.json() == {"valid": True}
+
+
+def test_activity_endpoint(tmp_path):
+    """Per-day aggregate for the heatmap: counts and anchor tallies, and no
+    payload ever leaves the server through it."""
+    client = _client(tmp_path)
+    assert client.get("/api/v1/activity").json() == []
+    client.post("/api/v1/events", json={"type": "anchor", "payload": {}})
+    r = client.get("/api/v1/activity")
+    assert r.status_code == 200
+    days = r.json()
+    assert len(days) == 1
+    assert days[0]["count"] == 1
+    assert days[0]["anchors"] == 1
+    assert set(days[0]) == {"day", "count", "anchors"}

@@ -99,3 +99,28 @@ def test_concurrent_processes_seal_every_event_without_gap(tmp_path):
     events = EventStore(db).all()
     assert [e["seq"] for e in events] == list(range(1, 25))
     assert verify_chain(key.public_hex(), events)["valid"]
+
+
+def test_activity_empty_journal(tmp_path):
+    """An empty journal has no activity rows — not a zero-filled year."""
+    store = EventStore(str(tmp_path / "empty.db"))
+    assert store.activity() == []
+
+
+def test_activity_buckets_days_utc(monkeypatch, tmp_path):
+    """The heatmap's source: one row per UTC day, anchor events tallied
+    separately. Bucketing rides on now_iso's fixed format — a drifted
+    timestamp format would silently merge days."""
+    store = EventStore(str(tmp_path / "act.db"))
+    key = KeyPair.load_or_create(str(tmp_path / "act.key"))
+    monkeypatch.setattr("noirebox.store.now_iso",
+                        lambda: "2026-03-23T22:10:05.123+00:00")
+    store.append("llm_call", {}, key)
+    store.append("llm_call", {}, key)
+    monkeypatch.setattr("noirebox.store.now_iso",
+                        lambda: "2026-03-24T01:00:00.000+00:00")
+    store.append("anchor", {}, key)
+    assert store.activity() == [
+        {"day": "2026-03-23", "count": 2, "anchors": 0},
+        {"day": "2026-03-24", "count": 1, "anchors": 1},
+    ]

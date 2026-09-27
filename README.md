@@ -330,6 +330,7 @@ noirebox/            ← package (≈ PSR-4 namespace)
 | `POST /api/v1/events` | 🔒 | Record an event (prompt, output, eval…) |
 | `GET /api/v1/events` | 🔒 | Paginated event list |
 | `GET /api/v1/verify` | open | Verify the chain in place |
+| `GET /api/v1/activity` | open | Per-day sealed-event counts (dashboard heatmap) |
 | `POST /api/v1/transcripts/scan` | 🔒 | Guardrail: detect injections, journal the incident |
 | `GET /api/v1/attestation` | open | Signed attestation of the current state |
 | `GET /api/v1/attestation.pdf` | open | Attestation as a DPO-ready A4 PDF |

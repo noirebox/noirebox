@@ -55,3 +55,13 @@ def test_esc_escapes_quotes_for_attribute_context(tmp_path):
     esc_line = next(line for line in html.splitlines() if "const esc" in line)
     for entity in ("&amp;", "&lt;", "&gt;", "&quot;", "&#39;"):
         assert entity in esc_line
+
+
+def test_dashboard_heatmap_wired_with_its_modes(tmp_path):
+    """The activity heatmap ships with its three modes and the aggregate
+    endpoint wired in — the browser never receives payloads for it."""
+    html = _client(tmp_path).get("/dashboard").text
+    assert "/api/v1/activity" in html
+    assert "renderHeatmap" in html
+    for mode in ("daily", "weekly", "cumulative"):
+        assert f"setHmMode('{mode}')" in html

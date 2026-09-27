@@ -336,6 +336,7 @@ noirebox/            ← package (≈ namespace PSR-4)
 | `POST /api/v1/events` | 🔒 | Enregistre un événement (prompt, sortie, éval…) |
 | `GET /api/v1/events` | 🔒 | Liste paginée des événements |
 | `GET /api/v1/verify` | ouverte | Vérifie la chaîne sur place |
+| `GET /api/v1/activity` | ouverte | Comptes d'événements par jour (heatmap du dashboard) |
 | `POST /api/v1/transcripts/scan` | 🔒 | Garde-fou : détecte les injections, journalise |
 | `GET /api/v1/attestation` | ouverte | Attestation signée de l'état courant |
 | `GET /api/v1/attestation.pdf` | ouverte | Attestation en PDF A4 prêt pour un DPO |
