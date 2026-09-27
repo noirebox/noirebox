@@ -107,6 +107,19 @@ def test_activity_empty_journal(tmp_path):
     assert store.activity() == []
 
 
+def test_since_returns_the_strict_tail(tmp_path):
+    """The live tail: strictly newer than the cursor, ascending, capped —
+    the contract the radar's seq cursor rides on (no skip, no replay)."""
+    store = EventStore(str(tmp_path / "tail.db"))
+    key = KeyPair.load_or_create(str(tmp_path / "tail.key"))
+    for i in range(3):
+        store.append("llm_call", {"i": i}, key)
+    assert [e["seq"] for e in store.since(0)] == [1, 2, 3]
+    assert [e["seq"] for e in store.since(1)] == [2, 3]
+    assert [e["seq"] for e in store.since(3)] == []
+    assert [e["seq"] for e in store.since(0, limit=2)] == [1, 2]
+
+
 def test_activity_buckets_days_utc(monkeypatch, tmp_path):
     """The heatmap's source: one row per UTC day, anchor events tallied
     separately. Bucketing rides on now_iso's fixed format — a drifted

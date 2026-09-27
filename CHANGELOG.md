@@ -6,6 +6,17 @@ versioning according to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **TRAFFIC view on the Flight Deck** (`/dashboard`): the journal as a
+  live radar — one node per event type on the perimeter, one beam per
+  real sealed event flowing into the chain head, an amber pulse when an
+  RFC 3161 anchor seals the whole past. Tails the journal through a new
+  `since_seq` cursor on `GET /api/v1/events` (backed by `store.since`, an
+  indexed lookup — no replay, no skip, no re-delivery). Bursts condense
+  honestly: node counts and the seq stay exact, the visual shortfall
+  prints on screen ("+N earlier beams condensed"). The radar runs only
+  while its view is on screen, seeds from the last 500 events without
+  animating them (it opens on the true state, then only new events fly),
+  and nothing is simulated — a quiet radar means a quiet journal.
 - **Journal activity heatmap** on the Flight Deck (`/dashboard`): a
   contribution-graph view of the journal — one cell per day, red intensity
   for sealed-event volume — with Daily / Weekly / Cumulative modes and hover
