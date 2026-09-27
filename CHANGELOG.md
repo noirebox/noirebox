@@ -6,6 +6,16 @@ versioning according to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Journal activity heatmap** on the Flight Deck (`/dashboard`): a
+  contribution-graph view of the journal — one cell per day, red intensity
+  for sealed-event volume — with Daily / Weekly / Cumulative modes and hover
+  tooltips ("September 26, 2026 — 512 events · 1 anchor"). Backed by a new
+  read-only aggregate endpoint `GET /api/v1/activity` (day → count, SQL
+  `GROUP BY`, anchor events tallied separately): the browser receives no
+  payload through it. Intensity thresholds are quartiles of the displayed
+  series, so a quiet journal and a busy one both stay readable; the busiest
+  day always sits at the top of the scale. Read-only, like the rest of the
+  dashboard — it renders, the exported dossier attests.
 - `tests/test_guarded_pipeline.py`: the guarded pipeline (scan → filter →
   journal → LLM → journal) is now covered without a running Ollama, via a
   stub inner agent standing in for the LLM only. The end-to-end tests
