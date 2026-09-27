@@ -251,7 +251,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   <span>it renders; the exported dossier attests</span>
   <a href="/docs">API docs</a>
   <a href="/api/v1/export">export dossier</a>
-  <a href="https://github.com/slabbdev/noirebox" target="_blank" rel="noopener">GitHub</a>
+  <a href="https://github.com/noirebox/noirebox" target="_blank" rel="noopener">GitHub</a>
 </footer>
 
 <script>
