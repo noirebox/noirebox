@@ -120,14 +120,28 @@ class EventStore:
                 "SELECT seq, ts, type, payload, prev_hash, event_hash, signature "
                 "FROM events ORDER BY seq ASC"
             ).fetchall()
-        return [
-            {
-                "seq": r[0], "ts": r[1], "type": r[2],
-                "payload": json.loads(r[3]), "prev_hash": r[4],
-                "event_hash": r[5], "signature": r[6],
-            }
-            for r in rows
-        ]
+        return [self._row(r) for r in rows]
+
+    def since(self, seq: int, limit: int = 500) -> list[dict]:
+        """Events with `seq` strictly greater than the given one, oldest to
+        newest, capped at `limit` — the live tail.
+
+        The live view polls this with its last seen seq: one indexed lookup
+        instead of replaying the whole journal, and a cursor the sealer can
+        never trick into re-delivering or skipping an event (seq is the
+        primary key). Both the cursor and the cap travel as bound parameters.
+        """
+        with self._lock:
+            rows = self._conn.execute("SELECT seq, ts, type, payload, prev_hash, event_hash, signature FROM events WHERE seq > ? ORDER BY seq ASC LIMIT ?", (seq, limit)).fetchall()
+        return [self._row(r) for r in rows]
+
+    @staticmethod
+    def _row(r: tuple) -> dict:
+        return {
+            "seq": r[0], "ts": r[1], "type": r[2],
+            "payload": json.loads(r[3]), "prev_hash": r[4],
+            "event_hash": r[5], "signature": r[6],
+        }
 
     def activity(self) -> list[dict]:
         """Per-day sealed-event counts (UTC), oldest day first, anchor events

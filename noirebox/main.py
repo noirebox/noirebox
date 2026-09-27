@@ -63,9 +63,18 @@ def create_app(db_path: str | None = None) -> FastAPI:
     def list_events(
         limit: int = Query(100, ge=1, le=1000),
         offset: int = Query(0, ge=0),
+        since_seq: int = Query(0, ge=0),
         client_id: str = Depends(require_auth),
     ) -> list[dict]:
-        """Paginated list (offset + limit, capped at 1000)."""
+        """Paginated list (offset + limit, capped at 1000).
+
+        `since_seq` switches to tail mode: everything strictly newer than
+        that seq, oldest first — the cursor for live consumers (the
+        dashboard's TRAFFIC view polls it). seq is the primary key, so the
+        cursor can neither skip nor re-deliver an event.
+        """
+        if since_seq:
+            return store.since(since_seq, limit)
         events = store.all()
         return events[offset : offset + limit]
 
