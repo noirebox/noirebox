@@ -6,6 +6,19 @@ versioning according to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Model-trajectory sealing** (`noirebox seal-trajectory <model-io.jsonl>`,
+  ADR 012): the agent's own flight recorder becomes evidence. A coding
+  agent's per-call log (ZCode's `model-io-*.jsonl` — request, response, tool
+  calls, `querySource`) is sealed into the journal as digests only:
+  `file_sha256`, an order-committed digest chain over per-record digests
+  (`trajectory_digest` — same calls in a different order is a different
+  behavior, and the seal accuses on reorder), record count, session ids,
+  models, query sources and the period of use. The payload names its sealer
+  (`source: {tool, version}` — first brick of sealer identity). Verification
+  is recomputation (`verify_trajectory`: None = intact, otherwise the
+  reason); an unparseable mid-file line is a hard error, an incomplete
+  trailing write is reported (`truncated_tail`) and sealed as seen.
+  Conversation text never enters the journal. Demo: `demo/demo_trajectory.py`.
 - **Journal activity heatmap** on the Flight Deck (`/dashboard`): a
   contribution-graph view of the journal — one cell per day, red intensity
   for sealed-event volume — with Daily / Weekly / Cumulative modes and hover
