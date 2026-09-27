@@ -37,7 +37,14 @@ def main(argv: list[str] | None = None) -> int:
     traj = sub.add_parser("seal-trajectory",
                           help="seal a coding agent's model trajectory "
                                "(model-io JSONL, ADR 012) — digests only")
-    traj.add_argument("file", help="path to the model-io-*.jsonl file")
+    traj.add_argument("file", nargs="?",
+                      help="path to the model-io-*.jsonl file")
+    traj.add_argument("--rollout", default=None,
+                      help="scan a rollout DIR instead of one file: seals "
+                           "every new-or-changed model-io file; sealed lines "
+                           "are printed on stderr (plugin-hook facing)")
+    traj.add_argument("--interval", type=int, default=10,
+                      help="minutes between rollout scans (default 10)")
     traj.add_argument("--db", default=None,
                       help="journal path (default: NOIREBOX_DB or data/noirebox.db)")
     args = parser.parse_args(argv)
@@ -89,17 +96,29 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "seal-trajectory":
         import os
+        import sys
 
         from noirebox.chain import KeyPair, verify_chain
         from noirebox.store import EventStore
         from noirebox.trajectory import read_model_io, trajectory_payload
 
+        db = args.db or os.environ.get("NOIREBOX_DB", "data/noirebox.db")
+
+        if args.rollout:
+            from noirebox.trajseal import seal_rollout
+
+            for line in seal_rollout(args.rollout, db, interval_min=args.interval):
+                print(f"[noirebox] trajectory sealed: {line}", file=sys.stderr)
+            return 0
+
+        if not args.file:
+            print("[✗] nothing to seal: give a file, or --rollout <dir>")
+            return 1
         try:
             summary = read_model_io(args.file)
         except ValueError as exc:
             print(f"[✗] {exc}")
             return 1
-        db = args.db or os.environ.get("NOIREBOX_DB", "data/noirebox.db")
         store = EventStore(db)
         key = KeyPair.load_or_create(db + ".key")
         event = store.append("model_trajectory", trajectory_payload(summary), key)
