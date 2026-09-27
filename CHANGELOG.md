@@ -20,8 +20,30 @@ versioning according to [Semantic Versioning](https://semver.org/).
   journal → LLM → journal) is now covered without a running Ollama, via a
   stub inner agent standing in for the LLM only. The end-to-end tests
   previously skipped on CI; both engine paths (ML and regex) are exercised.
+- **TRAFFIC — the journal as a live radar**: fourth Flight Deck view; one
+  node per event type on the perimeter, one beam per real sealed event
+  flowing into the chain head, an amber pulse when an RFC 3161 anchor seals
+  the whole past. Tails the journal through a new `since_seq` cursor on
+  `GET /api/v1/events` (`store.since`): one indexed lookup per poll instead
+  of replaying the journal, and a cursor the sealer can never trick into
+  skipping or re-delivering an event.
+- `make bench` (`demo/bench.py`): reproducible benchmarks for the two hot
+  paths — sealing (hash + Ed25519 signature + SQLite commit, 2,000 appends)
+  and full verification of a fresh 100-event export (median of 7 runs,
+  asserted `valid`). `docs/SPECS.md` §6 is refreshed from it.
 
 ### Changed
+- **Repository moved to the `noirebox` organization**: all repository, GHCR
+  and plugin references updated (`ghcr.io/noirebox/noirebox`; the Docker
+  image name is now derived from `${{ github.repository }}`). The old
+  `slabbdev/noirebox` URL redirects; the PyPI package name is unchanged.
+  Creator attribution added to both READMEs. NOTE for maintainers: update
+  the PyPI trusted publisher to owner `noirebox` before the next release.
+- **Threat model names the accuracy-at-source boundary**: new "Lying source"
+  actor row (tamper-evidence ≠ accuracy-at-source — a lie sealed at write
+  time verifies clean forever) and an "Outside v0 scope" entry; the partial
+  mitigation (source separation + `noirebox reconcile`) is stated where it
+  exists. Raised by Naveen Alavilli during the launch discussion.
 - Tone pass on the demo scripts and README: removed gratuitous ALL-CAPS and
   "100% real"-style flourishes ("REAL scene" → "live scene", "Zero simulation"
   dropped, "never simulated" asides dropped). The "Honest …" positioning
