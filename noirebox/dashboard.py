@@ -1,5 +1,5 @@
 """FLIGHT DECK — the NoireBox supervision view, styled as the instrument
-panel of the box itself. Three switchable views, one journal:
+panel of the box itself. Four switchable views, one journal:
 
 - **DECK** (default): the chain as a vertical spine — every link visible,
   prev_hash → event_hash → signature on each block.
@@ -7,6 +7,10 @@ panel of the box itself. Three switchable views, one journal:
   unseal toggle, signature rendered as a wax seal.
 - **TAPE**: the journal as a horizontal ticker-tape readout, like the
   film-to-paper playbacks of early flight recorders.
+- **TRAFFIC**: the journal as a live radar — one node per event type on
+  the perimeter, one beam per real sealed event flowing to the chain head,
+  an amber pulse when an anchor seals the whole past. Tails the journal
+  with a seq cursor (`since_seq`); nothing is simulated.
 
 Plus the DEPARTURES / ARRIVALS board: the two-event pattern (issue #3) —
 decisions depart, outcomes arrive, unpaired rows light up. And THE WITNESS:
@@ -174,6 +178,18 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     justify-content:flex-end; margin-top:8px; font-size:.6rem;
     color:var(--dimmer); }
   .hm-legend .hm-cell { display:inline-block; width:22px; }
+  /* ── TRAFFIC view: the live radar ── */
+  #traffic-view { display:none; }
+  body.view-traffic #traffic-view { display:block; }
+  body.view-traffic #chain-title,
+  body.view-traffic .spine,
+  body.view-traffic #recon-board { display:none; }
+  #radar { width:100%; height:560px; display:block; }
+  .t-footline { display:flex; gap:18px; flex-wrap:wrap; align-items:baseline;
+    margin-top:10px; font-size:.72rem; color:var(--dim); }
+  .t-footline b { color:var(--red-soft); }
+  .t-footline .t-motto { margin-left:auto; color:var(--dimmer);
+    font-size:.64rem; letter-spacing:.06em; }
   footer { margin-top:32px; color:var(--dimmer); font-size:.76rem;
     display:flex; gap:18px; flex-wrap:wrap; }
   footer a { color:var(--red-soft); text-decoration:none; }
@@ -189,6 +205,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   <button class="viewbtn on" data-v="deck" onclick="setView('deck')">DECK</button>
   <button class="viewbtn" data-v="vault" onclick="setView('vault')">VAULT</button>
   <button class="viewbtn" data-v="tape" onclick="setView('tape')">TAPE</button>
+  <button class="viewbtn" data-v="traffic" onclick="setView('traffic')">TRAFFIC</button>
 </div>
 
 <div class="strip">
@@ -225,7 +242,20 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   <div class="hm-tip" id="hm-tip"></div>
 </div>
 
-<h2>The chain — every link visible</h2>
+<h2 id="chain-title">The chain — every link visible</h2>
+
+<div id="traffic-view">
+  <div class="panelbox" style="padding:16px">
+    <canvas id="radar"></canvas>
+    <div class="t-footline">
+      <span>last sealed <b id="t-last">—</b></span>
+      <span>rate <b id="t-rate">—</b></span>
+      <span id="t-dropped" style="display:none"></span>
+      <span class="t-motto">every beam is a real sealed event — nothing simulated</span>
+    </div>
+  </div>
+</div>
+
 <div class="spine" id="spine">
   <div class="empty">loading…</div>
 </div>
@@ -265,6 +295,9 @@ function setView(v) {
   try { localStorage.setItem("fd-view", v); } catch (e) {}
   document.querySelectorAll(".viewbtn").forEach(b =>
     b.classList.toggle("on", b.dataset.v === v));
+  // The radar only runs while it is on screen: a hidden canvas must not
+  // burn a requestAnimationFrame loop and a 2 s poller in the background.
+  if (v === "traffic") trafficStart(); else trafficStop();
 }
 (function () {
   let saved = "deck";
@@ -458,6 +491,270 @@ function renderHeatmap() {
     if (e.target.closest(".hm-cell")) tip.style.display = "none";
   });
 })();
+
+// ── TRAFFIC view: the live radar ──
+// The journal as air traffic: one node per event type on the perimeter,
+// one beam per real sealed event flowing into the chain head, an amber
+// pulse when an anchor seals the whole past. Nothing is simulated — a
+// quiet radar means a quiet journal. Overflow bursts are condensed, never
+// invented: every event still updates its node count and the seq, and the
+// shortfall is printed on screen.
+const tr = {
+  on: false, raf: 0, timer: 0, ctx: null,
+  nodes: new Map(),   // type -> { count }
+  order: [],          // node insertion order (angles derive from it)
+  beams: [], pulses: [], queue: [],
+  seq: 0, arrivals: [], dropped: 0, sweep: 0, tPrev: 0,
+};
+
+function trColor(type) {
+  if (type === "anchor") return "#f5a623";
+  if (type === "incident") return "#e10600";
+  if (type === "policy_decision" || type === "provider_response") return "#3fb950";
+  return "#ff8577";
+}
+
+function trNode(type) {
+  if (!tr.nodes.has(type)) {
+    tr.nodes.set(type, { count: 0 });
+    tr.order.push(type);
+  }
+  return tr.nodes.get(type);
+}
+
+function trNodeAngle(type) {
+  // Even spacing over the node set, starting at 12 o'clock; re-derived on
+  // every draw (n is small) so late-joining types re-space cleanly.
+  const i = tr.order.indexOf(type);
+  return ((i + 0.5) / tr.order.length) * Math.PI * 2 - Math.PI / 2;
+}
+
+function trFootline() {
+  while (tr.arrivals.length &&
+         performance.now() - tr.arrivals[0] > 60000) tr.arrivals.shift();
+  document.getElementById("t-rate").textContent =
+    tr.arrivals.length + " events/min";
+  const d = document.getElementById("t-dropped");
+  if (tr.dropped > 0) {
+    d.style.display = "";
+    d.textContent = "+" + tr.dropped + " earlier beams condensed (all counted)";
+  }
+}
+
+function trPush(e) {
+  if (e.seq <= tr.seq) return;
+  tr.seq = e.seq;
+  trNode(e.type).count++;
+  tr.arrivals.push(performance.now());
+  document.getElementById("t-last").textContent =
+    "seq " + e.seq + " — " + e.type + " — " + e.ts.slice(11, 19) + " UTC";
+  if (e.type === "anchor") tr.pulses.push({ t0: performance.now() });
+  if (tr.beams.length < 60) {
+    tr.beams.push({ angle: trNodeAngle(e.type), type: e.type, t0: performance.now() });
+  } else if (tr.queue.length < 1000) {
+    tr.queue.push({ angle: trNodeAngle(e.type), type: e.type });
+  } else {
+    tr.dropped++;
+  }
+  trFootline();
+}
+
+async function trafficPoll() {
+  if (!tr.on) return;
+  // Drain until the tail is dry (a long outage can hold thousands of
+  // events); 12 batches of 500 per poll caps the loop, the next tick
+  // resumes from the same cursor — nothing is lost, only delayed.
+  for (let guard = 0; guard < 12; guard++) {
+    let batch;
+    try {
+      batch = await fetch("/api/v1/events?since_seq=" + tr.seq + "&limit=500")
+        .then(r => r.json());
+    } catch (err) {
+      return;  // keep the cursor; next tick retries from the same seq
+    }
+    batch.forEach(trPush);
+    if (batch.length < 500) return;
+  }
+}
+
+async function trafficInit() {
+  // Seed the node map from recent history WITHOUT animating it: the radar
+  // opens on the true current state, then only new events fly.
+  try {
+    const v = await fetch("/api/v1/verify").then(r => r.json());
+    tr.seq = v.nb_events;
+    const seed = await fetch(
+      "/api/v1/events?limit=500&offset=" + Math.max(0, v.nb_events - 500)
+    ).then(r => r.json());
+    seed.forEach(e => {
+      trNode(e.type).count++;
+      if (e.seq > tr.seq) tr.seq = e.seq;
+    });
+    const lastE = seed[seed.length - 1];
+    if (lastE) {
+      document.getElementById("t-last").textContent =
+        "seq " + lastE.seq + " — " + lastE.type + " — " +
+        lastE.ts.slice(11, 19) + " UTC";
+    }
+  } catch (err) {
+    // API hiccup at open: the radar starts empty and the poller fills it.
+  }
+  trFootline();
+  tr.timer = setInterval(trafficPoll, 2000);
+  trafficPoll();
+}
+
+function trSize() {
+  const c = document.getElementById("radar");
+  const dpr = window.devicePixelRatio || 1;
+  c.width = c.clientWidth * dpr;
+  c.height = c.clientHeight * dpr;
+  tr.ctx = c.getContext("2d");
+  tr.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener("resize", () => { if (tr.on) trSize(); });
+
+function trafficStart() {
+  if (tr.on) return;
+  tr.on = true;
+  trSize();
+  if (!tr.timer) trafficInit(); else trafficPoll();
+  tr.tPrev = performance.now();
+  tr.raf = requestAnimationFrame(trDraw);
+}
+
+function trafficStop() {
+  tr.on = false;
+  if (tr.raf) cancelAnimationFrame(tr.raf);
+  tr.raf = 0;
+  if (tr.timer) { clearInterval(tr.timer); tr.timer = 0; }
+}
+
+function trDraw(now) {
+  if (!tr.on) return;
+  const c = document.getElementById("radar");
+  const dpr = window.devicePixelRatio || 1;
+  // The saved view can restore TRAFFIC before layout: the canvas may still
+  // be 0-wide. Resize lazily on change and skip the frame rather than draw
+  // with a negative radius (which would throw and kill the loop).
+  if (!tr.ctx || c.width !== Math.round(c.clientWidth * dpr)) trSize();
+  const W = c.clientWidth, H = c.clientHeight;
+  if (W < 10 || H < 10) {
+    tr.raf = requestAnimationFrame(trDraw);
+    return;
+  }
+  const ctx = tr.ctx;
+  const cx = W / 2, cy = H / 2;
+  const R = Math.min(W, H) / 2 - 56;
+  const dt = Math.min(0.1, (now - tr.tPrev) / 1000);
+  tr.tPrev = now;
+  tr.sweep = (tr.sweep + dt * 0.9) % (Math.PI * 2);
+  ctx.clearRect(0, 0, W, H);
+
+  // rings + cross
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(255,255,255,.06)";
+  for (const f of [1, 2 / 3, 1 / 3]) {
+    ctx.beginPath(); ctx.arc(cx, cy, R * f, 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.moveTo(cx - R, cy); ctx.lineTo(cx + R, cy);
+  ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R);
+  ctx.stroke();
+
+  // sweep with fading trail
+  for (let i = 0; i < 60; i++) {
+    const a = tr.sweep - i * 0.022;
+    ctx.strokeStyle = "rgba(225,6,0," + (0.22 * (1 - i / 60)).toFixed(3) + ")";
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + R * Math.cos(a), cy + R * Math.sin(a));
+    ctx.stroke();
+  }
+
+  // nodes + labels
+  ctx.font = "10px ui-monospace, Menlo, monospace";
+  for (const type of tr.order) {
+    const a = trNodeAngle(type);
+    const x = cx + R * Math.cos(a), y = cy + R * Math.sin(a);
+    const col = trColor(type);
+    ctx.fillStyle = col;
+    ctx.shadowColor = col; ctx.shadowBlur = 8;
+    ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+    const lx = cx + (R + 16) * Math.cos(a);
+    const ly = cy + (R + 16) * Math.sin(a);
+    ctx.textAlign = Math.cos(a) > 0.3 ? "left"
+      : Math.cos(a) < -0.3 ? "right" : "center";
+    ctx.textBaseline = Math.sin(a) > 0.3 ? "top"
+      : Math.sin(a) < -0.3 ? "bottom" : "middle";
+    ctx.fillStyle = "rgba(154,164,178,.9)";
+    const name = type.length > 18 ? type.slice(0, 17) + "…" : type;
+    ctx.fillText(name + " · " + tr.nodes.get(type).count, lx, ly);
+  }
+
+  // queue drain: a burst replays fast-forward, at most 3 beams per frame
+  let spawn = 3;
+  while (spawn-- > 0 && tr.queue.length && tr.beams.length < 60) {
+    const q = tr.queue.shift();
+    tr.beams.push({ angle: q.angle, type: q.type, t0: now });
+  }
+
+  // beams: rim → chain head, trail fading after arrival
+  for (let i = tr.beams.length - 1; i >= 0; i--) {
+    const b = tr.beams[i];
+    const t = (now - b.t0) / 900;
+    if (t >= 1) { tr.beams.splice(i, 1); continue; }
+    const ease = 1 - (1 - t) * (1 - t);
+    const headR = R * (1 - ease);
+    const col = trColor(b.type);
+    ctx.globalAlpha = t < 0.6 ? 0.75 : 0.75 * (1 - (t - 0.6) / 0.4);
+    ctx.strokeStyle = col;
+    ctx.beginPath();
+    ctx.moveTo(cx + R * Math.cos(b.angle), cy + R * Math.sin(b.angle));
+    ctx.lineTo(cx + headR * Math.cos(b.angle), cy + headR * Math.sin(b.angle));
+    ctx.stroke();
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    ctx.arc(cx + headR * Math.cos(b.angle), cy + headR * Math.sin(b.angle),
+            2.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // anchor pulses: the whole past locking, amber to the rim
+  for (let i = tr.pulses.length - 1; i >= 0; i--) {
+    const p = tr.pulses[i];
+    const t = (now - p.t0) / 1400;
+    if (t >= 1) { tr.pulses.splice(i, 1); continue; }
+    ctx.globalAlpha = 0.55 * (1 - t);
+    ctx.strokeStyle = "#f5a623";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(cx, cy, R * t, 0, Math.PI * 2); ctx.stroke();
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 1;
+  }
+
+  // core: the chain head, live
+  ctx.fillStyle = "rgba(225,6,0,.12)";
+  ctx.beginPath(); ctx.arc(cx, cy, 42, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "rgba(225,6,0,.6)";
+  ctx.beginPath(); ctx.arc(cx, cy, 42, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = "#e8ecf1";
+  ctx.font = "700 24px ui-monospace, Menlo, monospace";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(String(tr.seq), cx, cy - 6);
+  ctx.fillStyle = "rgba(97,107,122,1)";
+  ctx.font = "9px ui-monospace, Menlo, monospace";
+  ctx.fillText("CHAIN HEAD SEQ", cx, cy + 14);
+
+  tr.raf = requestAnimationFrame(trDraw);
+}
+
+// Boot the radar if the saved view restored TRAFFIC: the restore IIFE runs
+// before the `tr` state above exists, so the start must wait until the
+// whole script — state included — has been evaluated.
+if (document.body.className === "view-traffic") trafficStart();
 
 async function refresh() {
   try {

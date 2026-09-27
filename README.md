@@ -328,7 +328,7 @@ noirebox/            ← package (≈ PSR-4 namespace)
 |---|---|---|
 | `POST /api/v1/token` | — | Exchange `client_id`/`client_secret` for a 1 h JWT |
 | `POST /api/v1/events` | 🔒 | Record an event (prompt, output, eval…) |
-| `GET /api/v1/events` | 🔒 | Paginated event list |
+| `GET /api/v1/events` | 🔒 | Paginated event list; `since_seq` = live tail (cursor) |
 | `GET /api/v1/verify` | open | Verify the chain in place |
 | `GET /api/v1/activity` | open | Per-day sealed-event counts (dashboard heatmap) |
 | `POST /api/v1/transcripts/scan` | 🔒 | Guardrail: detect injections, journal the incident |

@@ -65,3 +65,14 @@ def test_dashboard_heatmap_wired_with_its_modes(tmp_path):
     assert "renderHeatmap" in html
     for mode in ("daily", "weekly", "cumulative"):
         assert f"setHmMode('{mode}')" in html
+
+
+def test_dashboard_traffic_view_wired_to_the_seq_tail(tmp_path):
+    """TRAFFIC is a fourth view: the radar canvas, its button among the
+    views, and a poller that rides the since_seq cursor (never the whole
+    journal)."""
+    html = _client(tmp_path).get("/dashboard").text
+    assert 'data-v="traffic"' in html
+    assert '<canvas id="radar">' in html
+    assert "since_seq=" in html
+    assert "trafficStart" in html and "trafficStop" in html

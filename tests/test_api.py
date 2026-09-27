@@ -112,3 +112,19 @@ def test_activity_endpoint(tmp_path):
     assert days[0]["count"] == 1
     assert days[0]["anchors"] == 1
     assert set(days[0]) == {"day", "count", "anchors"}
+
+
+def test_events_since_seq_tail_mode(tmp_path):
+    """since_seq switches /api/v1/events to live-tail mode: strictly newer
+    events, oldest first, honoring limit; without it, pagination is
+    unchanged."""
+    client = _client(tmp_path)
+    for i in range(3):
+        client.post("/api/v1/events", json={"type": "llm_call", "payload": {"i": i}})
+
+    assert [e["seq"] for e in client.get("/api/v1/events?since_seq=1").json()] == [2, 3]
+    assert client.get("/api/v1/events?since_seq=3").json() == []
+    assert [e["seq"] for e in
+            client.get("/api/v1/events?since_seq=0&limit=2").json()] == [1, 2]
+    assert [e["seq"] for e in
+            client.get("/api/v1/events?offset=1&limit=2").json()] == [2, 3]
