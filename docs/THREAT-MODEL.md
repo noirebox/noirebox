@@ -1,4 +1,4 @@
-# Threat Model — NoireBox v0.3.0
+# Threat Model — NoireBox
 
 *Method: simplified STRIDE. The guiding principle is to document what the system does NOT cover as honestly as what it does cover — this is a proof tool, not a talisman.*
 
