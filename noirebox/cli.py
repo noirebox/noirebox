@@ -34,6 +34,12 @@ def main(argv: list[str] | None = None) -> int:
     pack.add_argument("outdir", help="directory to write the pack into")
     pack.add_argument("--db", default=None,
                       help="journal path (default: NOIREBOX_DB or data/noirebox.db)")
+    traj = sub.add_parser("seal-trajectory",
+                          help="seal a coding agent's model trajectory "
+                               "(model-io JSONL, ADR 012) — digests only")
+    traj.add_argument("file", help="path to the model-io-*.jsonl file")
+    traj.add_argument("--db", default=None,
+                      help="journal path (default: NOIREBOX_DB or data/noirebox.db)")
     args = parser.parse_args(argv)
 
     if args.command == "serve":
@@ -80,6 +86,32 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[✓] pack written to {args.outdir}/ — export.json, "
               f"verifier_report.json, ANNEXE-IV-2f.md")
         return 0 if report["valid"] else 1
+
+    if args.command == "seal-trajectory":
+        import os
+
+        from noirebox.chain import KeyPair, verify_chain
+        from noirebox.store import EventStore
+        from noirebox.trajectory import read_model_io, trajectory_payload
+
+        try:
+            summary = read_model_io(args.file)
+        except ValueError as exc:
+            print(f"[✗] {exc}")
+            return 1
+        db = args.db or os.environ.get("NOIREBOX_DB", "data/noirebox.db")
+        store = EventStore(db)
+        key = KeyPair.load_or_create(db + ".key")
+        event = store.append("model_trajectory", trajectory_payload(summary), key)
+        tail = " (truncated tail ignored)" if summary.truncated_tail else ""
+        print(f"[✓] {summary.record_count} model call(s) sealed{tail} — "
+              f"session {', '.join(summary.session_ids)}")
+        print(f"    trajectory_digest {summary.trajectory_digest}")
+        print(f"    event seq={event.seq} hash={event.event_hash}")
+        check = verify_chain(key.public_hex(), store.all())
+        print(f"[{'✓' if check['valid'] else '✗'}] chain valid over "
+              f"{check['nb_events']} events")
+        return 0 if check["valid"] else 1
 
     parser.print_help()
     return 0
