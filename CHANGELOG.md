@@ -39,6 +39,9 @@ versioning according to [Semantic Versioning](https://semver.org/).
   `slabbdev/noirebox` URL redirects; the PyPI package name is unchanged.
   Creator attribution added to both READMEs. NOTE for maintainers: update
   the PyPI trusted publisher to owner `noirebox` before the next release.
+  The `noirebox-verify` GitHub Action repository moved to the org too —
+  README examples now use `uses: noirebox/noirebox-verify@v1` and pin
+  `noirebox-ref: v0.6.0` (was v0.5.0).
 - **Threat model names the accuracy-at-source boundary**: new "Lying source"
   actor row (tamper-evidence ≠ accuracy-at-source — a lie sealed at write
   time verifies clean forever) and an "Outside v0 scope" entry; the partial

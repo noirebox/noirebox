@@ -381,10 +381,10 @@ vos builds sur l'intégrité du journal — le vérificateur existe en GitHub
 Action ([Marketplace](https://github.com/marketplace/actions/noirebox-verify)) :
 
 ```yaml
-- uses: slabbdev/noirebox-verify@v1
+- uses: noirebox/noirebox-verify@v1
   with:
     export-path: export.json
-    noirebox-ref: v0.5.0   # fige le ref du vérifieur — audits reproductibles
+    noirebox-ref: v0.6.0   # fige le ref du vérifieur — audits reproductibles
 ```
 
 ## Cas d'usage — n'importe quel agent qui « décide »
