@@ -47,7 +47,8 @@ def test_tool_use_seals_into_the_per_project_journal(tmp_path, monkeypatch):
     assert payload["input_preview"] == '{"command": "ls"}'
 
 
-def test_preview_is_truncated(tmp_path):
+def test_preview_is_truncated(tmp_path, monkeypatch):
+    monkeypatch.delenv("NOIREBOX_DB", raising=False)
     hook = _tool_hook(tmp_path, command="x" * 5000)
     hookcli.tool_use(hook)
     payload = _events(tmp_path)[0]["payload"]
@@ -65,7 +66,8 @@ def test_session_end_seals_the_transcript(tmp_path, monkeypatch):
     assert "internal question" not in json.dumps(payload)  # digests only
 
 
-def test_session_end_without_transcript_seals_nothing(tmp_path):
+def test_session_end_without_transcript_seals_nothing(tmp_path, monkeypatch):
+    monkeypatch.delenv("NOIREBOX_DB", raising=False)
     assert "nothing to seal" in hookcli.session_end({"cwd": str(tmp_path)})
     assert _events(tmp_path) == []  # no evidence manufactured
 
@@ -82,6 +84,7 @@ def test_run_is_best_effort_and_loud(tmp_path, monkeypatch, capsys):
 
 
 def test_global_disable(tmp_path, monkeypatch):
+    monkeypatch.delenv("NOIREBOX_DB", raising=False)
     monkeypatch.setenv("NOIREBOX_HOOK_DISABLE", "1")
     assert hookcli.run("tool-use", stdin=io.StringIO("{}")) == 0
     assert not (tmp_path / ".noirebox").exists()
