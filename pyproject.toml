@@ -45,6 +45,7 @@ dev = ["pytest>=8", "ruff>=0.4"]
 
 [project.scripts]
 noirebox = "noirebox.cli:main"
+noirebox-mcp = "noirebox.mcp_server:main"
 
 [project.urls]
 Homepage = "https://github.com/noirebox/noirebox"
