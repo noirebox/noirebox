@@ -6,8 +6,30 @@ versioning according to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
-- **The ZCode plugin seals the agent's own flight recorder** (plugin 0.7.0):
-  the existing `PostToolUse` hook now also seals ZCode's per-call
+- **Transcript-agnostic sealing + per-project journals (ADR 013)** — the
+  integration layer for coding agents. Log formats are sealed by SHAPE,
+  not by product: `model-io` (per-call), `session-transcript`
+  (per-message), `generic-jsonl` (fallback) all ride the same
+  `model_trajectory` event and digest chain, `origin` carries the shape,
+  metadata extraction is envelope-only and tolerant (absent fields are
+  omitted, schema drift degrades gracefully). Journal discovery:
+  `NOIREBOX_DB`, then the nearest ancestor `.noirebox/` directory, then
+  `./.noirebox/journal.db` created on demand (0700/0600) — one project =
+  one journal. Generic hook handlers (`noirebox hook tool-use |
+  session-end`): hook JSON on stdin, one event out, best-effort by
+  contract (never blocks the agent, failures loud on stderr, nothing
+  sealed from an unreadable payload). CLI completed for integrations:
+  `seal <type> <json>`, `verify` (in-place verdict, exit 0/1), `locate`,
+  `seal-trajectory --format auto`, and a `noirebox-mcp` entrypoint so any
+  MCP client runs the server straight from the install.
+- **Claude Code plugin** (`plugins/claude/`, 0.7.0): hooks `PostToolUse`
+  (tool actions) and `SessionEnd` (session transcript, digests only) over
+  the shared handlers, MCP server, `/noirebox-seal`, `/noirebox-verify`,
+  `/noirebox-attest` commands, the `noirebox-journal` skill, and a
+  marketplace manifest at the repository root. Integration = glue only:
+  the core stays single (see `docs/ROADMAP-PLUGINS.md`).
+- **The agent plugin seals the agent's own flight recorder** (plugin 0.7.0):
+  the existing `PostToolUse` hook now also seals the agent's per-call
   `model-io-*.jsonl` files into the journal (ADR 012, `noirebox seal-trajectory
   --rollout`) — digests only, progressive (`truncated_tail` on a live
   session, complete log on the next pass), deduped by content digest with
@@ -18,8 +40,8 @@ versioning according to [Semantic Versioning](https://semver.org/).
   inside the rollout dir (a planted symlink pulls nothing into the journal).
 - **Model-trajectory sealing** (`noirebox seal-trajectory <model-io.jsonl>`,
   ADR 012): the agent's own flight recorder becomes evidence. A coding
-  agent's per-call log (ZCode's `model-io-*.jsonl` — request, response, tool
-  calls, `querySource`) is sealed into the journal as digests only:
+  agent's per-call log (`model-io-*.jsonl` — request, response, tool calls,
+  `querySource`) is sealed into the journal as digests only:
   `file_sha256`, an order-committed digest chain over per-record digests
   (`trajectory_digest` — same calls in a different order is a different
   behavior, and the seal accuses on reorder), record count, session ids,
@@ -111,7 +133,7 @@ versioning according to [Semantic Versioning](https://semver.org/).
 - **Release alignment**: PyPI publish workflow (trusted publishing via OIDC —
   tags `v*` and manual dispatch; one-time setup on pypi.org, see the
   workflow header) and an `ots` extra (`opentimestamps-client`) so the
-  ADR 009 witness installs as `pip install noirebox[ots]`. ZCode plugin
+  ADR 009 witness installs as `pip install noirebox[ots]`. Agent plugin
   version aligned to 0.5.0 (portable `NOIREBOX_HOME` default still queued
   as the next plugin item).
 - **AI-Act event vocabulary + audit-pack (ADR 010)**: `noirebox/aiact.py` —

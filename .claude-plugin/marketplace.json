@@ -1,0 +1,21 @@
+{
+  "name": "noirebox",
+  "owner": {
+    "name": "noirebox"
+  },
+  "plugins": [
+    {
+      "name": "noirebox",
+      "source": "./plugins/claude/noirebox",
+      "description": "Tamper-evident journal for agent decisions and session transcripts: hash chain, Ed25519 signatures, RFC 3161 / OpenTimestamps anchoring, third-party-verifiable attestations.",
+      "category": "security",
+      "keywords": [
+        "audit",
+        "evidence",
+        "compliance",
+        "ai-act",
+        "gdpr"
+      ]
+    }
+  ]
+}
