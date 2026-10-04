@@ -444,7 +444,8 @@
             "enum": [
               "regex",
               "ml",
-              "llm"
+              "llm",
+              "tiered"
             ],
             "title": "Engine",
             "default": "regex"

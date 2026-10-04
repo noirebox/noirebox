@@ -209,6 +209,7 @@ l'opérateur, documentée comme telle. Le mapping réglementaire complet :
 |---|---|---|---|---|
 | `regex` | ~0 | FR+EN | cas évidents, coût zéro | aucune |
 | `ml` | 243–293 Ko | **fr** & **en** (paramètre `lang`) | paraphrases que le regex rate, local | scikit-learn |
+| `llm` | modèle ~2 Go | FR+EN | juge tier-2 pour les cas douteux — verdicts binaires + raison, local | Ollama + `qwen2.5-coder:3b` ([ADR 015](docs/ADRs.md)) |
 
 **Décision d'architecture — [ADR 002](docs/ADRs.md)** : Llama Prompt Guard 2
 de Meta (le classifieur de l'industrie, ~90 Mo) a été évalué puis **écarté en
@@ -325,6 +326,9 @@ noirebox/            ← package (≈ namespace PSR-4)
 ├── mcp_server.py    serveur d'outils MCP (JSON-RPC stdio)
 ├── guardrail.py     PLUGIN : 4 catégories d'attaques FR/EN par regex
 ├── ml_guardrail.py  PLUGIN : micro-modèles entraînés (fr + en, ~250 Ko)
+├── llm_judge.py     PLUGIN : juge tier-2 — LLM local, taxonomie maison (ADR 015)
+├── tiering.py       PLUGIN : scan par étages — regex → ML → juge sur doute (ADR 016)
+├── fleet.py         HUB v0 : fleet-anchor / fleet-verify sur merkle.py (ADR 017)
 └── llm_agent.py     DÉMO PLUGIN : vrai agent Ollama derrière le pipeline gardé
 ```
 
@@ -363,7 +367,7 @@ exemples au dataset, puis `make train`. Architecture par étages :
 
 ## Tests
 
-189 tests : cryptographie (falsification, réordonnancement, mauvaise clé),
+204 tests : cryptographie (falsification, réordonnancement, mauvaise clé),
 garde-fou regex et **ML sur phrases inédites en FR et EN**, le pipeline
 gardé avec un LLM factice (sans Ollama, tourne en CI), agent API,
 serveur MCP, SDK client contre un **vrai serveur uvicorn** (port éphémère),
@@ -416,7 +420,7 @@ domaine = ajouter des exemples au dataset et relancer `make train`.
       `noirebox reconcile --fail-on-findings`, schéma issu de
       l'[issue #3](https://github.com/noirebox/noirebox/issues/3) (demande communauté),
       sketch du pattern dans [`demo/demo_payout.py`](demo/demo_payout.py)
-- [ ] Hub de flotte : agrégation programmée de N instances (console, alerting)
+- [ ] Console hub de flotte : agrégation programmée, alerting — les primitives v0 de sceau/vérification existent ([ADR 017](docs/ADRs.md))
 - [x] **Ancrage multi-témoins + racines épinglées côté auditeur** — `NOIREBOX_TSA_PROFILES`, allowlist d'egress, `verifier/tsa_roots/` ([ADR 008](docs/ADRs.md))
 - [x] **Témoin OpenTimestamps** — un reçu ancré dans Bitcoin dans le même événement `anchor` ([ADR 009](docs/ADRs.md))
 - [x] **Vocabulaire AI Act + audit-pack** — builders art. 12(3), `noirebox audit-pack` ([ADR 010](docs/ADRs.md))

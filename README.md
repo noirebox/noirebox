@@ -200,7 +200,7 @@ Full regulatory mapping: [docs/COMPLIANCE-EU.md](docs/COMPLIANCE-EU.md).
 |---|---|---|---|---|
 | `regex` | ~0 | FR+EN | obvious cases, zero cost | none |
 | `ml` | 243–293 KB | **fr** & **en** (`lang` param) | paraphrases the regex misses, local | scikit-learn |
-| `llm` | ~1 GB model | FR+EN | tier-2 judge for doubtful lines — binary verdicts + reason, local | Ollama + `llama-guard3:1b` ([ADR 015](docs/ADRs.md)) |
+| `llm` | ~2 GB model | FR+EN | tier-2 judge for doubtful lines — binary verdicts + reason, local | Ollama + `qwen2.5-coder:3b` ([ADR 015](docs/ADRs.md)) |
 
 **Architecture decision — [ADR 002](docs/ADRs.md)**: we evaluated Meta's
 Llama Prompt Guard 2 (the industry classifier, ~90 MB) and **rejected it
@@ -320,7 +320,9 @@ noirebox/            ← package (≈ PSR-4 namespace)
 ├── mcp_server.py    MCP tools server (stdio JSON-RPC)
 ├── guardrail.py     PLUGIN: 4 FR/EN attack categories caught by regex
 ├── ml_guardrail.py  PLUGIN: trained micro-models (fr + en, ~250 KB each)
-├── llm_judge.py     PLUGIN: tier-2 judge — local llama-guard3:1b (ADR 015)
+├── llm_judge.py     PLUGIN: tier-2 judge — local LLM, house taxonomy (ADR 015)
+├── tiering.py       PLUGIN: tiered scan — regex → ML → judge on doubt (ADR 016)
+├── fleet.py         HUB v0: fleet-anchor / fleet-verify over merkle.py (ADR 017)
 └── llm_agent.py     PLUGIN DEMO: real Ollama agent behind the guarded pipeline
 ```
 
@@ -358,7 +360,7 @@ examples, then `make train`.
 
 ## Tests
 
-189 tests: cryptography (tampering, reordering, wrong key), regex and **ML
+204 tests: cryptography (tampering, reordering, wrong key), regex and **ML
 guardrails on held-out sentences in FR and EN**, the guarded pipeline with a
 stub LLM (no Ollama needed, runs in CI), API agent, MCP server, SDK
 client against a **real uvicorn server** (ephemeral port), real LLM agent
@@ -398,7 +400,7 @@ the integrity of the journal — the verifier ships as a GitHub Action
       `noirebox reconcile --fail-on-findings`, schema from
       [issue #3](https://github.com/noirebox/noirebox/issues/3) (community
       request), pattern sketch in [`demo/demo_payout.py`](demo/demo_payout.py)
-- [ ] Fleet hub: scheduled aggregation of many instances (console, alerting)
+- [ ] Fleet hub console: scheduled aggregation, alerting — the v0 seal/verify primitives shipped ([ADR 017](docs/ADRs.md))
 - [x] **Multi-witness anchoring + auditor-pinned roots** — `NOIREBOX_TSA_PROFILES`, egress allowlist, `verifier/tsa_roots/` ([ADR 008](docs/ADRs.md))
 - [x] **OpenTimestamps witness** — a Bitcoin-anchored receipt rides in the same anchor event ([ADR 009](docs/ADRs.md))
 - [x] **AI-Act vocabulary + audit-pack** — art. 12(3) builders, `noirebox audit-pack` ([ADR 010](docs/ADRs.md))

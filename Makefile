@@ -28,7 +28,7 @@ demo-judge:
 	.venv/bin/python demo/demo_judge.py
 
 judge-pull:
-	ollama pull llama-guard3:1b
+	ollama pull qwen2.5-coder:3b
 
 demo-fleet:
 	.venv/bin/python demo/demo_fleet.py
