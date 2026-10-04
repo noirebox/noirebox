@@ -1,7 +1,7 @@
 FROM python:3.12-slim
 # Lie le package GHCR au repo : sans ce label, GitHub le crée sous le compte
 # sans le rattacher (page pkgs/ du repo en 404).
-LABEL org.opencontainers.image.source=https://github.com/slabbdev/noirebox
+LABEL org.opencontainers.image.source=https://github.com/noirebox/noirebox
 WORKDIR /srv
 COPY requirements.txt .
 # pip d'abord : l'emb pip 25.0.1 de la base traîne des CVE fixables —

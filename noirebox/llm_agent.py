@@ -33,7 +33,7 @@ class GuardedResult:
 def ollama_available(base_url: str = DEFAULT_OLLAMA_URL) -> bool:
     """Is the local Ollama server responding? (detected, never assumed)"""
     try:
-        httpx.get(f"{base_url}/api/tags", timeout=2)
+        httpx.get(f"{base_url}/api/tags", timeout=2).raise_for_status()
         return True
     except httpx.HTTPError:
         return False

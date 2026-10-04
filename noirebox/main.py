@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 
+from fastapi.responses import JSONResponse
 from fastapi import Depends, FastAPI, HTTPException, Query, Response
 from fastapi.responses import HTMLResponse
 
@@ -160,10 +161,9 @@ def create_app(db_path: str | None = None) -> FastAPI:
 
             content = attestation_pdf(store, key)
         except RuntimeError as exc:
-            return Response(
-                content=f'{{"error": "{exc}"}}',
+            return JSONResponse(
+                content={"error": str(exc)},
                 status_code=501,
-                media_type="application/json",
             )
         return Response(
             content=content,
