@@ -5,6 +5,28 @@ versioning according to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **The tiered scan (ADR 016)** — `engine: "tiered"`: the full ADR 001 pipeline,
+  regex → ML → judge, where the judge pays only for doubt. Lines the cheap
+  engines leave unflagged while the ML scored them in the doubt band
+  `[0.20, 0.50)` are arbitrated by the local judge; a regex-covered line is
+  never double-counted; if the judge is unavailable the sealed payload
+  records `judge_skipped: n` — how much doubt went unanswered. The tiering
+  split travels in the incident payload as evidence.
+- **The fleet hub, v0 (ADR 017)** — `noirebox fleet-anchor journal1 journal2 …`
+  seals ONE Merkle root over N journals' heads through the configured TSA
+  profiles (the CT shape of ADR 008, now product instead of demo);
+  `noirebox fleet-verify journal` recomputes a member's inclusion proof
+  locally — a regenerated journal is a head the seal never committed to.
+  Refuses to seal without a witness unless `--allow-local` says
+  `witness: "local"` in the payload.
+- **The tier-2 LLM judge retargeted by real-model evaluation (ADR 015
+  amendment)** — llama-guard3:1b was evaluated on the FR attack corpus and
+  rejected (does not follow custom policies, 3 of 4 attacks scored "safe");
+  the default judge is `qwen2.5-coder:3b` with the few-shot house-taxonomy
+  JSON prompt: 4/4 detections, correct categories, zero false positives on
+  that evaluation. `make judge-pull` pulls the validated model.
+
 ## [0.8.0] - 2026-10-04
 
 ### Added

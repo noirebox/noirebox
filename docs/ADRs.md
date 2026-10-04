@@ -269,3 +269,53 @@ closes (`locate.resolve_existing_journal`).
 5. **Surface**: `engine: "llm"` on the scan route + SDK (the MCP tool keeps the regex engine in v1 — its surface stays minimal, the API carries the engines). Sealed incident payloads carry `engine: "llm"`, so the journal distinguishes which judge sealed what.
 
 **Consequences**: the guardrail now has all three ADR 001 stages; deployers choose per scan whether to pay for the judge (explicit engine choice, no silent escalation in v1 — auto-tiering "regex → ML → judge on ambiguous scores" is documented as the next composition step, ADR 003-style). The real-judge tests are skip-gated like every Ollama path; the stub suite carries CI without the model. The judge inherits the honest limits: it is probabilistic, its false negatives are non-zero, and it is a PLUGIN — delete `llm_judge.py` and the core still runs.
+
+---
+
+**Amendment (2026-10-04, real-model evaluation)**: the proposed default judge was
+evaluated on the FR attack corpus and REJECTED — the lesson of ADR 002 repeating itself,
+this time caught by the skip-gated real-model tests this ADR introduced.
+llama-guard3:1b does not follow a custom policy (prompted with the house taxonomy, it
+answers in its native S-category format) and does not classify transcript injection as
+unsafe: 3 of the 4 corpus attacks scored "safe". A general instruction-following model
+with the house-taxonomy few-shot JSON prompt is the judge instead — default
+`qwen2.5-coder:3b` (`NOIREBOX_JUDGE_MODEL`): 4/4 detections, correct categories, zero
+false positives on the clean line in that evaluation. Two honest footnotes: the 0.5B
+class followed the JSON format but flagged everything (format compliance is not
+judgment); in full-transcript mode the 3B is conservative (it names the clearest
+override, not all four planted attacks) — its sweet spot is arbitrating the doubt band,
+which is exactly the tiered scan's shape. ADR 002's rule generalizes: evaluate the judge
+on the real corpus before defaulting, not after.
+
+
+---
+
+## ADR 016 — The tiered scan: the judge pays only for doubt
+
+**Status**: implemented (v0.8.x) — `noirebox/tiering.py`, `engine: "tiered"` on the scan route, stub-tested (the judge itself is real-tested in `tests/test_llm_judge.py`).
+
+**Context**: ADR 001 described the guardrail as stages "cheapest to most expensive, the LLM judge only for ambiguous scores" — but the shipped engines were all-or-nothing per call: `engine=regex|ml|llm` each scan the whole text. Auto-escalation was the missing composition, and the one that makes a local 3B judge economically sensible: it should see the handful of lines the cheap engines could not decide, not every transcript.
+
+**Decision**:
+1. **Stage 1** — the regex scans the whole text (free, deterministic). **Stage 2** — the ML model scores every line with its documented 0.5 threshold. **Stage 3** — ONLY the lines both stages left unflagged while the ML did not call confidently clean — the doubt band `[0.20, 0.50)` — are arbitrated by the LLM judge (ADR 015). A line the ML confidently calls clean is NOT judged: `engine="llm"` is the choice for full-coverage judgment, `engine="tiered"` is the choice for automatic escalation.
+2. **Stage 1 beats stage 2 on the same line**: an ML detection whose span a regex incident already covers is dropped — one attack, one incident, the deterministic engine names it.
+3. **Degradation is visible, never silent**: if doubtful lines exist but the judge is unavailable, stages 1–2 stand and the count of unarbitrated lines travels in the sealed payload (`tiering: {judge_skipped: n}`) — the journal records exactly how much doubt went unanswered.
+4. **The meta is part of the evidence**: the incident payload carries the tiering split (`regex / ml / judge / doubtful / judge_skipped`) — an auditor sees not only what was caught but which stage caught it and how much doubt there was.
+
+**Consequences**: the full ADR 001 pipeline exists end to end, and its cost profile is the promised one — regex runs always, the ML always (milliseconds), the judge only when the cheap engines disagree with themselves. The doubt band `[0.20, 0.50)` is a product constant, not a hidden threshold; moving it is a deployment conversation.
+
+---
+
+## ADR 017 — The fleet hub, v0: one seal covers N journals, wired into the product
+
+**Status**: implemented (v0.8.x) — `noirebox/fleet.py`, CLI `noirebox fleet-anchor` / `noirebox fleet-verify`.
+
+**Context**: the Merkle layer (ADR 008) existed as a library and a demo only: the Certificate-Transparency shape was documented but nothing in the product built or checked a fleet seal. The hub was the oldest open roadmap item after the judge.
+
+**Decision**:
+1. **`noirebox fleet-anchor journal1 journal2 … [--db hub.db]`** collects each journal's 32-byte head, builds the canonical Merkle tree (merkle.py — sorted leaves, ~log2(N) proofs), gets ONE witness token over the root through the same TSA profile machinery as single-journal anchors (ADR 006/008), and seals a `fleet_anchor` event in the hub's own journal — the hub is itself a NoireBox, so even it cannot rewrite which heads took part.
+2. **`noirebox fleet-verify journal --db hub.db`** recomputes the member's inclusion branch locally and confronts it with the sealed root. No hub contacted, no TSA called back — the arithmetic decides. A journal whose history was regenerated produces a head the seal never committed to: not covered, exit 1.
+3. **Witness semantics are honest by mode**: without a configured TSA the seal refuses by default; `--allow-local` seals with `witness: "local"` in the payload — the proofs still verify, but no external date attests the root, and the payload says so.
+4. **Honest limits**: empty journals are skipped loudly (a GENESIS head proves nothing); duplicate member names are refused (proofs are indexed by journal name); the third-party verifier does not yet check `fleet_anchor` tokens inside a full export — fleet verification goes through `fleet-verify` until the verifier learns the event type.
+
+**Consequences**: the fleet story is now product, not poetry: N boxes, one seal, per-member proofs, local detection of rewritten members. What stays open is the scheduled hub (console, alerting, automatic re-anchoring of a growing fleet) — the operational layer around a primitive that now exists.

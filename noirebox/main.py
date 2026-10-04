@@ -136,6 +136,11 @@ def create_app(db_path: str | None = None) -> FastAPI:
                                     detail=f"ML model {body.lang} missing — run `make train`")
             incidents = scan_ml(body.text, lang=body.lang)
             engine = "ml"
+        elif body.engine == "tiered":
+            from .tiering import scan_tiered
+
+            incidents, tiering_meta = scan_tiered(body.text, lang=body.lang)
+            engine = "tiered"
         elif body.engine == "llm":
             from .llm_judge import judge_available, judge_model, scan_llm
 
@@ -157,16 +162,20 @@ def create_app(db_path: str | None = None) -> FastAPI:
         event = store.append(
             "incident",
             {"meeting_id": body.meeting_id, "engine": engine,
-             "nb_incidents": len(incidents), "incidents": incidents},
+             "nb_incidents": len(incidents), "incidents": incidents,
+             **({"tiering": tiering_meta} if engine == "tiered" else {})},
             key,
         )
-        return {
+        response = {
             "incident_event_seq": event.seq,
             "meeting_id": body.meeting_id,
             "engine": engine,
             "nb_incidents": len(incidents),
             "incidents": incidents,
         }
+        if engine == "tiered":
+            response["tiering"] = tiering_meta
+        return response
 
     @app.get("/api/v1/attestation")
     def attestation(client_id: str = Depends(require_metadata_auth)) -> dict:
