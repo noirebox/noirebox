@@ -5,6 +5,17 @@ versioning according to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-04
+
+### Removed
+- **The per-editor integration plugin and its strict single-format reader are
+  removed** — the generic transcript machinery (ADR 013, formats named by
+  SHAPE) covers every log the strict reader sealed: same event type, same
+  digest chain, same corruption policy. `seal-trajectory` and the rollout
+  scanner now ride the generic reader. Integrations stay glue over the
+  CLI/MCP/handlers; editor-specific surfaces belong to distribution, not to
+  the core. This release is built from an editor-agnostic history.
+
 ## [0.9.0] - 2026-10-04
 
 ### Added
@@ -396,7 +407,8 @@ versioning according to [Semantic Versioning](https://semver.org/).
 - ADR 002: Llama Prompt Guard 2 (Meta) evaluated and rejected (language, binary output,
   gated licensing, dependencies)
 
-[Unreleased]: https://github.com/noirebox/noirebox/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/noirebox/noirebox/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/noirebox/noirebox/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/noirebox/noirebox/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/noirebox/noirebox/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/noirebox/noirebox/compare/v0.6.0...v0.7.0

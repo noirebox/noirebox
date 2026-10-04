@@ -3,7 +3,7 @@
   "info": {
     "title": "NoireBox",
     "description": "\nFlight data recorder for AI agents: **tamper-proof journal** (SHA-256 chain + Ed25519),\n**guardrail** on transcripts, **exportable attestation** verifiable by a third party.\n\nAuth (optional, enabled with `NOIREBOX_CLIENTS=id:secret,...`):\n`POST /api/v1/token` → 1 h JWT → `Authorization: Bearer ...`. Rate limit 60 req/min/client.\n",
-    "version": "0.9.0"
+    "version": "0.10.0"
   },
   "paths": {
     "/health": {
@@ -477,7 +477,8 @@
             "type": "string",
             "enum": [
               "fr",
-              "en"
+              "en",
+              "es"
             ],
             "title": "Lang",
             "description": "consumed by the ml, llm and tiered engines; the regex patterns are bilingual and deliberately ignore it",
