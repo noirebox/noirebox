@@ -520,12 +520,19 @@ main poussée (`9a30eb4`), tag `v0.7.0` posé. Résultats : **PyPI `noirebox 0.7
 embarqués), Docker GHCR `v0.7.0` + `latest`, CI verte (re-entraînement + 173 tests),
 Bandit vert, Pages redéployée avec les chiffres re-syncés.
 
+**Passe de consolidation 2026-10-04 (après-midi) — P1-9 + lot P2 exécutés :**
+verrou `NOIREBOX_METADATA_AUTH` avec contrat documenté par classe de routes (ADR 004
+raffiné) ; pagination SQL (`store.page`) ; digest chain + politique de corruption
+dédupliquées dans `noirebox/digests.py` ; claims de sécurité honnêtes (fenêtre rebinding
+« rétrécie », pas « fermée », ADR 008 raffiné) ; verifier incapable d'afficher un INTACT
+silencieux sans token vérifié (`anchors_in_journal` vs `anchors_checked` + warning
+UNPROVEN) ; CI en matrix 3.11/3.12 avec coverage informationnel ; smoke test de l'image
+Docker publiée. Validation : **pytest 175 passed / 2 skipped, ruff, Bandit clean** ;
+poussé (`d634d92`), CHANGELOG `[Unreleased]` alimenté pour la prochaine 0.8.0.
+
 **Reste ouvert (dans l'ordre) :**
-1. P1-9 : documenter ou protéger les endpoints de métadonnées ouverts (verify/activity/attestation.pdf).
-2. P1-9 : documenter ou protéger les endpoints de métadonnées ouverts (verify/activity/attestation.pdf).
-3. P2 restants : dédupliquer trajectory.py/transcripts.py, épinglage DNS anti-rebinding,
-   verifier fail-open (statut distinct pour tokens non vérifiés), coverage + matrix Python,
-   merkle.py à câbler dans le produit (hub), regex guardrail `lang`.
-4. Roadmap produit : juge LLM (ADR 001 tier 2), hub de flotte, extension VSCode (P2),
-   Prometheus/Grafana, HSM/KMS.
-5. Lancement : confirmer/réaliser Show HN + daily.dev, post-mortem à tracer.
+1. P2 restants : câbler merkle.py dans le produit (hub de flotte), regex guardrail
+   `lang`, épinglage transport des IPs résolues (le fix complet du rebinding).
+2. Roadmap produit : juge LLM (ADR 001 tier 2), extension VSCode, Prometheus/Grafana,
+   HSM/KMS.
+3. Lancement : confirmer/réaliser Show HN + daily.dev, post-mortem à tracer.
