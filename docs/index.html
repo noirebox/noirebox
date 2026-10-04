@@ -300,7 +300,7 @@ $ python verifier/verifier.py export.json
     <details class="faq"><summary>How is it different from Langfuse or Helicone?</summary><p>Those help developers debug what happened — the logs stay modifiable. NoireBox produces a dossier a third party verifies offline. Debug ≠ proof.</p></details>
     <details class="faq"><summary>Do I have to use the bundled guardrail?</summary><p>No — it's one event source among others. Keep Lakera, Llama Guard or your own LLM-judge and journal their verdicts with a single POST. The bundled detector is a working example of the plugin contract.</p></details>
     <details class="faq"><summary>Do I need a paid timestamp authority?</summary><p>No — <code>make tsa</code> runs a local OpenSSL witness with its own key chain: free, offline, sovereign. Pointing at any public or qualified TSA is one environment variable.</p></details>
-    <details class="faq"><summary>What does it cost?</summary><p>Core: MIT, $0 forever, verification included. Cloud: from €49/mo when it ships. Enterprise: custom — HSM custody, qualified timestamps, SLA.</p></details>
+    <details class="faq"><summary>What does it cost?</summary><p>Core: MIT, $0 forever, verification included. No cloud tier — self-hosted is the product.</p></details>
   </div>
 </section>
 
@@ -311,15 +311,13 @@ $ python verifier/verifier.py export.json
     <h2>Core is MIT.<br><span class="grad">Forever.</span></h2>
     <p class="lede">
       Journal, guardrail plugin, verifier — free and open, including verification.
-      A managed, EU-hosted offering is being shaped for teams who want the proof without running it.
+      Everything runs on your infrastructure; the proof never needed a middleman.
     </p>
-    <p class="note">Early access opens soon — <a href="https://github.com/noirebox/noirebox">star the repo</a> to get notified.</p>
     <div class="tiers">
       <div class="tier"><h4>Core</h4><span>$0 · MIT forever</span><p>Self-hosted. Unlimited events. Journal, plugin, verifier.</p></div>
-      <div class="tier hot"><h4>Cloud</h4><span>from €49/mo</span><p>Managed EU journal + guardrail + DPO-ready exports.</p></div>
-      <div class="tier"><h4>Enterprise</h4><span>custom</span><p>SLA, SSO, HSM key custody, qualified timestamps, compliance support.</p></div>
+      <div class="tier"><h4>Verification</h4><span>$0 · forever</span><p>The standalone verifier, pinned TSA roots and the GitHub Action — free for your auditors, clients and DPO.</p></div>
     </div>
-    <p class="note">Early stage — pricing indicative, shaped with early-access partners.</p>
+    <p class="note">No cloud tier, no upsell — if NoireBox ever stops being self-hostable, it stops being trustworthy.</p>
   </div>
 </section>
 
