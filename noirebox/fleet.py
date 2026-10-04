@@ -123,3 +123,16 @@ def fleet_verify(journal_path: str, hub_store: EventStore) -> dict:
     return {"covered": False, "inclusion_ok": False, "head": head, "root": root,
             "warning": "current head is not covered by the latest fleet seal "
                        "(journal moved past it, or history was rewritten)"}
+
+
+def fleet_status(hub_store: EventStore, member_paths: list[str]) -> dict:
+    """The alerting primitive (ADR 017): every member checked against the
+    hub's latest fleet seal. `ok` is False the moment one member is not
+    covered or fails inclusion — cron-friendly: exit 0 keeps watch, exit 1
+    raises the alarm."""
+    members = []
+    for path in member_paths:
+        result = fleet_verify(path, hub_store)
+        members.append({"journal": Path(path).name, "path": str(path), **result})
+    return {"ok": all(m["covered"] and m["inclusion_ok"] for m in members),
+            "members": members}

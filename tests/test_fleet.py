@@ -124,3 +124,27 @@ def test_tsa_profiles_put_a_token_on_the_root(tmp_path, monkeypatch):
     payload = hub.all()[-1]["payload"]
     assert payload["tokens"][0]["tsa"] == "freetsa"  # the root is externally witnessed
     assert "witness" not in payload
+
+
+def test_fleet_status_is_the_cron_alert(tmp_path, monkeypatch, capsys):
+    """The alerting primitive: all-covered exits 0, one rewritten member
+    exits 1 — and --json gives the alarm a machine-readable body."""
+    from noirebox.cli import main as cli_main
+
+    hub_store, hub_key = _hub(tmp_path)
+    a = _member(tmp_path, "a.db")
+    b = _member(tmp_path, "b.db")
+    monkeypatch.setenv("NOIREBOX_DB", str(tmp_path / "hub.db"))
+    assert cli_main(["fleet-anchor", a, b, "--allow-local"]) == 0
+    capsys.readouterr()  # discard the anchor's human line
+
+    assert cli_main(["fleet-status", a, b, "--json"]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["ok"] is True and len(report["members"]) == 2
+
+    # a member moves past the seal (normal, honest growth) → the alarm rings
+    EventStore(a).append("test", {"i": "new"}, KeyPair.generate())
+    assert cli_main(["fleet-status", a, b, "--json"]) == 1
+    report = json.loads(capsys.readouterr().out)
+    assert report["ok"] is False
+    assert report["members"][0]["covered"] is False

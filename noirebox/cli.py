@@ -75,6 +75,15 @@ def main(argv: list[str] | None = None) -> int:
     flv.add_argument("journal", help="the member journal to check")
     flv.add_argument("--db", default=None,
                      help="the HUB journal holding the fleet_anchor (same defaults)")
+    fls = sub.add_parser("fleet-status",
+                         help="fleet hub v0 (ADR 017): check every member "
+                              "against the hub's latest fleet seal — cron/CI "
+                              "friendly (exit 0 all covered, exit 1 alarm)")
+    fls.add_argument("members", nargs="+", help="member journal paths to check")
+    fls.add_argument("--db", default=None,
+                     help="the HUB journal holding the fleet_anchor (same defaults)")
+    fls.add_argument("--json", action="store_true",
+                     help="machine-readable report on stdout (for alerting)")
     seal = sub.add_parser("seal",
                           help="seal one free-form event into the journal "
                                "(digests and short facts, never raw content)")
@@ -227,6 +236,27 @@ def main(argv: list[str] | None = None) -> int:
             print(f"    head: {result['head'][:16]}…  sealed root: "
                   f"{(result.get('root') or '—')[:16]}…")
         return 1
+
+    if args.command == "fleet-status":
+        import json as _json
+
+        from noirebox import locate
+        from noirebox.fleet import fleet_status
+        from noirebox.store import EventStore
+
+        hub = args.db or locate.resolve_existing_journal()
+        report = fleet_status(EventStore(hub), args.members)
+        if args.json:
+            print(_json.dumps(report, ensure_ascii=False, indent=2))
+        else:
+            for m in report["members"]:
+                state = ("COVERED" if m["covered"] and m["inclusion_ok"]
+                         else "NOT COVERED")
+                extra = f" — {m['warning']}" if m.get("warning") else ""
+                print(f"  [{state}] {m['journal']}{extra}")
+            print(f"[{'✓' if report['ok'] else '✗'}] fleet status over "
+                  f"{len(report['members'])} member(s) — hub {hub}")
+        return 0 if report["ok"] else 1
 
     if args.command == "hook":
         import sys
