@@ -23,7 +23,7 @@ def main(argv: list[str] | None = None) -> int:
                          help="reconciliation plugin — invariants over the journal (issue #3)")
     rec.add_argument("--config", required=True, help="JSON file with the invariants")
     rec.add_argument("--db", default=None,
-                     help="journal path (default: NOIREBOX_DB or data/noirebox.db)")
+                     help="journal path (default: NOIREBOX_DB, nearest .noirebox/, data/noirebox.db)")
     rec.add_argument("--journal-report", action="store_true",
                      help="seal the report as a reconciliation event")
     rec.add_argument("--fail-on-findings", action="store_true",
@@ -33,7 +33,7 @@ def main(argv: list[str] | None = None) -> int:
                                "Annexe IV §2(f) description (ADR 010)")
     pack.add_argument("outdir", help="directory to write the pack into")
     pack.add_argument("--db", default=None,
-                      help="journal path (default: NOIREBOX_DB or data/noirebox.db)")
+                      help="journal path (default: NOIREBOX_DB, nearest .noirebox/, data/noirebox.db)")
     traj = sub.add_parser("seal-trajectory",
                           help="seal a coding agent's model trajectory "
                                "(model-io JSONL, ADR 012) — digests only")
@@ -51,7 +51,7 @@ def main(argv: list[str] | None = None) -> int:
                            "session-transcript / generic-jsonl (ADR 013), "
                            "auto = sniff by shape")
     traj.add_argument("--db", default=None,
-                      help="journal path (default: NOIREBOX_DB or data/noirebox.db)")
+                      help="journal path (default: NOIREBOX_DB, nearest .noirebox/, data/noirebox.db)")
     hook = sub.add_parser("hook",
                           help="integration hook: seal one agent event from "
                                "hook JSON on stdin (best-effort, ADR 013)")
@@ -82,13 +82,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "reconcile":
-        import os
-
+        from noirebox import locate
         from noirebox.chain import KeyPair
         from noirebox.reconcile import journal_report, load_config, reconcile
         from noirebox.store import EventStore
 
-        db = args.db or os.environ.get("NOIREBOX_DB", "data/noirebox.db")
+        db = args.db or locate.resolve_existing_journal()
         store = EventStore(db)
         key = KeyPair.load_or_create(db + ".key")
         invariants = load_config(args.config)
@@ -102,13 +101,12 @@ def main(argv: list[str] | None = None) -> int:
         return 2 if args.fail_on_findings and findings else 0
 
     if args.command == "audit-pack":
-        import os
-
+        from noirebox import locate
         from noirebox.aiact import audit_pack
         from noirebox.chain import KeyPair
         from noirebox.store import EventStore
 
-        db = args.db or os.environ.get("NOIREBOX_DB", "data/noirebox.db")
+        db = args.db or locate.resolve_existing_journal()
         store = EventStore(db)
         key = KeyPair.load_or_create(db + ".key")
         report = audit_pack(store, key, args.outdir)
@@ -121,14 +119,14 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if report["valid"] else 1
 
     if args.command == "seal-trajectory":
-        import os
         import sys
 
+        from noirebox import locate
         from noirebox.chain import KeyPair, verify_chain
         from noirebox.store import EventStore
         from noirebox.trajectory import read_model_io, trajectory_payload
 
-        db = args.db or os.environ.get("NOIREBOX_DB", "data/noirebox.db")
+        db = args.db or locate.resolve_existing_journal()
 
         if args.rollout:
             from noirebox.trajseal import seal_rollout

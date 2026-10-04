@@ -48,3 +48,24 @@ def ensure_journal_dir(start_dir: str | Path | None = None) -> str:
     if not directory.exists():
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
     return db
+
+
+def resolve_existing_journal(start_dir: str | Path | None = None) -> str:
+    """Resolution for the analysis commands (reconcile, audit-pack,
+    seal-trajectory): they operate on a journal you already have, so they
+    must never silently create a fresh one in the wrong place.
+
+    Priority: NOIREBOX_DB > nearest ancestor `.noirebox/` > the classic
+    repository layout `data/noirebox.db` (the server's deployment default,
+    unchanged). Without this, `seal` (per-project discovery) and
+    `audit-pack` (cwd-relative default) could target two different journals
+    from the same directory — two custodies, one pretending to be the other.
+    """
+    env = os.environ.get("NOIREBOX_DB")
+    if env:
+        return env
+    start = Path(start_dir or os.getcwd()).expanduser().resolve()
+    for candidate in (start, *start.parents):
+        if (candidate / JOURNAL_DIR).is_dir():
+            return str(candidate / JOURNAL_DIR / JOURNAL_FILENAME)
+    return str(start / "data" / "noirebox.db")

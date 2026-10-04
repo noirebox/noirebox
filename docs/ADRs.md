@@ -208,6 +208,13 @@ def scan_<engine>(text: str, min_confidence: float = 0.5) -> list[dict]:
 4. **The CLI completes the integration surface**: `seal <type> <json>` (one free-form event), `verify` (in-place chain verdict, exit 0/1), `locate` (print the resolved journal). Hooks, MCP server and CLI write the same journal with the same key.
 5. **Integrations are glue, the core stays single**: the first plugin (Claude Code) is manifest + hook JSON + command docs over these shared handlers. Every other agent with a hook system or MCP support reuses the same handlers (see `docs/ROADMAP-PLUGINS.md`).
 
+**Refinement (2026-10-04)**: the analysis commands (`reconcile`, `audit-pack`,
+`seal-trajectory`) follow the same discovery — `NOIREBOX_DB`, then the nearest ancestor
+`.noirebox/` — with one extra final fallback to the classic repository layout
+`data/noirebox.db`, and they never create a per-project journal on demand. They operate on
+a journal that already exists; `seal` (which creates on demand) and `audit-pack` (which must
+not) resolving two different journals from one directory was the exact split-brain this
+closes (`locate.resolve_existing_journal`).
 **Consequences**: adding an app costs a manifest and two hook lines, not a fork; formats named by shape avoid turning one vendor's log format into convention debt. The honest limit stays visible: agents that expose neither hooks, MCP, nor a per-call log cannot be flight-recorded — for those, NoireBox is the on-demand custody layer (seal/verify/attest via MCP), and we do not claim otherwise.
 
 ---
