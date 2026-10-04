@@ -87,7 +87,7 @@ The output shape is shared by all engines:
 
 - `regex` engine: FR/EN patterns compiled at load time, score = fixed severity.
 - `ml` engine: TF-IDF classifier (1–2 word grams + 3–5 char grams) + multinomial logistic regression, trained on 5,400 FR examples (20% de-accented), confidence threshold 0.5, granularity = line.
-- `llm` engine (ADR 015, amended): local judge (default `qwen2.5-coder:3b` via Ollama, `NOIREBOX_JUDGE_MODEL`) — llama-guard3:1b was evaluated and rejected (does not follow custom policies, misses transcript injection); the judge is prompted with the house taxonomy + few-shot examples, house taxonomy, JSON-pinned prompt, temperature 0, granularity = line. Binary verdicts: score = 1.0, `reason` (≤ 200 chars) rides in the incident dict as an optional key (set only by this engine). Unparsable output → 503, never a manufactured incident; verdicts outside the taxonomy are dropped.
+- `llm` engine (ADR 015, amended): local judge (default `qwen2.5-coder:3b` via Ollama, `NOIREBOX_JUDGE_MODEL`), house taxonomy with few-shot examples, JSON-pinned prompt, temperature 0, granularity = line. llama-guard3:1b was evaluated and rejected: it does not follow custom policies and misses transcript injection. Binary verdicts: score = 1.0, `reason` (≤ 200 chars) rides in the incident dict as an optional key (set only by this engine). Unparsable output → 503, never a manufactured incident; verdicts outside the taxonomy are dropped.
 
 ## 5. API contract
 

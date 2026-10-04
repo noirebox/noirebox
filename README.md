@@ -207,8 +207,10 @@ Llama Prompt Guard 2 (the industry classifier, ~90 MB) and **rejected it
 knowingly**: gated license, torch/transformers as dependencies, and binary
 output without an audit taxonomy. The ADR also documents the **integration
 path** if you ever need it (adapter ≈ 40 lines behind the same engine
-interface). The tier-2 judge stays a local LLM (`llama-guard3:1b` via
-Ollama) — same binary we already ship, zero new deps.
+interface). The tier-2 judge stays a local LLM — ADR 015's real-model
+evaluation rejected `llama-guard3:1b` (it ignores custom policies and misses
+transcript injection); the default is `qwen2.5-coder:3b` behind the
+house-taxonomy few-shot prompt. Zero new Python deps.
 
 ## The real LLM scene (local Ollama)
 

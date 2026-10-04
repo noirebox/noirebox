@@ -217,7 +217,10 @@ connaissance de cause** : licence gated, torch/transformers en dépendances,
 sortie binaire sans taxonomie d'audit. L'ADR documente aussi le **chemin
 d'intégration** si vous en avez besoin un jour (adaptateur ≈ 40 lignes
 derrière la même interface moteur). L'étage 2 des cas douteux reste un
-LLM-juge local (`llama-guard3:1b` via Ollama) — le même binaire, zéro dép nouvelle.
+LLM-juge local — l'évaluation réelle de l'ADR 015 a écarté `llama-guard3:1b`
+(il ignore les policies custom et rate l'injection de transcript) ; le défaut
+est `qwen2.5-coder:3b` derrière le prompt few-shot de la taxonomie maison.
+Zéro nouvelle dépendance Python.
 
 ## La scène LLM réelle (Ollama local)
 
