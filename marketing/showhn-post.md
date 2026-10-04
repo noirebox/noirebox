@@ -145,7 +145,7 @@ presumption in the EU.
 ## Receipts (ce que n'importe quel visiteur peut lancer)
 
 ```bash
-pip install noirebox                                   # 0.9.0 sur PyPI
+pip install noirebox                                   # 0.10.0 sur PyPI
 docker run -p 8768:8768 ghcr.io/noirebox/noirebox:latest
 .venv/bin/python demo/demo_tamper.py                   # la thèse en une démo
 curl -s http://127.0.0.1:8768/api/v1/export > export.json
@@ -160,7 +160,7 @@ make judge-pull && make demo-judge
 ## Pré-flight — état au 4 oct (coché contre vérification réelle)
 
 - [x] CI verte sur `main` (tests 189, matrix Python 3.11 + 3.12, bandit) — vérifié
-- [x] PyPI = **0.9.0**, GHCR `latest` = 0.9.0 — vérifié (wheel inspectée :
+- [x] PyPI = **0.10.0**, GHCR `latest` = 0.10.0 — vérifié (wheel inspectée :
       verifier + racines épinglées + modèles embarqués)
 - [x] Publisher PyPI migré : owner `noirebox` — confirmé par la publication 0.7.0/0.8.0
 - [x] GHCR org publié : `ghcr.io/noirebox/noirebox` — deux releases passées par le workflow

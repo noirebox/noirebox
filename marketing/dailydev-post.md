@@ -177,7 +177,7 @@ the entire thesis of the tool.
 ## Try it in two minutes
 
 ```bash
-pip install noirebox          # 0.9.0, MIT, Python 3.11+, no cloud
+pip install noirebox          # 0.10.0, MIT, Python 3.11+, no cloud
 noirebox seal note '{"hello": "journal"}'
 noirebox verify               # [VALID] — the chain, checked in place
 noirebox audit-pack ./audit   # the auditor folder: export, verifier report,
