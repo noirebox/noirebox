@@ -19,7 +19,7 @@ class ScanIn(BaseModel):
 
     engine: Literal["regex", "ml", "llm", "tiered"] = "regex"
 
-    lang: Literal["fr", "en"] = Field(
+    lang: Literal["fr", "en", "es"] = Field(
         default="fr",
         description="consumed by the ml, llm and tiered engines; the regex "
                     "patterns are bilingual and deliberately ignore it",

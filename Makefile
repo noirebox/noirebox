@@ -1,5 +1,5 @@
 # NoireBox — shortcuts (make test, make demo, make serve…)
-.PHONY: install test bench sync-count serve demo demo-mcp demo-llm demo-judge demo-fleet demo-payout ollama-pull judge-pull tsa dataset train train-en docker clean
+.PHONY: install test bench sync-count serve demo demo-mcp demo-llm demo-judge demo-fleet demo-payout ollama-pull judge-pull tsa dataset train train-en train-es docker clean
 
 install:
 	python3 -m venv .venv
@@ -56,6 +56,10 @@ train:
 train-en:
 	.venv/bin/python ml/gen_dataset_en.py
 	.venv/bin/python ml/train.py --lang en
+
+train-es:
+	.venv/bin/python ml/gen_dataset_es.py
+	.venv/bin/python ml/train.py --lang es
 
 docker:
 	docker compose up --build

@@ -27,6 +27,7 @@ def _model_path(name: str) -> Path:
 _MODEL_PATHS = {
     "fr": _model_path("detector.joblib"),
     "en": _model_path("detector_en.joblib"),
+    "es": _model_path("detector_es.joblib"),
 }
 _pipelines: dict[str, object] = {}
 

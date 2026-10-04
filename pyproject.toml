@@ -60,6 +60,7 @@ packages = ["noirebox", "verifier"]
 [tool.hatch.build.targets.wheel.force-include]
 "models/detector.joblib" = "noirebox/models/detector.joblib"
 "models/detector_en.joblib" = "noirebox/models/detector_en.joblib"
+"models/detector_es.joblib" = "noirebox/models/detector_es.joblib"
 
 [tool.hatch.build.targets.sdist]
 include = [
