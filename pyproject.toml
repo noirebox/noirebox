@@ -52,7 +52,7 @@ Homepage = "https://github.com/noirebox/noirebox"
 Documentation = "https://github.com/noirebox/noirebox#readme"
 
 [tool.hatch.build.targets.wheel]
-packages = ["noirebox"]
+packages = ["noirebox", "verifier"]
 
 # Les micro-modèles embarquent dans le wheel : `pip install noirebox` donne
 # un moteur ML fonctionnel, sans make train. Le dépôt cloné, lui, continue
