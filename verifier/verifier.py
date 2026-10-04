@@ -149,7 +149,32 @@ def verify_export(export: dict) -> dict:
     anchors_unverifiable = 0
     anchors_pinned = 0
     anchors_in_journal = 0
+    fleet_checked = 0
+    fleet_unverifiable = 0
+    fleet_in_journal = 0
     for ev in events:
+        if ev["type"] == "fleet_anchor":
+            # Fleet seals (ADR 017): the witnessed digest is the Merkle ROOT,
+            # not a chain head — same token machinery, shimmed payload.
+            fleet_in_journal += 1
+            payload = ev["payload"]
+            root = payload.get("root")
+            if not isinstance(root, str) or len(root) != 64:
+                errors.append({"seq": ev["seq"],
+                               "reason": "fleet_anchor: root missing or malformed"})
+                continue
+            shim = {"head_hash": root}
+            for tok in payload.get("tokens") or []:
+                if tok.get("kind") == "ots":
+                    ok, reason, pinned = verify_ots_token(shim, tok)
+                else:
+                    ok, reason, pinned = verify_anchor_token(shim, tok)
+                if not ok:
+                    errors.append({"seq": ev["seq"], "reason": reason})
+                    continue
+                fleet_checked += 1 if reason == "" else 0
+                fleet_unverifiable += 1 if reason != "" else 0
+            continue
         if ev["type"] != "anchor":
             continue
         anchors_in_journal += 1
@@ -185,6 +210,9 @@ def verify_export(export: dict) -> dict:
         "anchors_checked": anchors_checked,
         "anchors_unverifiable": anchors_unverifiable,
         "anchors_pinned": anchors_pinned,
+        "fleet_anchors_in_journal": fleet_in_journal,
+        "fleet_anchors_checked": fleet_checked,
+        "fleet_anchors_unverifiable": fleet_unverifiable,
         "errors": errors,
         "head_hash": events[-1]["event_hash"] if events else None,
     }
@@ -199,12 +227,15 @@ def main() -> int:
 
     if report["valid"]:
         unverified = report["anchors_unverifiable"]
+        fleet_part = (f", {report['fleet_anchors_checked']} fleet root tokens"
+                      if report["fleet_anchors_in_journal"] else "")
         print(f"[✓] INTACT — {report['nb_events_checked']} events verified, "
               f"attestation valid, {report['anchors_checked']} anchor tokens "
               f"({report['anchors_pinned']} against pinned roots, "
-              f"{unverified} reported-not-verified), "
+              f"{unverified} reported-not-verified{fleet_part}), "
               f"head of chain: {report['head_hash'][:16]}…")
-        if report["anchors_in_journal"] and report["anchors_checked"] == 0:
+        fleet_unchecked = report["fleet_anchors_in_journal"] and report["fleet_anchors_checked"] == 0
+        if report["anchors_in_journal"] and report["anchors_checked"] == 0 or fleet_unchecked:
             # Chain intact ≠ anchoring proven: the verdict stays about the
             # chain, but the report must not let a reader believe witnesses
             # were checked when none was (missing tooling is reported, and
