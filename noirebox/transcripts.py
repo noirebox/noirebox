@@ -29,13 +29,11 @@ content — these logs contain conversations.
 """
 from __future__ import annotations
 
-import hashlib
-import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import __version__
-from .chain import GENESIS, canonical
+from .digests import digest_chain, read_jsonl_records
 
 TOOL = "noirebox"
 
@@ -117,46 +115,16 @@ def _extract_metadata(records: list[dict]) -> dict:
 
 def read_summary(path: str | Path, origin: str | None = None) -> TranscriptSummary:
     """Reads a JSONL log, sniffs its shape (or trusts an explicit `origin`)
-    and computes the seal summary. Same corruption policy as ADR 012."""
-    data = Path(path).read_bytes()
-    lines = data.decode("utf-8").splitlines()
-    if not any(line.strip() for line in lines):
-        raise ValueError(f"{path}: no records to seal (empty file)")
-
-    records: list[dict] = []
-    truncated_tail = False
-    for i, line in enumerate(lines):
-        if not line.strip():
-            continue
-        try:
-            record = json.loads(line)
-        except json.JSONDecodeError as exc:
-            if i == len(lines) - 1:
-                truncated_tail = True
-                break
-            raise ValueError(
-                f"{path}: line {i + 1} is not valid JSON in the middle of the "
-                "log — refusing to seal a partially readable log"
-            ) from exc
-        if not isinstance(record, dict):
-            raise ValueError(f"{path}: line {i + 1} is not a JSON object")
-        records.append(record)
-
-    if not records:
-        raise ValueError(f"{path}: no parseable record — refusing to seal nothing")
-
-    digest = GENESIS
-    for record in records:
-        digest = hashlib.sha256(
-            (digest + hashlib.sha256(canonical(record)).hexdigest()).encode("ascii")
-        ).hexdigest()
+    and computes the seal summary. Corruption policy and digest chain live
+    in digests.py — the single construction of ADR 012/013."""
+    records, file_sha256, truncated_tail = read_jsonl_records(path)
 
     meta = _extract_metadata(records)
     return TranscriptSummary(
         origin=origin or sniff_format(records),
-        file_sha256=hashlib.sha256(data).hexdigest(),
+        file_sha256=file_sha256,
         record_count=len(records),
-        trajectory_digest=digest,
+        trajectory_digest=digest_chain(records),
         session_ids=meta["session_ids"] or ["unknown"],
         truncated_tail=truncated_tail,
         models=meta["models"],

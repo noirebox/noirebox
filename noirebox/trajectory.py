@@ -31,13 +31,11 @@ digest and the seal accuses, without trusting anyone.
 """
 from __future__ import annotations
 
-import hashlib
-import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import __version__
-from .chain import GENESIS, canonical
+from .digests import digest_chain, read_jsonl_records
 
 TOOL = "noirebox"
 ORIGIN = "agent-model-io"
@@ -61,41 +59,19 @@ class TrajectorySummary:
 def read_model_io(path: str | Path) -> TrajectorySummary:
     """Reads a model-io JSONL file and computes the seal summary.
 
-    Corruption policy — honest by construction: a line that fails to parse is
-    treated as an incomplete trailing write ONLY if it is the last line
-    (reported in the payload as `truncated_tail`, never hidden); anywhere
-    else it is a hard error, because silently sealing a partially-read log
-    would manufacture exactly the fake evidence this project exists against.
+    Corruption policy and digest chain live in digests.py — the single
+    construction of ADR 012/013 (last-line parse failure = `truncated_tail`,
+    mid-file = hard error; digests only, never content).
     """
-    data = Path(path).read_bytes()
-    lines = data.decode("utf-8").splitlines()
-    if not any(line.strip() for line in lines):
-        raise ValueError(f"{path}: no records to seal (empty file)")
+    records, file_sha256, truncated_tail = read_jsonl_records(path)
 
-    record_digests: list[str] = []
     session_ids: set[str] = set()
     models: set[str] = set()
     query_sources: dict[str, int] = {}
     started: list[str] = []
     completed: list[str] = []
-    truncated_tail = False
 
-    for i, line in enumerate(lines):
-        if not line.strip():
-            continue
-        try:
-            record = json.loads(line)
-        except json.JSONDecodeError as exc:
-            if i == len(lines) - 1:
-                truncated_tail = True
-                break
-            raise ValueError(
-                f"{path}: line {i + 1} is not valid JSON in the middle of the "
-                "log — refusing to seal a partially readable trajectory"
-            ) from exc
-        if not isinstance(record, dict):
-            raise ValueError(f"{path}: line {i + 1} is not a JSON object")
-        record_digests.append(hashlib.sha256(canonical(record)).hexdigest())
+    for record in records:
         if isinstance(record.get("sessionId"), str) and record["sessionId"]:
             session_ids.add(record["sessionId"])
         model = record.get("model")
@@ -109,17 +85,10 @@ def read_model_io(path: str | Path) -> TrajectorySummary:
         if isinstance(record.get("completedAt"), str):
             completed.append(record["completedAt"])
 
-    if not record_digests:
-        raise ValueError(f"{path}: no parseable record — refusing to seal nothing")
-
-    digest = GENESIS
-    for record_digest in record_digests:
-        digest = hashlib.sha256((digest + record_digest).encode("ascii")).hexdigest()
-
     return TrajectorySummary(
-        file_sha256=hashlib.sha256(data).hexdigest(),
-        record_count=len(record_digests),
-        trajectory_digest=digest,
+        file_sha256=file_sha256,
+        record_count=len(records),
+        trajectory_digest=digest_chain(records),
         session_ids=sorted(session_ids) or ["unknown"],
         truncated_tail=truncated_tail,
         models=sorted(models),
