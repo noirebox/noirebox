@@ -530,9 +530,22 @@ UNPROVEN) ; CI en matrix 3.11/3.12 avec coverage informationnel ; smoke test de 
 Docker publiée. Validation : **pytest 175 passed / 2 skipped, ruff, Bandit clean** ;
 poussé (`d634d92`), CHANGELOG `[Unreleased]` alimenté pour la prochaine 0.8.0.
 
+**Feature 2026-10-04 (soir) — le juge LLM tier 2 existe (ADR 015) :** `engine: "llm"`
+sur la route scan et le SDK — llama-guard3:1b local via Ollama (`NOIREBOX_JUDGE_MODEL`),
+prompté avec la taxonomie maison (les 4 familles du journal, pas la liste native du
+modèle), JSON-pinned, temperature 0, numéros de ligne → offsets exacts. Verdicts
+binaires (score 1.0) avec `reason` court ; sortie unparsable → 503, rien n'est
+fabriqué ; catégories hors taxonomie ignorées. La dernière checkbox de la roadmap
+guardrail d'origine est cochée. Et la classe de bug « compte de tests à la main » est
+tuée : `make sync-count` régénère les 7 endroits publiés (119→126→173→189, trois
+dérives en dix jours). Validation : **pytest 185 passed / 4 skipped, ruff, Bandit
+clean** ; poussé (`56256de`).
+
 **Reste ouvert (dans l'ordre) :**
 1. P2 restants : câbler merkle.py dans le produit (hub de flotte), regex guardrail
    `lang`, épinglage transport des IPs résolues (le fix complet du rebinding).
-2. Roadmap produit : juge LLM (ADR 001 tier 2), extension VSCode, Prometheus/Grafana,
-   HSM/KMS.
+2. Roadmap produit : composition tiering auto (regex → ML → juge sur scores ambigus,
+   ADR 003-style), extension VSCode, Prometheus/Grafana, HSM/KMS.
 3. Lancement : confirmer/réaliser Show HN + daily.dev, post-mortem à tracer.
+4. Juge réel : `make judge-pull` puis `make demo-judge` sur une machine avec Ollama
+   pour valider les tests skip-gated en conditions réelles.
