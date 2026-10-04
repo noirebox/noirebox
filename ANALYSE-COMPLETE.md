@@ -514,9 +514,14 @@ non ancrés depuis le 27/09 est couverte. 15 branches locales périmées supprim
 (contenu vérifié sur main) ; `private-history` et `launch-polish` conservées (archives à
 racine divergente — ne pas fusionner).
 
+**Release 0.7.0 — PUBLIÉE le 2026-10-04.** PyPI trusted publisher migré (confirmé),
+main poussée (`9a30eb4`), tag `v0.7.0` posé. Résultats : **PyPI `noirebox 0.7.0`**
+(wheel + sdist ; wheel vérifiée : verifier/, tsa_roots épinglées et les 2 modèles ML
+embarqués), Docker GHCR `v0.7.0` + `latest`, CI verte (re-entraînement + 173 tests),
+Bandit vert, Pages redéployée avec les chiffres re-syncés.
+
 **Reste ouvert (dans l'ordre) :**
-1. **Utilisateur** : migrer le PyPI trusted publisher vers l'org `noirebox` sur pypi.org,
-   puis `git push` + `git tag v0.7.0 && git push --tags` (le workflow publie tout seul).
+1. P1-9 : documenter ou protéger les endpoints de métadonnées ouverts (verify/activity/attestation.pdf).
 2. P1-9 : documenter ou protéger les endpoints de métadonnées ouverts (verify/activity/attestation.pdf).
 3. P2 restants : dédupliquer trajectory.py/transcripts.py, épinglage DNS anti-rebinding,
    verifier fail-open (statut distinct pour tokens non vérifiés), coverage + matrix Python,
