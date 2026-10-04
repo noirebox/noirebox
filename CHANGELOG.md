@@ -5,6 +5,8 @@ versioning according to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-04
+
 ### Added
 - **Transcript-agnostic sealing + per-project journals (ADR 013)** — the
   integration layer for coding agents. Log formats are sealed by SHAPE,
@@ -126,6 +128,45 @@ versioning according to [Semantic Versioning](https://semver.org/).
 ### Removed
 - Dead code: `KeyPair.verify_with_public_key()` (no caller, no test in the
   repository — the standalone verifier carries its own verification logic).
+
+### Fixed
+- **JWT secret derived from private material, never from public data
+  (ADR 014)** — the zero-config fallback hashed the PUBLIC key, which ships in
+  every export and is served openly at `/api/v1/attestation`: anyone could
+  re-derive the HS256 secret and forge tokens, bypassing auth and the rate
+  limiter. The fallback now hashes the private key's raw bytes;
+  `NOIREBOX_JWT_SECRET` stays the override. Adversarial tests fence the
+  regression (a token forged with the old derivation is rejected; per-instance
+  scoping holds). Tokens issued by a pre-fix deployment are invalidated by the
+  upgrade — the journal itself is untouched.
+- **TRAFFIC landed for real** — the radar's code (PR #18) had never been merged
+  while the CHANGELOG and SPECS already documented it: docs ≠ code, caught by
+  the project-wide review. The TRAFFIC view and the `since_seq` cursor are now
+  on main with their tests.
+- **`noirebox audit-pack` works from pip installs** — the wheel now ships
+  `verifier/` (with its pinned `tsa_roots/`); it previously failed with
+  ModuleNotFoundError outside a repository checkout.
+- **Analysis commands and seal/verify resolve the same journal** — `reconcile`,
+  `audit-pack` and `seal-trajectory` followed a cwd-relative default and could
+  silently create a second, empty journal beside the real one; they now share
+  the ADR 013 discovery (`locate.resolve_existing_journal`: `NOIREBOX_DB`,
+  nearest `.noirebox/`, repo layout — never creates).
+- **Dashboard behind auth** — the Flight Deck carried no Authorization header,
+  so on an auth-enabled instance every refresh died on the 401 JSON; it now
+  degrades to a locked state with a token prompt (🔑, sessionStorage only)
+  while the open-by-design verification routes keep the page alive.
+- **Portable plugin resolution** — no developer path hardcoded: the hook's
+  interpreter resolves NOIREBOX_HOME's venv, then a pip-installed noirebox,
+  else exits quietly; the journal resolves NOIREBOX_DB > NOIREBOX_HOME's
+  central journal > ADR 013 per-project discovery; `launch.sh` prefers the
+  installed `noirebox-mcp` entrypoint.
+- `ollama_available()` treats an HTTP error response as unavailable
+  (`raise_for_status`) — a 500 is not a listening Ollama.
+- The 501 no-reportlab answer is a proper `JSONResponse` (the hand-built
+  f-string JSON broke on messages containing a quote).
+- `KeyPair` creation race: the loser of the `O_EXCL` race loads the winner's
+  PEM instead of crashing — one journal, one key.
+- Dockerfile OCI source label follows the org migration (`slabbdev` → `noirebox`).
 
 ## [0.6.0] - 2026-09-26
 
@@ -256,3 +297,12 @@ versioning according to [Semantic Versioning](https://semver.org/).
 - ADR 001: staged guardrail (regex → ML → LLM judge as last resort)
 - ADR 002: Llama Prompt Guard 2 (Meta) evaluated and rejected (language, binary output,
   gated licensing, dependencies)
+
+[Unreleased]: https://github.com/noirebox/noirebox/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/noirebox/noirebox/compare/v0.6.0...v0.7.0
+[0.6.0]: https://github.com/noirebox/noirebox/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/noirebox/noirebox/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/noirebox/noirebox/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/noirebox/noirebox/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/noirebox/noirebox/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/noirebox/noirebox/commits/v0.1.0
