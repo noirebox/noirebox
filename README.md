@@ -362,7 +362,7 @@ examples, then `make train`.
 
 ## Tests
 
-214 tests: cryptography (tampering, reordering, wrong key), regex and **ML
+218 tests: cryptography (tampering, reordering, wrong key), regex and **ML
 guardrails on held-out sentences in FR and EN**, the guarded pipeline with a
 stub LLM (no Ollama needed, runs in CI), API agent, MCP server, SDK
 client against a **real uvicorn server** (ephemeral port), real LLM agent
@@ -407,7 +407,7 @@ the integrity of the journal — the verifier ships as a GitHub Action
 - [x] **OpenTimestamps witness** — a Bitcoin-anchored receipt rides in the same anchor event ([ADR 009](docs/ADRs.md))
 - [x] **AI-Act vocabulary + audit-pack** — art. 12(3) builders, `noirebox audit-pack` ([ADR 010](docs/ADRs.md))
 - [x] **Prometheus + Grafana metrics** — `GET /metrics` (text 0.0.4, zero dep), sample dashboard in [`docs/grafana-dashboard.json`](docs/grafana-dashboard.json)
-- [ ] HSM/KMS private key migration ([threat model](docs/THREAT-MODEL.md))
+- [ ] HSM signing (the key never leaves the hardware) — secret-manager injection is shipped: `NOIREBOX_KEY_PEM` ([ADR 018](docs/ADRs.md))
 - [x] Product page rebuilt for GitHub Pages — premium dark landing in
       [`docs/`](docs/index.html), auto-deployed by
       [`.github/workflows/pages.yml`](.github/workflows/pages.yml)

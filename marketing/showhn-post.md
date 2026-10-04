@@ -1,5 +1,9 @@
 # Show HN pack — NoireBox, lundi 5 oct 2026
 
+> Réalité 0.9.0 : 4 moteurs de garde-fou (regex, ML, juge LLM, tiering),
+> hub de flotte + métriques Prometheus, 3 langues de détection (fr/en/es),
+> 18 ADRs. Le maker comment ci-dessous reste le scénario journal.
+
 > Actualisé le 4 oct contre le repo en état 0.8.0 : receipts, chiffres et
 > checklist re-vérifiés. Les items cochés le sont contre des vérifications
 > réelles (CI, PyPI, GHCR, verifier sur le journal de prod).
@@ -60,10 +64,12 @@ themselves, without access to your server or your keys.
 
 It ships as `pip install noirebox` (FastAPI server + CLI), a Docker image,
 an MCP server so an agent seals its own decisions from one config block, a
-three-stage guardrail for poisoned transcripts (regex → trained micro-model
-→ a local LLM judge, all sealed into the same journal), AI-Act-shaped event
-builders, and an audit-pack generator that renders the art. 12(3) mapping
-from the journal itself. MIT.
+guardrail for poisoned transcripts with an automatic escalation ladder
+(regex → trained micro-model → tiered LLM-judge arbitration, all sealed
+into the same journal), a fleet layer where ONE Merkle seal covers N
+journals, Prometheus metrics, AI-Act-shaped event builders, and an
+audit-pack generator that renders the art. 12(3) mapping from the journal
+itself. MIT. Detection ships in French, English and Spanish.
 
 One self-demonstrating detail: since v0.7 the agent that built this repo
 seals its own tool calls and its own per-call model logs into the repo's
@@ -136,7 +142,7 @@ presumption in the EU.
 ## Receipts (ce que n'importe quel visiteur peut lancer)
 
 ```bash
-pip install noirebox                                   # 0.8.0 sur PyPI
+pip install noirebox                                   # 0.9.0 sur PyPI
 docker run -p 8768:8768 ghcr.io/noirebox/noirebox:latest
 .venv/bin/python demo/demo_tamper.py                   # la thèse en une démo
 curl -s http://127.0.0.1:8768/api/v1/export > export.json
@@ -151,7 +157,7 @@ make judge-pull && make demo-judge
 ## Pré-flight — état au 4 oct (coché contre vérification réelle)
 
 - [x] CI verte sur `main` (tests 189, matrix Python 3.11 + 3.12, bandit) — vérifié
-- [x] PyPI = **0.8.0**, GHCR `latest` = 0.8.0 — vérifié (wheel inspectée :
+- [x] PyPI = **0.9.0**, GHCR `latest` = 0.9.0 — vérifié (wheel inspectée :
       verifier + racines épinglées + modèles embarqués)
 - [x] Publisher PyPI migré : owner `noirebox` — confirmé par la publication 0.7.0/0.8.0
 - [x] GHCR org publié : `ghcr.io/noirebox/noirebox` — deux releases passées par le workflow

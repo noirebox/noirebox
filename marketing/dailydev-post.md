@@ -1,4 +1,4 @@
-# NoireBox — Pack daily.dev (préparé le 2026-09-27, actualisé le 2026-10-04 contre le repo en état 0.8.0)
+# NoireBox — Pack daily.dev (préparé le 2026-09-27, actualisé le 2026-10-04 contre le repo en état 0.9.0)
 
 ## Ce que la recherche a établi (docs officielles daily.dev)
 
@@ -177,7 +177,7 @@ the entire thesis of the tool.
 ## Try it in two minutes
 
 ```bash
-pip install noirebox          # 0.8.0, MIT, Python 3.11+, no cloud
+pip install noirebox          # 0.9.0, MIT, Python 3.11+, no cloud
 noirebox seal note '{"hello": "journal"}'
 noirebox verify               # [VALID] — the chain, checked in place
 noirebox audit-pack ./audit   # the auditor folder: export, verifier report,

@@ -370,7 +370,7 @@ exemples au dataset, puis `make train`. Architecture par étages :
 
 ## Tests
 
-214 tests : cryptographie (falsification, réordonnancement, mauvaise clé),
+218 tests : cryptographie (falsification, réordonnancement, mauvaise clé),
 garde-fou regex et **ML sur phrases inédites en FR et EN**, le pipeline
 gardé avec un LLM factice (sans Ollama, tourne en CI), agent API,
 serveur MCP, SDK client contre un **vrai serveur uvicorn** (port éphémère),
@@ -429,7 +429,7 @@ domaine = ajouter des exemples au dataset et relancer `make train`.
 - [x] **Vocabulaire AI Act + audit-pack** — builders art. 12(3), `noirebox audit-pack` ([ADR 010](docs/ADRs.md))
 - [x] LLM-juge local pour les cas douteux — étage 2 de l'[ADR 001](docs/ADRs.md), `engine: "llm"` ([ADR 015](docs/ADRs.md))
 - [x] **Métriques Prometheus + Grafana** — `GET /metrics` (texte 0.0.4, zéro dep), dashboard d'exemple dans [`docs/grafana-dashboard.json`](docs/grafana-dashboard.json)
-- [ ] Migration clé privée HSM/KMS ([threat model](docs/THREAT-MODEL.md))
+- [ ] Signature HSM (la clé ne quitte jamais le matériel) — l'injection par secret manager est livrée : `NOIREBOX_KEY_PEM` ([ADR 018](docs/ADRs.md))
 - [x] Site produit refait pour GitHub Pages — landing dark premium (face de boîtier de vol :
       bandes diagonales, fond rouge, FLIGHTDATA RECORDER) dans [`docs/`](docs/index.html)
 
