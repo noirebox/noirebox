@@ -1,5 +1,5 @@
 # NoireBox — shortcuts (make test, make demo, make serve…)
-.PHONY: install test bench serve demo demo-mcp demo-llm demo-judge demo-fleet demo-payout ollama-pull judge-pull tsa dataset train train-en docker clean
+.PHONY: install test bench sync-count serve demo demo-mcp demo-llm demo-judge demo-fleet demo-payout ollama-pull judge-pull tsa dataset train train-en docker clean
 
 install:
 	python3 -m venv .venv
@@ -42,6 +42,9 @@ ollama-pull:
 tsa:
 	@chmod +x tsa/gen_tsa.sh && ./tsa/gen_tsa.sh tsa/material
 	.venv/bin/python tsa/tsa_server.py --material tsa/material --port 3318
+
+sync-count:
+	.venv/bin/python tools/sync_test_count.py
 
 dataset:
 	.venv/bin/python ml/gen_dataset.py

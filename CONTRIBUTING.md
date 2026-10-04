@@ -13,7 +13,7 @@ git clone https://github.com/<user>/noirebox && cd noirebox
 ## Ground rules
 
 1. **A green test for every bug fix or feature added.** The suite is the source of truth:
-   `make test` (189 tests). Security tests on unseen sentences
+   `make test` (189 tests — after adding tests, run `make sync-count` so the published counts stay true). Security tests on unseen sentences
    (`tests/test_ml_guardrail.py`) are never removed without an ADR.
 2. **Zero simulation.** Demos use real mechanisms. If an external component is missing
    (Ollama, etc.), we skip it — we never invent behavior.
