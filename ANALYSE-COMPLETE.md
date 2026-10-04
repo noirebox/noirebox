@@ -561,10 +561,23 @@ Validation : **pytest 201 passed / 2 skipped** (échec passager du test LLM rée
 contention Ollama, passe isolément), ruff, Bandit clean, CI distante verte ; poussé
 (`6a8b07e`).
 
+**Passe « va fait tout » 2026-10-04 (soir) — la roadmap non- hardware vidée,
+release 0.9.0 PUBLIÉE :** landings sans offres Cloud/Enterprise (« self-hosted is
+the product ») ; rebinding DNS **fermé au niveau transport** (anchors.py sort de
+httpx pour un transport stdlib épinglé, preuves par tests) ; verifier apprend
+`fleet_anchor` (token sur la racine, testé contre une vraie TSA locale) ; PDF
+attestation bilingue `?lang=fr` ; regex `lang` documenté ; **Prometheus /metrics**
+zéro dep + dashboard Grafana d'exemple (checkbox cochée) ; **fleet-status**
+(alerting cron/CI, exit 1) ; **extension VSCode source** (P2 livrée). Validation :
+pytest **212 passed / 2 skipped**, ruff, Bandit clean, CI distante verte. Tag
+`v0.9.0` → **PyPI 0.9.0** (wheel inspectée : tiering, fleet, metrics, llm_judge,
+digests, verifier embarqués), Docker GHCR `v0.9.0`, CI verte. Trois releases en
+un jour (0.7.0, 0.8.0, 0.9.0).
+
 **Reste ouvert (dans l'ordre) :**
-1. Lancement : packs prêts à 0.8.0+ — le maker comment peut citer le tiering et le
-   hub ; dev.to ce soir, daily.dev lundi 9h30, Show HN lundi 14h30.
-2. P2 restants : regex guardrail `lang`, épinglage transport des IPs résolues,
-   verifier apprend `fleet_anchor` (vérifier les tokens de flotte dans un export).
-3. Roadmap produit : console hub de flotte (agrégation programmée, alerting),
-   extension VSCode, Prometheus/Grafana, HSM/KMS.
+1. Lancement (comptes du fondateur) : dev.to, daily.dev lundi 9h30, Show HN 14h30,
+   post-mortem à tracer ensuite.
+2. Console hub de flotte (UI + re-ancrage programmé — les primitives
+   seal/verify/status existent) ; HSM/KMS (dép. infra) ; marketplace VSIX (dép.
+   distribution).
+3. Nouvelles langues de détection (un générateur de dataset + `make train`).
