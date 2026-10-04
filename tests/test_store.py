@@ -1,6 +1,6 @@
 """Database file permissions (the journal may contain personal data, so the
 file and its WAL sidecars must never be readable by other local accounts) and
-cross-process sealing (the MCP server and the Agent hook are independent
+cross-process sealing (the MCP server and the agent hook are independent
 processes writing the same journal).
 """
 from __future__ import annotations

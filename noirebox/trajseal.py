@@ -33,7 +33,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import trajectory
+from . import transcripts
 from .chain import KeyPair
 from .store import EventStore
 
@@ -134,8 +134,8 @@ def seal_rollout(rollout: Path, db: str, *, now: float | None = None,
                 state[str(path)] = sha  # content already sealed elsewhere
                 continue
         try:
-            summary = trajectory.read_model_io(path)
-            payload = trajectory.trajectory_payload(summary)
+            summary = transcripts.read_summary(path, origin=transcripts.MODEL_IO)
+            payload = transcripts.transcript_payload(summary)
         except ValueError as exc:
             print(f"[noirebox] trajectory not sealed ({path.name}): {exc}",
                   file=sys.stderr)

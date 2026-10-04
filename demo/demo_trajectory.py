@@ -19,7 +19,12 @@ sys.path.insert(0, str(ROOT))
 
 from noirebox.chain import KeyPair, verify_chain
 from noirebox.store import EventStore
-from noirebox.trajectory import read_model_io, trajectory_payload, verify_trajectory
+from noirebox.transcripts import (
+    MODEL_IO,
+    read_summary,
+    transcript_payload,
+    verify_transcript,
+)
 
 
 def record(source: str, model: str, text: str, n: int) -> dict:
@@ -46,8 +51,8 @@ def main() -> None:
 
         store = EventStore(f"{tmp}/demo.db")
         key = KeyPair.load_or_create(f"{tmp}/demo.key")
-        summary = read_model_io(log)
-        event = store.append("model_trajectory", trajectory_payload(summary), key)
+        summary = read_summary(log, origin=MODEL_IO)
+        event = store.append("model_trajectory", transcript_payload(summary), key)
         print("[1] Three model calls sealed — digests only, zero conversation text in the journal.")
         print(f"    calls={summary.record_count}  query_sources={summary.query_sources}")
         print(f"    trajectory_digest={summary.trajectory_digest}")
@@ -55,14 +60,14 @@ def main() -> None:
         print(f"    source={event.payload['source']}  <- the seal names its sealer")
 
         payload = event.payload
-        assert verify_trajectory(payload, log) is None
+        assert verify_transcript(payload, log) is None
         check = verify_chain(key.public_hex(), store.all())
         print(f"[2] Verification: intact. Chain valid over {check['nb_events']} events.")
 
         calls[1]["response"]["text"] = "history quietly rewritten"
         log.write_text("".join(json.dumps(r) + "\n" for r in calls), encoding="utf-8")
-        reason = verify_trajectory(payload, log)
-        print(f"[3] One call was rewritten in the file: verify_trajectory -> {reason!r}")
+        reason = verify_transcript(payload, log)
+        print(f"[3] One call was rewritten in the file: verify_transcript -> {reason!r}")
         assert reason is not None
         print("[✓] The recorded trace is now evidence: it existed, in this order, "
               "and it cannot be rewritten without accusing itself.")

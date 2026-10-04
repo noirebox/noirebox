@@ -147,10 +147,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "seal-trajectory":
         import sys
 
-        from noirebox import locate
-        from noirebox.chain import KeyPair, load_instance_key, load_instance_key, verify_chain
+        from noirebox import locate, transcripts
+        from noirebox.chain import KeyPair, load_instance_key, verify_chain
         from noirebox.store import EventStore
-        from noirebox.trajectory import read_model_io, trajectory_payload
 
         db = args.db or locate.resolve_existing_journal()
 
@@ -165,22 +164,9 @@ def main(argv: list[str] | None = None) -> int:
             print("[✗] nothing to seal: give a file, or --rollout <dir>")
             return 1
         try:
-            if args.format == "model-io":
-                summary = read_model_io(args.file)
-                payload = trajectory_payload(summary)
-            else:
-                from noirebox import transcripts
-
-                if args.format == "auto":
-                    summary = transcripts.read_summary(args.file)
-                    if summary.origin == transcripts.MODEL_IO:
-                        summary = read_model_io(args.file)  # strict reader, ADR 012
-                        payload = trajectory_payload(summary)
-                    else:
-                        payload = transcripts.transcript_payload(summary)
-                else:
-                    summary = transcripts.read_summary(args.file, origin=args.format)
-                    payload = transcripts.transcript_payload(summary)
+            origin = None if args.format == "auto" else args.format
+            summary = transcripts.read_summary(args.file, origin=origin)
+            payload = transcripts.transcript_payload(summary)
         except ValueError as exc:
             print(f"[✗] {exc}")
             return 1
