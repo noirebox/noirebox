@@ -1,30 +1,66 @@
 {
   "name": "noirebox",
-  "displayName": "NoireBox — Flight Recorder",
-  "description": "Seal your coding agent's decisions into the tamper-evident NoireBox journal: seal, verify, attest — from the VSCode sidebar.",
-  "version": "0.9.0",
+  "displayName": "NoireBox \u2014 Flight Recorder",
+  "description": "Seal your coding agent's decisions into the tamper-evident NoireBox journal: seal, verify, attest \u2014 from the VSCode sidebar.",
+  "version": "0.10.0",
   "publisher": "noirebox",
   "license": "MIT",
-  "engines": { "vscode": "^1.85.0" },
-  "categories": ["Other", "Security"],
-  "keywords": ["ai-agents", "audit", "compliance", "ai-act", "gdpr"],
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Security"
+  ],
+  "keywords": [
+    "ai-agents",
+    "audit",
+    "compliance",
+    "ai-act",
+    "gdpr"
+  ],
   "activationEvents": [],
   "main": "./extension.js",
   "contributes": {
     "commands": [
-      { "command": "noirebox.verify", "title": "NoireBox: Verify the journal (in place)", "category": "NoireBox" },
-      { "command": "noirebox.sealNote", "title": "NoireBox: Seal a decision note", "category": "NoireBox" },
-      { "command": "noirebox.auditPack", "title": "NoireBox: Generate the audit pack", "category": "NoireBox" },
-      { "command": "noirebox.locate", "title": "NoireBox: Show the journal path", "category": "NoireBox" }
+      {
+        "command": "noirebox.verify",
+        "title": "NoireBox: Verify the journal (in place)",
+        "category": "NoireBox"
+      },
+      {
+        "command": "noirebox.sealNote",
+        "title": "NoireBox: Seal a decision note",
+        "category": "NoireBox"
+      },
+      {
+        "command": "noirebox.auditPack",
+        "title": "NoireBox: Generate the audit pack",
+        "category": "NoireBox"
+      },
+      {
+        "command": "noirebox.locate",
+        "title": "NoireBox: Show the journal path",
+        "category": "NoireBox"
+      }
     ],
     "configuration": {
       "title": "NoireBox",
       "properties": {
         "noirebox.db": {
-          "type": "string", "default": "",
+          "type": "string",
+          "default": "",
           "description": "Journal path (NOIREBOX_DB). Empty = the per-project .noirebox/ convention (ADR 013)."
         }
       }
     }
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/noirebox/noirebox"
+  },
+  "bugs": {
+    "url": "https://github.com/noirebox/noirebox/issues"
+  },
+  "homepage": "https://github.com/noirebox/noirebox#readme"
 }
