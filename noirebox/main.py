@@ -189,11 +189,16 @@ def create_app(db_path: str | None = None) -> FastAPI:
         return build_attestation(store, key)
 
     @app.get("/api/v1/attestation.pdf")
-    def attestation_pdf_route(client_id: str = Depends(require_metadata_auth)) -> Response:
+    def attestation_pdf_route(
+        client_id: str = Depends(require_metadata_auth),
+        lang: str = Query("en", pattern="^(en|fr)$"),
+    ) -> Response:
         """Attestation as PDF — the document a DPO files in a case record.
 
         The source of truth remains the JSON (machine-readable); the PDF is
         the human version, with the verification procedure printed on it.
+        `?lang=fr` serves the French DPO wording; identifiers stay
+        language-independent.
 
         The PDF engine is an optional extra: without `noirebox[pdf]` the
         route answers 501 with the install hint — never a traceback.
@@ -201,7 +206,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
         try:
             from .pdf_export import attestation_pdf
 
-            content = attestation_pdf(store, key)
+            content = attestation_pdf(store, key, lang=lang)
         except RuntimeError as exc:
             return JSONResponse(
                 content={"error": str(exc)},
