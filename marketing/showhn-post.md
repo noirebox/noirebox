@@ -1,4 +1,8 @@
-# Show HN pack — NoireBox, lundi 28 sept 2026
+# Show HN pack — NoireBox, lundi 5 oct 2026
+
+> Actualisé le 4 oct contre le repo en état 0.8.0 : receipts, chiffres et
+> checklist re-vérifiés. Les items cochés le sont contre des vérifications
+> réelles (CI, PyPI, GHCR, verifier sur le journal de prod).
 
 Tout ce qu'il faut copier-coller le jour J. Principe : le post parle du
 problème et du produit, les munitions attendent en réserve, les receipts
@@ -8,9 +12,9 @@ sont exécutables par n'importe quel visiteur.
 
 ## Timing
 
-- **Post : lundi 28 sept, 14h30–15h00 Paris** (= 8h30–9h00 US East). Samedi
+- **Post : lundi 5 oct, 14h30–15h00 Paris** (= 8h30–9h00 US East). Samedi
   et dimanche sont les pires jours de la semaine sur HN — on ne poste pas
-  ce week-end.
+  ce week-end (le 4 oct au soir sert au dev.to, voir le pack daily.dev).
 - Rester **2–3h dans le thread** après le post, répondre vite, une fois par
   question, avec receipts.
 - **Jamais** : demander des votes, bump, cross-post, éditer le titre, ni une
@@ -56,9 +60,15 @@ themselves, without access to your server or your keys.
 
 It ships as `pip install noirebox` (FastAPI server + CLI), a Docker image,
 an MCP server so an agent seals its own decisions from one config block, a
-guardrail for poisoned transcripts, AI-Act-shaped event builders, and an
-audit-pack generator that renders the art. 12(3) mapping from the journal
-itself. MIT.
+three-stage guardrail for poisoned transcripts (regex → trained micro-model
+→ a local LLM judge, all sealed into the same journal), AI-Act-shaped event
+builders, and an audit-pack generator that renders the art. 12(3) mapping
+from the journal itself. MIT.
+
+One self-demonstrating detail: since v0.7 the agent that built this repo
+seals its own tool calls and its own per-call model logs into the repo's
+journal — the flight recorder recorded its own construction, and the
+shipped verifier checks that log the same way it would check yours.
 
 What it deliberately is not: a detector. It proves what was sealed and
 when — not whether the content is true.
@@ -77,7 +87,10 @@ parler. Jamais de 2e réponse au troll.
 ```markdown
 Yes, written with AI agents under my direction. The journal in the repo is
 the actual log of those sessions, and the shipped verifier lets you check
-the journal wasn't altered afterwards. That's literally the product.
+the journal wasn't altered afterwards. That's literally the product. Even
+the published test count is generated from pytest by
+tools/sync_test_count.py — the number drifted three times by hand before
+that, which is the failure mode the tool exists against.
 ```
 
 ### 2. « What about model collapse / training on synthetic data? »
@@ -123,21 +136,29 @@ presumption in the EU.
 ## Receipts (ce que n'importe quel visiteur peut lancer)
 
 ```bash
-pip install noirebox                                   # 0.6.0 sur PyPI
+pip install noirebox                                   # 0.8.0 sur PyPI
 docker run -p 8768:8768 ghcr.io/noirebox/noirebox:latest
 .venv/bin/python demo/demo_tamper.py                   # la thèse en une démo
 curl -s http://127.0.0.1:8768/api/v1/export > export.json
 .venv/bin/python verifier/verifier.py export.json      # exit 0 = chaîne intacte
+# variante tout-CLI depuis un pip install :
+noirebox seal note '{"hello": "journal"}' && noirebox verify
+noirebox audit-pack ./audit                            # le dossier auditeur complet
+# le juge LLM local (optionnel, ~1 Go une fois) :
+make judge-pull && make demo-judge
 ```
 
-## Pré-flight lundi matin (à cocher avant 14h30)
+## Pré-flight — état au 4 oct (coché contre vérification réelle)
 
-- [ ] CI verte sur `main` (tests + bandit)
-- [ ] PyPI = 0.6.0, GHCR `latest` = 0.6.0
-- [ ] Publisher PyPI mis à jour : owner `noirebox` (pypi.org → project noirebox → Publishing)
-- [ ] GHCR org publié : `ghcr.io/noirebox/noirebox` (docker-publish re-déclenché après le transfert)
-- [ ] Journal prod : verifier INTACT, pins cohérents
-- [ ] Décision sur le heatmap dashboard (travail non commité sur main) :
-      soit il part en PR et merge avant lundi (joli receipt vivant), soit
-      il reste de côté — en aucun cas un push direct qui casserait la CI
-      à J-1
+- [x] CI verte sur `main` (tests 189, matrix Python 3.11 + 3.12, bandit) — vérifié
+- [x] PyPI = **0.8.0**, GHCR `latest` = 0.8.0 — vérifié (wheel inspectée :
+      verifier + racines épinglées + modèles embarqués)
+- [x] Publisher PyPI migré : owner `noirebox` — confirmé par la publication 0.7.0/0.8.0
+- [x] GHCR org publié : `ghcr.io/noirebox/noirebox` — deux releases passées par le workflow
+- [x] Journal prod : verifier tiers INTACT (5 716 événements, ancré FreeTSA le 4 oct,
+      racines épinglées) — vérifié
+- [x] Landing pages re-syncées : 189 tests, benchs du jour, 11 routes (générées par
+      `make sync-count` + `make bench`)
+- [ ] **Reste à slabb, jour J :** soumettre sur HN avec son compte (fenêtre 14h30–15h00
+      Paris), tenir le thread 2–3h avec les munitions ; relire le maker comment à voix
+      haute une fois

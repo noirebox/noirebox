@@ -1,4 +1,4 @@
-# NoireBox — Pack daily.dev (préparé le 2026-09-27, facts vérifiés contre le repo)
+# NoireBox — Pack daily.dev (préparé le 2026-09-27, actualisé le 2026-10-04 contre le repo en état 0.8.0)
 
 ## Ce que la recherche a établi (docs officielles daily.dev)
 
@@ -29,13 +29,13 @@ Les deux règles qui dictent tout le format :
   premières heures actives (répondre aux commentaires), comme pour HN.
 - Jamais de demande de votes (même logique que HN : détecté, sanctionné).
 
-## Plan de tir coordonné avec le Show HN (lundi 28)
+## Plan de tir coordonné avec le Show HN (lundi 5 oct)
 
 | Heure (Paris) | Action |
 |---|---|
-| Dimanche soir ou lundi 8h | Publier l'article sur **dev.to** (nouveau texte, angle différent du Medium — pas de repost, pas de canonical à mettre ; le Medium reste en l'état). dev.to est déjà une source crawlée par daily.dev. |
-| Lundi ~9h30 | **Direct post** daily.dev : lien vers l'article dev.to + intro de 2 lignes (takeaway technique, pas promo). Modération possible en début de journée → soumettre tôt. |
-| Lundi ~14h30 | **Show HN** (fenêtre matin US). |
+| **Dimanche 4 oct soir** ou lundi 8h | Publier l'article sur **dev.to** (nouveau texte, angle différent du Medium — pas de repost, pas de canonical à mettre ; le Medium reste en l'état). dev.to est déjà une source crawlée par daily.dev. |
+| Lundi 5 oct ~9h30 | **Direct post** daily.dev : lien vers l'article dev.to + intro de 2 lignes (takeaway technique, pas promo). Modération possible en début de journée → soumettre tôt. |
+| Lundi 5 oct ~14h30 | **Show HN** (fenêtre matin US). |
 | Plan B | Si la charge lundi est trop lourde (HN = 2-3h de commentaires), décaler le direct post daily.dev à **mardi matin** — l'article n'y perd presque rien (fenêtre de fraîcheur 7 jours). |
 
 Ne jamais poster article + lien repo + HN le même post : un canal = un artefact.
@@ -77,8 +77,8 @@ h_n = SHA-256(h_{n-1} || payload_n || metadata_n)
 
 Edit one row and every hash after it breaks. Sign each new head with Ed25519
 and you also know which key was signing at which point. The whole mechanism is
-two small files you can read in one sitting: 168 lines for the SHA-256 chain
-and Ed25519 signatures, 130 for the append-only SQLite store with BEGIN
+two small files you can read in one sitting: 186 lines for the SHA-256 chain
+and Ed25519 signatures, 177 for the append-only SQLite store with BEGIN
 IMMEDIATE so two processes can't silently interleave writes. That's the core
 of NoireBox.
 
@@ -177,14 +177,17 @@ the entire thesis of the tool.
 ## Try it in two minutes
 
 ```bash
-pip install noirebox          # MIT, Python 3.11+, no cloud
-noirebox serve                # API + OpenAPI docs on 127.0.0.1:8768
-curl -s localhost:8768/api/v1/export > export.json
-python verifier/verifier.py export.json   # exit 0 = chain intact
+pip install noirebox          # 0.8.0, MIT, Python 3.11+, no cloud
+noirebox seal note '{"hello": "journal"}'
+noirebox verify               # [VALID] — the chain, checked in place
+noirebox audit-pack ./audit   # the auditor folder: export, verifier report,
+                              # and the AI-Act Annexe IV §2(f) description
 ```
 
-There's also a Docker image (ghcr.io/noirebox/noirebox) and a demo where
-tampering with a single event visibly explodes the chain.
+There's also a Docker image (ghcr.io/noirebox/noirebox), a dashboard where
+tampering with a single event visibly explodes the chain, and — since the
+0.8.0 release — a local LLM judge (llama-guard3:1b via Ollama) as the third
+stage of the transcript guardrail, sealed into the same journal.
 
 The EU AI Act makes automatic event logging mandatory for high-risk systems
 from December 2027. Most stacks will check that box with a database table. The
