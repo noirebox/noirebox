@@ -5,6 +5,8 @@ versioning according to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-04
+
 ### Added
 - **The tier-2 LLM judge (ADR 015)** — stage 2 of ADR 001's layered guardrail
   finally exists: `engine: "llm"` on `POST /api/v1/transcripts/scan` and the
@@ -344,7 +346,8 @@ versioning according to [Semantic Versioning](https://semver.org/).
 - ADR 002: Llama Prompt Guard 2 (Meta) evaluated and rejected (language, binary output,
   gated licensing, dependencies)
 
-[Unreleased]: https://github.com/noirebox/noirebox/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/noirebox/noirebox/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/noirebox/noirebox/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/noirebox/noirebox/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/noirebox/noirebox/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/noirebox/noirebox/compare/v0.4.0...v0.5.0
