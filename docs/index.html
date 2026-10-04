@@ -55,9 +55,9 @@
     </div>
 
     <ul class="stats">
-      <li><strong>107</strong><span>tests green</span></li>
-      <li><strong>1.8 MB</strong><span>whole footprint</span></li>
-      <li><strong>0.21 ms</strong><span>overhead per event</span></li>
+      <li><strong>173</strong><span>tests green</span></li>
+      <li><strong>0.6 MB</strong><span>wheel, models included</span></li>
+      <li><strong>0.17 ms</strong><span>overhead per event</span></li>
       <li><strong>250 KB</strong><span>per-language detector</span></li>
     </ul>
 
@@ -106,7 +106,7 @@
     <div class="grid-3">
       <div class="card"><h3>Hash-chained</h3><p>Every event commits to the previous one. Insert, delete or rewrite — detected, and located to the exact event.</p></div>
       <div class="card"><h3>Signed</h3><p>Ed25519 seals from a key that never leaves your infrastructure. A forged journal — even perfectly re-chained — fails.</p></div>
-      <div class="card"><h3>Append-only</h3><p>SQLite with no UPDATE, no DELETE. Writing is the only operation that exists. Signed events at 0.21 ms apiece.</p></div>
+      <div class="card"><h3>Append-only</h3><p>SQLite with no UPDATE, no DELETE. Writing is the only operation that exists. Signed events at 0.17 ms apiece.</p></div>
     </div>
   </div>
 </section>
@@ -195,15 +195,15 @@
     </p>
     <table class="metrics">
       <tr><th>Metric</th><th>Value</th><th>Reproduce with</th></tr>
-      <tr><td>Sealed event — hash + Ed25519 + SQLite commit</td><td class="m-val">0.21 ms</td><td class="m-how">docs/SPECS.md §6</td></tr>
-      <tr><td>Guardrail scan, regex engine (7 lines)</td><td class="m-val">0.23 ms</td><td class="m-how">docs/SPECS.md §6</td></tr>
-      <tr><td>Guardrail scan, ML engine (7 lines)</td><td class="m-val">10.4 ms</td><td class="m-how">docs/SPECS.md §6</td></tr>
-      <tr><td>Full chain verification, 100 events</td><td class="m-val">22 ms</td><td class="m-how">verifier/verifier.py, any export</td></tr>
+      <tr><td>Sealed event — hash + Ed25519 + SQLite commit</td><td class="m-val">0.17 ms</td><td class="m-how">docs/SPECS.md §6</td></tr>
+      <tr><td>Guardrail scan, regex engine (7 lines)</td><td class="m-val">0.21 ms</td><td class="m-how">docs/SPECS.md §6</td></tr>
+      <tr><td>Guardrail scan, ML engine (7 lines)</td><td class="m-val">10.3 ms</td><td class="m-how">docs/SPECS.md §6</td></tr>
+      <tr><td>Full chain verification, 100 events</td><td class="m-val">44 ms</td><td class="m-how">verifier/verifier.py, any export</td></tr>
       <tr><td>Bundled detectors, FR + EN</td><td class="m-val">293 + 243 KB</td><td class="m-how">make train · make train-en</td></tr>
       <tr><td>Held-out attack sentences, FR + EN</td><td class="m-val">12/12</td><td class="m-how">tests/test_ml_guardrail.py</td></tr>
-      <tr><td>Test suite</td><td class="m-val">107 green</td><td class="m-how">make test</td></tr>
+      <tr><td>Test suite</td><td class="m-val">173 green</td><td class="m-how">make test</td></tr>
     </table>
-    <p class="note mono">Measured on an M-series MacBook, September 2026. One number, one command — if a future release can't reproduce one, the table gets corrected, not inflated.</p>
+    <p class="note mono">Measured on an M-series MacBook, October 2026. One number, one command — if a future release can't reproduce one, the table gets corrected, not inflated.</p>
   </div>
 </section>
 
@@ -245,7 +245,7 @@
     <p class="kicker">08 · DEVELOPERS</p>
     <h2>An API, an SDK, a verifier.<br><span class="grad">Nothing else to learn.</span></h2>
     <p class="lede">
-      FastAPI, 10 documented routes, interactive OpenAPI at <em>/docs</em>.
+      FastAPI, 11 documented routes, interactive OpenAPI at <em>/docs</em>.
       Record from anything that can send JSON — your agent, your CI, your cron job.
     </p>
     <div class="terminal">

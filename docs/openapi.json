@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "NoireBox",
-    "description": "\nTachygraphe pour agents IA : **journal inaltérable** (SHA-256 chaîné + Ed25519),\n**garde-fou** sur les transcripts, **attestation exportable** vérifiable par un tiers.\n\nAuth (optionnelle, activée par `NOIREBOX_CLIENTS=id:secret,…`) :\n`POST /api/v1/token` → JWT 1 h → `Authorization: Bearer …`. Rate limit 60 req/min/client.\n",
-    "version": "0.1.0"
+    "description": "\nFlight data recorder for AI agents: **tamper-proof journal** (SHA-256 chain + Ed25519),\n**guardrail** on transcripts, **exportable attestation** verifiable by a third party.\n\nAuth (optional, enabled with `NOIREBOX_CLIENTS=id:secret,...`):\n`POST /api/v1/token` → 1 h JWT → `Authorization: Bearer ...`. Rate limit 60 req/min/client.\n",
+    "version": "0.7.0"
   },
   "paths": {
     "/health": {
@@ -29,7 +29,7 @@
     "/api/v1/token": {
       "post": {
         "summary": "Token",
-        "description": "Échange client_id/client_secret contre un JWT (1 h). 401 si invalide.",
+        "description": "Exchanges client_id/client_secret for a JWT (1 h). 401 if invalid.",
         "operationId": "token_api_v1_token_post",
         "requestBody": {
           "content": {
@@ -70,7 +70,7 @@
     "/api/v1/events": {
       "post": {
         "summary": "Append Event",
-        "description": "Enregistre un événement (prompt, sortie LLM, éval…). Retourne 201.",
+        "description": "Records an event (prompt, LLM output, evaluation, ...). Returns 201.",
         "operationId": "append_event_api_v1_events_post",
         "requestBody": {
           "required": true,
@@ -109,7 +109,7 @@
       },
       "get": {
         "summary": "List Events",
-        "description": "Liste paginée. `Query(ge=…, le=…)` ≈ Assert\\Range sur un paramètre.",
+        "description": "Paginated list (offset + limit, capped at 1000).\n\n`since_seq` switches to tail mode: everything strictly newer than\nthat seq, oldest first — the cursor for live consumers (the\ndashboard's TRAFFIC view polls it). seq is the primary key, so the\ncursor can neither skip nor re-deliver an event.",
         "operationId": "list_events_api_v1_events_get",
         "parameters": [
           {
@@ -133,6 +133,17 @@
               "minimum": 0,
               "default": 0,
               "title": "Offset"
+            }
+          },
+          {
+            "name": "since_seq",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Since Seq"
             }
           }
         ],
@@ -168,7 +179,7 @@
     "/api/v1/verify": {
       "get": {
         "summary": "Verify",
-        "description": "Vérification de la chaîne sur place (diagnostic interne).",
+        "description": "On-the-spot chain verification (internal diagnostic).",
         "operationId": "verify_api_v1_verify_get",
         "responses": {
           "200": {
@@ -186,10 +197,34 @@
         }
       }
     },
+    "/api/v1/activity": {
+      "get": {
+        "summary": "Activity",
+        "description": "Per-day sealed-event counts (UTC) — the dashboard heatmap's source.\n\nOpen like /verify: an aggregate (day → count) carries no payload,\nand the dashboard fetches are plain browser calls that never carry\nan Authorization header. Same sensitivity class as the verify\ndiagnostic it sits next to.",
+        "operationId": "activity_api_v1_activity_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "type": "array",
+                  "title": "Response Activity Api V1 Activity Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/transcripts/scan": {
       "post": {
         "summary": "Scan",
-        "description": "Garde-fou : détecte les injections, journalise l'incident, 201.\n\nDeux moteurs au choix : `regex` (heuristique embarquée, défaut) ou\n`ml` (micro-modèle entraîné — 293 Ko, voir ml/train.py). Le scan ET\nsa journalisation sont dans la même requête : un incident détecté\nmais non enregistré serait une faille d'audit.",
+        "description": "Guardrail: detects injections, logs the incident, 201.\n\nTwo engines to choose from: `regex` (built-in heuristics, default) or\n`ml` (trained micro-model — 293 KB, see ml/train.py). The scan AND\nits logging happen in the same request: an incident detected but not\nrecorded would be an audit gap.",
         "operationId": "scan_api_v1_transcripts_scan_post",
         "requestBody": {
           "content": {
@@ -230,7 +265,7 @@
     "/api/v1/attestation": {
       "get": {
         "summary": "Attestation",
-        "description": "Attestation signée de l'état courant (résumé seul, sans le détail).",
+        "description": "Signed attestation of the current state (digest only, no detail).",
         "operationId": "attestation_api_v1_attestation_get",
         "responses": {
           "200": {
@@ -251,7 +286,7 @@
     "/api/v1/attestation.pdf": {
       "get": {
         "summary": "Attestation Pdf Route",
-        "description": "Attestation en PDF — le document qu'un DPO classe dans un dossier.\n\nLa source de vérité reste le JSON (machine) ; le PDF est la version\npour humain, avec la marche à suivre de vérification imprimée dessus.",
+        "description": "Attestation as PDF — the document a DPO files in a case record.\n\nThe source of truth remains the JSON (machine-readable); the PDF is\nthe human version, with the verification procedure printed on it.\n\nThe PDF engine is an optional extra: without `noirebox[pdf]` the\nroute answers 501 with the install hint — never a traceback.",
         "operationId": "attestation_pdf_route_api_v1_attestation_pdf_get",
         "responses": {
           "200": {
@@ -268,7 +303,7 @@
     "/api/v1/export": {
       "get": {
         "summary": "Export",
-        "description": "Export complet auditable : événements + attestation.\n\nC'est CE fichier que le tiers fait manger à verifier/verifier.py.",
+        "description": "Full auditable export: events + attestation.\n\nTHIS is the file the third party feeds to verifier/verifier.py.",
         "operationId": "export_api_v1_export_get",
         "responses": {
           "200": {
@@ -289,7 +324,7 @@
     "/api/v1/anchors": {
       "post": {
         "summary": "Create Anchor",
-        "description": "Ancre RFC 3161 : scelle la tête de chaîne actuelle à une TSA.\n\nLa TSA (process séparé, propre clé — ou service externe configuré)\nsigne « ce head_hash existait à la date T ». L'ancre est journalisée\ncomme événement \"anchor\" : le journal scelle sa propre preuve\nextérieure, et une régénération de chaîne par un insider avec la clé\ndevient détectable (ADR 006).",
+        "description": "RFC 3161 anchor: seals the current chain head to one or more TSAs.\n\nEach TSA (separate process with its own key — or a configured external\nservice) signs \"this head_hash existed at date T\". The anchor is\nlogged as an \"anchor\" event: the journal seals its own external\nproof, and a chain regeneration by an insider holding the key becomes\ndetectable (ADR 006). Multi-witness profiles (NOIREBOX_TSA_PROFILES,\nADR 008) put several independent TSAs behind one anchor event — at\nleast one qualified eIDAS TSA for legal weight, plus rotating public\nwitnesses.",
         "operationId": "create_anchor_api_v1_anchors_post",
         "responses": {
           "201": {
@@ -310,7 +345,7 @@
     "/api/v1/attestation/verify": {
       "post": {
         "summary": "Verify Attestation Endpoint",
-        "description": "Vérifie une attestation soumise (cas du tiers qui n'a que le résumé).\n\n`att: dict` sans DTO : volontaire — c'est une donnée étrangère qu'on\ninspecte défensivement, pas un contrat interne.",
+        "description": "Verifies a submitted attestation (the third party holding only the digest).\n\n`att: dict` without a DTO is deliberate — this is foreign data we\ninspect defensively, not an internal contract.",
         "operationId": "verify_attestation_endpoint_api_v1_attestation_verify_post",
         "requestBody": {
           "content": {
@@ -375,7 +410,7 @@
           "type"
         ],
         "title": "EventIn",
-        "description": "Corps attendu par POST /api/v1/events."
+        "description": "Body expected by POST /api/v1/events."
       },
       "HTTPValidationError": {
         "properties": {
@@ -429,7 +464,7 @@
           "text"
         ],
         "title": "ScanIn",
-        "description": "Corps attendu par POST /api/v1/transcripts/scan."
+        "description": "Body expected by POST /api/v1/transcripts/scan."
       },
       "TokenIn": {
         "properties": {
@@ -452,7 +487,7 @@
           "client_secret"
         ],
         "title": "TokenIn",
-        "description": "Corps attendu par POST /api/v1/token (OAuth2 client-credentials maison)."
+        "description": "Body expected by POST /api/v1/token (in-house OAuth2 client-credentials)."
       },
       "ValidationError": {
         "properties": {

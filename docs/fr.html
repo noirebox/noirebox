@@ -55,9 +55,9 @@
     </div>
 
     <ul class="stats">
-      <li><strong>107</strong><span>tests verts</span></li>
-      <li><strong>1,8 Mo</strong><span>repo complet</span></li>
-      <li><strong>0,21 ms</strong><span>par événement scellé</span></li>
+      <li><strong>173</strong><span>tests verts</span></li>
+      <li><strong>0,6 Mo</strong><span>wheel, modèles inclus</span></li>
+      <li><strong>0,17 ms</strong><span>par événement scellé</span></li>
       <li><strong>250 Ko</strong><span>détecteur par langue</span></li>
     </ul>
 
@@ -198,15 +198,15 @@
     </p>
     <table class="metrics">
       <tr><th>Métrique</th><th>Valeur</th><th>Reproduire avec</th></tr>
-      <tr><td>Événement scellé — hash + Ed25519 + commit SQLite</td><td class="m-val">0,21 ms</td><td class="m-how">docs/SPECS.md §6</td></tr>
-      <tr><td>Scan garde-fou, moteur regex (7 lignes)</td><td class="m-val">0,23 ms</td><td class="m-how">docs/SPECS.md §6</td></tr>
-      <tr><td>Scan garde-fou, moteur ML (7 lignes)</td><td class="m-val">10,4 ms</td><td class="m-how">docs/SPECS.md §6</td></tr>
-      <tr><td>Vérification complète, 100 événements</td><td class="m-val">22 ms</td><td class="m-how">verifier/verifier.py, tout export</td></tr>
+      <tr><td>Événement scellé — hash + Ed25519 + commit SQLite</td><td class="m-val">0,17 ms</td><td class="m-how">docs/SPECS.md §6</td></tr>
+      <tr><td>Scan garde-fou, moteur regex (7 lignes)</td><td class="m-val">0,21 ms</td><td class="m-how">docs/SPECS.md §6</td></tr>
+      <tr><td>Scan garde-fou, moteur ML (7 lignes)</td><td class="m-val">10,3 ms</td><td class="m-how">docs/SPECS.md §6</td></tr>
+      <tr><td>Vérification complète, 100 événements</td><td class="m-val">44 ms</td><td class="m-how">verifier/verifier.py, tout export</td></tr>
       <tr><td>Détecteurs embarqués, FR + EN</td><td class="m-val">293 + 243 Ko</td><td class="m-how">make train · make train-en</td></tr>
       <tr><td>Phrases d'attaque inédites, FR + EN</td><td class="m-val">12/12</td><td class="m-how">tests/test_ml_guardrail.py</td></tr>
-      <tr><td>Suite de tests</td><td class="m-val">107 verts</td><td class="m-how">make test</td></tr>
+      <tr><td>Suite de tests</td><td class="m-val">173 verts</td><td class="m-how">make test</td></tr>
     </table>
-    <p class="note mono">Mesuré sur un MacBook M-series, septembre 2026. Un chiffre, une commande — si une version future ne reproduit pas un chiffre, la table est corrigée, pas gonflée.</p>
+    <p class="note mono">Mesuré sur un MacBook M-series, octobre 2026. Un chiffre, une commande — si une version future ne reproduit pas un chiffre, la table est corrigée, pas gonflée.</p>
   </div>
 </section>
 
@@ -249,7 +249,7 @@
     <p class="kicker">08 · DÉVELOPPEURS</p>
     <h2>Une API, un SDK, un vérificateur.<br><span class="grad">Rien d'autre à apprendre.</span></h2>
     <p class="lede">
-      FastAPI, 10 routes documentées, OpenAPI interactive sur <em>/docs</em>.
+      FastAPI, 11 routes documentées, OpenAPI interactive sur <em>/docs</em>.
       Enregistrez depuis tout ce qui sait envoyer du JSON — votre agent, votre
       CI, votre cron.
     </p>
@@ -273,7 +273,7 @@ $ python verifier/verifier.py export.json
       <span class="pf-chip">SDK Python</span>
       <span class="pf-chip">Serveur MCP · 4 outils agents</span>
       <span class="pf-chip">Docker</span>
-      <span class="pf-chip ok">10 routes</span>
+      <span class="pf-chip ok">11 routes</span>
     </div>
   </div>
 </section>

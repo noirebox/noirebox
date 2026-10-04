@@ -164,12 +164,12 @@ Yes, it is AI—in the family of **machine learning**. The confusion comes from 
 |---|---|---|
 | What it does | predicts the next word; can do many things | answers one question: “attack or normal meeting?” |
 | Size | billions of parameters; gigabytes (5–100 GB) | 293 KB |
-| How it learns | by reading the internet | by reading 4,000 labeled example sentences |
+| How it learns | by reading the internet | by reading 5,400 labeled example sentences |
 | Where it runs | in large server farms | in the repo, on your laptop, in microseconds |
 
 **The analogy that unlocks everything: anti-spam filters.** Gmail does not run an LLM on each email to decide spam vs not spam—this is a classifier trained on millions of examples, tiny and instantaneous. It is still AI, and it works reliably.
 
-**“What does it do by itself?”** No one wrote strict rules for it. We showed it 4,000 labeled phrases (attack / normal meeting), and it learned how to separate them numerically. The proof it learned something real is that it correctly classifies phrases **not in its training set**. The tests in `tests/test_ml_guardrail.py` lock this behavior in place.
+**“What does it do by itself?”** No one wrote strict rules for it. We showed it 5,400 labeled phrases (attack / normal meeting), and it learned how to separate them numerically. The proof it learned something real is that it correctly classifies phrases **not in its training set**. The tests in `tests/test_ml_guardrail.py` lock this behavior in place.
 
 **The key vocabulary**: LLM = heavy generalist; trained classifier = tiny specialist. For a guardrail that must scan every request cheaply, locally, and deterministically (same input → same verdict → testable in CI), the specialist is the correct tool. The LLM still has a role as a **second layer** for ambiguous cases—this is exactly the arbitration documented in ADR 001.
 

@@ -110,14 +110,14 @@ Base: `http://127.0.0.1:8768` — full detail: [`openapi.json`](openapi.json).
 
 Errors: 401 missing/invalid token (`WWW-Authenticate: Bearer`) · 422 Pydantic validation · 429 quota exceeded · 503 engine unavailable (actionable message) · verification failures always include exact location (`seq`).
 
-## 6. Measured performance (MacBook M-series, local venv, 2026-09-27 — journal rows reproduced with `make bench`)
+## 6. Measured performance (MacBook M-series, local venv, 2026-10-04 — sealing and verification rows reproduced with `make bench`)
 
 | Operation | Measure |
 |---|---|
-| Regex scan (7 lines) | **0.10 ms** |
-| ML scan (7 lines, sklearn loaded) | **9.2 ms** (~1.3 ms/line) |
-| Sealed append (SHA-256 + Ed25519 + SQLite commit) | **0.18 ms** |
-| Full verification (100 events, incl. JSON load) | **45 ms** |
+| Regex scan (7 lines) | **0.21 ms** |
+| ML scan (7 lines, sklearn loaded) | **10.3 ms** (~1.5 ms/line) |
+| Sealed append (SHA-256 + Ed25519 + SQLite commit) | **0.17 ms** |
+| Full verification (100 events, incl. JSON load) | **44 ms** |
 
 Therefore, sealed appends do not penalize the LLM call path significantly (seconds).
 Absolute values vary with hardware and load — `make bench` on your machine is the reference.
