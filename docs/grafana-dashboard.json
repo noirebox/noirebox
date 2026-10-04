@@ -1,0 +1,36 @@
+{
+  "title": "NoireBox — Flight Recorder",
+  "uid": "noirebox",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "panels": [
+    {
+      "type": "stat", "title": "Sealed events",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "targets": [{"expr": "noirebox_events_total"}]
+    },
+    {
+      "type": "stat", "title": "Witness anchors",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "targets": [{"expr": "noirebox_anchors_total"}]
+    },
+    {
+      "type": "stat", "title": "Head intact (light custody check)",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "targets": [{"expr": "noirebox_head_intact"}],
+      "fieldConfig": {"defaults": {"mappings": [
+        {"type": "value", "options": {"0": {"color": "red", "text": "TAMPERED"}, "1": {"color": "green", "text": "INTACT"}}}
+      ]}}
+    },
+    {
+      "type": "stat", "title": "Guardrail incidents",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+      "targets": [{"expr": "noirebox_incidents_total"}]
+    },
+    {
+      "type": "timeseries", "title": "Sealed events by type",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 4},
+      "targets": [{"expr": "noirebox_events_by_type"}]
+    }
+  ]
+}

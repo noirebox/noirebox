@@ -259,6 +259,23 @@ def create_app(db_path: str | None = None) -> FastAPI:
         except RuntimeError as exc:
             raise HTTPException(status_code=503, detail=f"TSA unreachable: {exc}") from exc
 
+    @app.get("/metrics", include_in_schema=False)
+    def metrics(client_id: str = Depends(require_metadata_auth)) -> Response:
+        """Prometheus exposition (text 0.0.4, zero dependency).
+
+        Metadata class like /activity: aggregates and digests only, behind
+        NOIREBOX_METADATA_AUTH when the deployment opts in. The integrity
+        gauge is a LIGHT custody check (last event recomputed + signature),
+        deliberately not the full chain verification — that stays the
+        verifier's offline job.
+        """
+        from .metrics import render_metrics
+
+        return Response(
+            content=render_metrics(store, key.public_hex()),
+            media_type="text/plain; version=0.0.4; charset=utf-8",
+        )
+
     @app.post("/api/v1/attestation/verify")
     def verify_attestation_endpoint(att: dict) -> dict:
         """Verifies a submitted attestation (the third party holding only the digest).
