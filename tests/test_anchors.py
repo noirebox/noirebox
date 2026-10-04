@@ -364,8 +364,8 @@ def test_redirects_are_refused_never_followed(tmp_path_factory):
         def log_message(self, *a):
             pass
 
-    port = _free_port()
-    httpd = http.server.ThreadingHTTPServer(("127.0.0.1", port), Redirector)
+    httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Redirector)
+    port = httpd.server_address[1]  # the OS picks a free port at bind time
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     try:
         with pytest.MonkeyPatch.context() as mp:
