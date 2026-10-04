@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 import base64
+import http.client
 import ipaddress
 import json
 import os
 import shutil
 import socket
+import ssl
 import subprocess
 import tempfile
 from pathlib import Path
 from urllib.parse import urlparse
-
-import httpx
 
 from .chain import GENESIS, KeyPair
 from .store import EventStore
@@ -23,9 +23,7 @@ GENESIS_HASH = GENESIS
 # default set because the self-hosted TSA (`make tsa`) runs on 127.0.0.1.
 DEFAULT_ALLOWED_HOSTS = ("127.0.0.1", "::1", "localhost")
 
-# Single shared client: the no-redirect policy is set ONCE, centrally (an
-# anchored endpoint cannot bounce a request elsewhere), connections are reused.
-_TSA_HTTP = httpx.Client(follow_redirects=False, timeout=10)
+_REDIRECT_STATUS = (301, 302, 303, 307, 308)
 
 
 def _allowed_hosts() -> set[str]:
@@ -75,12 +73,10 @@ def _checked_endpoint(url: str) -> str:
     (shared client, follow_redirects=False), so an endpoint cannot bounce
     the request elsewhere.
 
-    Honest limit: this check runs at REQUEST-BUILD time while httpx
-    re-resolves DNS at connect time, so an attacker controlling the DNS
-    zone of an allowlisted host could still swap the IP in between (DNS
-    rebinding). The allowlist is admin-controlled, which keeps that window
-    narrow — but "narrow" is not "closed". The complete fix is transport-
-    level pinning of the resolved addresses (roadmap).
+    This is the pre-flight half of the egress control; the transport half
+    (`_pinned_request`) resolves once more and connects to THAT address
+    with nothing in between, closing the DNS-rebinding window the old
+    httpx path left open (ADR 008 refinement, 2026-10-04).
     """
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https") or (parsed.username or parsed.password):
@@ -120,17 +116,86 @@ def build_query(head_hash: str) -> bytes:
             return f.read()
 
 
+class _PinnedHTTPSConnection(http.client.HTTPSConnection):
+    """HTTPS to the IP we resolved and validated — TLS identity stays the
+    hostname (SNI and certificate check against the NAME, bytes to the IP).
+    The rebinding fix (ADR 008 refinement, 2026-10-04): there is no second,
+    unvalidated DNS resolution for an attacker to race, because the
+    connection targets the address the validation just saw."""
+
+    def __init__(self, ip: str, host: str, port: int, timeout: float,
+                 context: ssl.SSLContext):
+        super().__init__(ip, port, timeout=timeout, context=context)
+        self._server_hostname = host
+
+    def connect(self) -> None:
+        sock = socket.create_connection((self.host, self.port), self.timeout)
+        self.sock = self._context.wrap_socket(sock, server_hostname=self._server_hostname)
+
+
+def _resolve_pinned(host: str, port: int) -> str:
+    """Resolves the host ONCE and returns the only address the request will
+    ever touch; every resolved address is link-local-checked on the way."""
+    infos = socket.getaddrinfo(host, port)
+    if not infos:
+        raise RuntimeError(f"TSA endpoint does not resolve: {host}")
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if ip.is_link_local:
+            raise RuntimeError(f"allowlisted TSA host {host!r} resolves to a "
+                               f"link-local address (cloud-metadata range)")
+    return infos[0][4][0]
+
+
+def _pinned_request(method: str, url: str, body: bytes | None = None,
+                    content_type: str | None = None,
+                    timeout: float = 10.0) -> tuple[int, bytes]:
+    """One HTTP request to a TSA endpoint, pinned end to end.
+
+    Validation then resolution then connection happen adjacently, single
+    threaded, with nothing between them: the connection uses an address the
+    validation just approved, and TLS verifies the hostname. Redirects are
+    refused, never followed — an endpoint cannot bounce the request
+    elsewhere (the no-redirect promise, now with no client to configure).
+    """
+    parsed = urlparse(_checked_endpoint(url))
+    host = (parsed.hostname or "").lower()
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    ip = _resolve_pinned(host, port)
+    if parsed.scheme == "https":
+        conn: http.client.HTTPConnection = _PinnedHTTPSConnection(
+            ip, host, port, timeout, ssl.create_default_context())
+    else:
+        conn = http.client.HTTPConnection(ip, port, timeout=timeout)
+    path = parsed.path or "/"
+    if parsed.query:
+        path += "?" + parsed.query
+    headers: dict[str, str] = {"Host": host, "Accept": "*/*"}
+    if body is not None:
+        headers["Content-Type"] = content_type or "application/octet-stream"
+        headers["Content-Length"] = str(len(body))
+    conn.request(method, path, body=body, headers=headers)
+    response = conn.getresponse()
+    data = response.read()
+    status = response.status
+    conn.close()
+    if status in _REDIRECT_STATUS:
+        raise RuntimeError(f"TSA {url} responded with a redirect ({status}) — "
+                           f"redirects are never followed (ADR 008)")
+    return status, data
+
+
 def request_token_at(head_hash: str, post_url: str) -> bytes:
     """Sends the request to a concrete RFC 3161 endpoint, returns the
     TimeStampResp token (DER)."""
-    response = _TSA_HTTP.post(
-        _checked_endpoint(post_url).rstrip("/"),
-        content=build_query(head_hash),
-        headers={"Content-Type": "application/timestamp-query"},
+    status, data = _pinned_request(
+        "POST", post_url.rstrip("/"),
+        body=build_query(head_hash),
+        content_type="application/timestamp-query",
     )
-    if response.status_code != 200:
-        raise RuntimeError(f"TSA {post_url} responded {response.status_code}")
-    return response.content
+    if status != 200:
+        raise RuntimeError(f"TSA {post_url} responded {status}")
+    return data
 
 
 def request_token(head_hash: str, tsa_url: str | None = None) -> bytes:
@@ -143,15 +208,17 @@ def fetch_tsa_cert(tsa_url: str | None = None) -> str:
     """Fetches the TSA certificate (it travels INSIDE the anchor — the third
     party needs it to verify the token; TOFU + pinning possible, ADR 006)."""
     base = (tsa_url or os.environ["NOIREBOX_TSA_URL"]).rstrip("/")
-    response = _TSA_HTTP.get(_checked_endpoint(f"{base}/cert"))
-    response.raise_for_status()
-    return response.text
+    status, data = _pinned_request("GET", f"{base}/cert")
+    if status != 200:
+        raise RuntimeError(f"TSA {base} responded {status} fetching the certificate")
+    return data.decode("ascii", errors="replace")
 
 
 def _fetch_cert_url(cert_url: str) -> str:
-    response = _TSA_HTTP.get(_checked_endpoint(cert_url))
-    response.raise_for_status()
-    return response.text
+    status, data = _pinned_request("GET", cert_url)
+    if status != 200:
+        raise RuntimeError(f"TSA {cert_url} responded {status} fetching the certificate")
+    return data.decode("ascii", errors="replace")
 
 
 def extract_token_certs(token: bytes) -> str:

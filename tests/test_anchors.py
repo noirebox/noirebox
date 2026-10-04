@@ -291,3 +291,86 @@ def test_ots_only_profile_has_no_flat_mirror(tsa_url, tmp_path, monkeypatch):
     payload = client.get("/api/v1/export").json()["events"][-1]["payload"]
     assert "tsr" not in payload
     assert len(payload["tokens"]) == 1 and payload["tokens"][0]["kind"] == "ots"
+
+
+def test_pinned_connection_targets_the_validated_ip(tmp_path_factory, monkeypatch):
+    """ADR 008 refinement, the rebinding closure: the connection must use the
+    address the validation resolved — never a fresh, unvalidated lookup."""
+
+    from noirebox import anchors as anchors_mod
+
+    material = tmp_path_factory.mktemp("tsa_pin_material")
+    gen = subprocess.run(
+        ["bash", str(ROOT / "tsa" / "gen_tsa.sh"), str(material)], capture_output=True)
+    assert gen.returncode == 0, gen.stderr.decode()
+    port = _free_port()
+    server = subprocess.Popen(
+        ["python3", str(ROOT / "tsa" / "tsa_server.py"),
+         "--material", str(material), "--port", str(port)],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        for _ in range(100):
+            try:
+                socket.create_connection(("127.0.0.1", port), 0.1).close()
+                break
+            except OSError:
+                time.sleep(0.05)
+        monkeypatch.setenv("NOIREBOX_TSA_ALLOWED_HOSTS", "tsa.example")
+        seen_dns, seen_connect = [], []
+        real_getaddrinfo, real_create = socket.getaddrinfo, socket.create_connection
+
+        def fake_getaddrinfo(host, port, *a, **k):
+            seen_dns.append(host)
+            if host == "tsa.example":
+                return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", port))]
+            return real_getaddrinfo(host, port, *a, **k)
+
+        def fake_create_connection(address, *a, **k):
+            seen_connect.append(address)
+            return real_create(address, *a, **k)
+
+        monkeypatch.setattr(anchors_mod.socket, "getaddrinfo", fake_getaddrinfo)
+        monkeypatch.setattr(anchors_mod.socket, "create_connection", fake_create_connection)
+
+        head = "a" * 64
+        token = anchors_mod.request_token_at(head, f"http://tsa.example:{port}/tsa")
+        assert token[:20], "a token must come back over the pinned connection"
+        # the DNS name never touched the wire: the wire saw the resolved IP
+        assert seen_connect == [("127.0.0.1", port)]
+        # exactly two in-process resolutions of the NAME (pre-flight check +
+        # pinned resolve); the extra lookup of the literal comes from
+        # create_connection itself — the connection still targets the IP
+        assert seen_dns.count("tsa.example") == 2
+    finally:
+        server.terminate()
+
+
+def test_redirects_are_refused_never_followed(tmp_path_factory):
+    """The no-redirect promise is now transport-level: a TSA endpoint that
+    answers 302 gets refused, not followed."""
+    import http.server
+    import threading
+
+    import pytest
+
+    from noirebox import anchors as anchors_mod
+
+    class Redirector(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):
+            self.send_response(302)
+            self.send_header("Location", "http://evil.example/tsr")
+            self.end_headers()
+
+        def log_message(self, *a):
+            pass
+
+    port = _free_port()
+    httpd = http.server.ThreadingHTTPServer(("127.0.0.1", port), Redirector)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setenv("NOIREBOX_TSA_ALLOWED_HOSTS", "127.0.0.1")
+            with pytest.raises(RuntimeError, match="redirect"):
+                anchors_mod.request_token_at("b" * 64, f"http://127.0.0.1:{port}/tsa")
+    finally:
+        httpd.shutdown()
