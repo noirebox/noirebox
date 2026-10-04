@@ -91,3 +91,12 @@ def test_dashboard_degrades_gracefully_behind_auth(tmp_path, monkeypatch):
     assert "NbAuthRequired" in html and "Bearer" in html  # 401 handling
     assert api.get("/api/v1/verify").status_code == 200   # verification stays open
     assert api.get("/api/v1/events").status_code == 401   # events are protected
+
+
+def test_dashboard_has_the_fleet_panel_wired(tmp_path):
+    """ADR 017 in the Flight Deck: the fleet panel renders the latest
+    fleet_anchor seal — root, member count, witness honesty."""
+    html = _client(tmp_path).get("/dashboard").text
+    assert 'id="fleet"' in html
+    assert "fleet_anchor" in html
+    assert "noirebox fleet-anchor" in html  # the how-to when no seal exists

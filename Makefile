@@ -1,5 +1,5 @@
 # NoireBox — shortcuts (make test, make demo, make serve…)
-.PHONY: install test bench sync-count serve demo demo-mcp demo-llm demo-judge demo-fleet demo-payout ollama-pull judge-pull tsa dataset train train-en train-es docker clean
+.PHONY: install test bench sync-count serve demo demo-mcp demo-llm demo-judge demo-fleet demo-payout ollama-pull judge-pull fleet-anchor tsa dataset train train-en train-es docker clean
 
 install:
 	python3 -m venv .venv
@@ -38,6 +38,15 @@ demo-payout:
 
 ollama-pull:
 	ollama pull qwen2.5:0.5b
+
+# Fleet hub v0 (ADR 017): ONE seal covers N journals. Point HUB at the hub
+# journal and JOURNALS at the member list — a cron entry re-runs this and the
+# falsifiable window shrinks to the tail since the last fleet anchor.
+#   15 6 * * *  cd /srv/noirebox && make fleet-anchor HUB=/srv/hub/hub.db JOURNALS="/srv/boxes/*/data/noirebox.db"
+HUB ?= hub.db
+JOURNALS ?=
+fleet-anchor:
+	.venv/bin/noirebox fleet-anchor $(JOURNALS) --db $(HUB)
 
 tsa:
 	@chmod +x tsa/gen_tsa.sh && ./tsa/gen_tsa.sh tsa/material

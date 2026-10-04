@@ -278,6 +278,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 <h2>The witness — last RFC 3161 anchor</h2>
 <div class="panelbox" style="padding:14px 16px" id="witness">loading…</div>
 
+<h2>The fleet — latest Merkle seal (ADR 017)</h2>
+<div class="panelbox" style="padding:14px 16px" id="fleet">no fleet seal in this journal</div>
+
 <footer>
   <span>read-only — this view never mutates the journal</span>
   <span>it renders; the exported dossier attests</span>
@@ -863,6 +866,20 @@ async function refresh() {
       `last anchor: seq ${anchor.seq} — ${esc(anchor.ts.slice(0,19))} UTC — ` +
       `head covered <b>${short(anchor.payload?.head_hash || anchor.payload?.hash)}</b>` :
       'no RFC 3161 anchor sealed yet — run <b>make tsa</b> + POST /api/v1/anchors';
+
+    // ── the fleet: latest Merkle seal over member heads (ADR 017) ──
+    const fleetSeal = events.slice().reverse().find(e => e.type === "fleet_anchor");
+    document.getElementById("fleet").innerHTML = fleetSeal ? (() => {
+      const p = fleetSeal.payload;
+      const witness = p.tokens ? `${p.tokens.length} witness token(s)`
+        : (p.witness === "local" ? '<span style="color:var(--amber,#d29922)">local — no external date attests this seal</span>'
+                                  : "unknown witness");
+      const members = (p.heads || []).map(h =>
+        `<span class="type" style="display:inline-block;margin:2px 4px 2px 0">` +
+        `${esc(h.name)} <span style="opacity:.6">${short(h.head_hash)}</span></span>`).join("");
+      return `<div style="margin-bottom:6px">root <b>${short(p.root)}</b> — ` +
+        `${p.size} journal(s) — ${witness} — sealed at seq ${fleetSeal.seq}</div>` + members;
+    })() : 'no fleet seal in this journal — `noirebox fleet-anchor j1 j2 …` seals one root over N journals';
   } catch (err) {
     const seal = document.getElementById("seal");
     if (err instanceof NbAuthRequired) {
