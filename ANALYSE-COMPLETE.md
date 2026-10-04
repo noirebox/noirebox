@@ -574,10 +574,20 @@ pytest **212 passed / 2 skipped**, ruff, Bandit clean, CI distante verte. Tag
 digests, verifier embarqués), Docker GHCR `v0.9.0`, CI verte. Trois releases en
 un jour (0.7.0, 0.8.0, 0.9.0).
 
+**Passe finale 2026-10-04 (nuit) — la promesse de scaling prouvée et le hub complet :**
+**espagnol** — gen_dataset_es.py (5 400 exemples, seed 42, 20 % désaccentués),
+detector_es.joblib 287 KB, sanity 6/6, 0 FP sur les pièges propres ; `lang: "es"`
+dans l'API, la wheel, les tests. **Le bug `never_seen_sanity` corrigé** (dénominateur
+= phrases de la langue). **Console flotte** : panneau Flight Deck depuis les
+`fleet_anchor` + cible `make fleet-anchor` documentée pour le re-ancrage programmé.
+**ADR 018 — HSM/KMS v0** : `NOIREBOX_KEY_PEM` (injection par secret manager),
+mismatch refusé bruyamment au boot — la clé EST l'identité du journal, aucun rekey
+silencieux. Packs de lancement à 0.9.0. Validation : pytest **216 passed / 2
+skipped** (218 collectés), ruff, Bandit clean. Poussé (`25c463d`).
+
 **Reste ouvert (dans l'ordre) :**
 1. Lancement (comptes du fondateur) : dev.to, daily.dev lundi 9h30, Show HN 14h30,
    post-mortem à tracer ensuite.
-2. Console hub de flotte (UI + re-ancrage programmé — les primitives
-   seal/verify/status existent) ; HSM/KMS (dép. infra) ; marketplace VSIX (dép.
-   distribution).
-3. Nouvelles langues de détection (un générateur de dataset + `make train`).
+2. HSM signing réel (la clé ne quitte jamais le matériel — dép. infra) ; marketplace
+   VSIX (dép. distribution) ; UI console flotte étendue (les primitives existent).
+3. Nouvelles langues : le chemin est prouvé — un générateur + `make train`.
