@@ -25,7 +25,7 @@ via MCP) — we never claim automatic sealing where the app gives us nothing.
 | Claude Code | ✅ hooks (`PostToolUse`, `SessionEnd`) + session transcripts | plugin + MCP | **shipped** (`plugins/claude/`) |
 | Hook-native agents (per-call JSONL + hooks) | ✅ `noirebox hook` + `seal-trajectory --rollout` | plugin | shipped (first agent plugin) |
 | MCP-capable agents (Cursor, Windsurf, Gemini CLI, Cline, Continue…) | ➖ on-demand custody (scan, seal, verify, attest) | MCP config snippet | docs (P3) |
-| VSCode + Copilot (agent mode) | ✅ glue commands over the CLI (source) | MCP + VSIX extension | P2 shipped |
+| VSCode + Copilot (agent mode) | ✅ published on the VS Marketplace | MCP + VSIX extension | P2 done |
 | Anything else with a JSONL log | ✅ `seal-trajectory --format auto` | one CLI call | shipped |
 
 ## Phases
@@ -45,7 +45,7 @@ Hooks (`PostToolUse` tool actions, `SessionEnd` transcript), MCP server,
 `/noirebox-seal` `/noirebox-verify` `/noirebox-attest` commands, the
 `noirebox-journal` skill, marketplace manifest at the repository root.
 
-### P2 — VSCode extension (source shipped, 0.9.0)
+### P2 — VSCode extension (published, 0.10.0)
 Sidebar: journal activity, recent seals, verify button. Commands: seal a
 decision, verify, export the attestation (JSON/PDF). Auto-configures the
 NoireBox MCP server for Copilot agent mode. Sold honestly: in editors that
