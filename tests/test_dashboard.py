@@ -76,3 +76,18 @@ def test_dashboard_traffic_view_wired_to_the_seq_tail(tmp_path):
     assert '<canvas id="radar">' in html
     assert "since_seq=" in html
     assert "trafficStart" in html and "trafficStop" in html
+
+
+def test_dashboard_degrades_gracefully_behind_auth(tmp_path, monkeypatch):
+    """ADR 004 + review P1-8: on an auth-enabled instance the dashboard page
+    itself stays served, /api/v1/verify stays open, and the JS handles the
+    401 on /api/v1/events with a locked state and a token prompt — never a
+    thrown 401 JSON crashing the render loop."""
+    monkeypatch.setenv("NOIREBOX_CLIENTS", "acme:s3cret")
+    api = _client(tmp_path)
+    html = api.get("/dashboard").text
+    assert api.get("/dashboard").status_code == 200
+    assert "nbAuthPrompt" in html and "nb_token" in html  # token UI
+    assert "NbAuthRequired" in html and "Bearer" in html  # 401 handling
+    assert api.get("/api/v1/verify").status_code == 200   # verification stays open
+    assert api.get("/api/v1/events").status_code == 401   # events are protected

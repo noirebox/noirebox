@@ -199,6 +199,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 <header>
   <h1><span class="cube"></span>NOIREBOX — FLIGHT DECK</h1>
   <span class="seal" id="seal">CHECKING…</span>
+  <button class="viewbtn" id="tokbtn" title="Paste a bearer token (auth-enabled instances)"
+          onclick="nbAuthPrompt()">🔑</button>
 </header>
 
 <div class="viewbtns">
@@ -567,8 +569,7 @@ async function trafficPoll() {
   for (let guard = 0; guard < 12; guard++) {
     let batch;
     try {
-      batch = await fetch("/api/v1/events?since_seq=" + tr.seq + "&limit=500")
-        .then(r => r.json());
+      batch = await nbFetch("/api/v1/events?since_seq=" + tr.seq + "&limit=500");
     } catch (err) {
       return;  // keep the cursor; next tick retries from the same seq
     }
@@ -583,9 +584,9 @@ async function trafficInit() {
   try {
     const v = await fetch("/api/v1/verify").then(r => r.json());
     tr.seq = v.nb_events;
-    const seed = await fetch(
+    const seed = await nbFetch(
       "/api/v1/events?limit=500&offset=" + Math.max(0, v.nb_events - 500)
-    ).then(r => r.json());
+    );
     seed.forEach(e => {
       trNode(e.type).count++;
       if (e.seq > tr.seq) tr.seq = e.seq;
@@ -756,14 +757,32 @@ function trDraw(now) {
 // whole script — state included — has been evaluated.
 if (document.body.className === "view-traffic") trafficStart();
 
+// ── auth: the dashboard never blocks, it degrades ──
+// On an auth-enabled instance (NOIREBOX_CLIENTS), /api/v1/events answers 401
+// while /api/v1/verify and /api/v1/activity stay open (ADR 004: one never
+// locks verification). nbFetch carries an optional bearer token; a 401 shows
+// a clear locked state instead of a crash — paste a token with 🔑 to light
+// the event-driven panels back up. Token lives in sessionStorage only.
+function nbToken() { return sessionStorage.getItem("nb_token") || ""; }
+function nbAuthPrompt() {
+  const t = prompt("Bearer token for this instance (POST /api/v1/token):", nbToken());
+  if (t !== null) { sessionStorage.setItem("nb_token", t.trim()); refresh(); }
+}
+class NbAuthRequired extends Error {}
+async function nbFetch(url) {
+  const tok = nbToken();
+  const r = await fetch(url, tok ? { headers: { "Authorization": "Bearer " + tok } } : {});
+  if (r.status === 401) throw new NbAuthRequired("locked");
+  return r.json();
+}
+
 async function refresh() {
   try {
     const verify = await fetch("/api/v1/verify").then(r => r.json());
     // à l'échelle : fetcher la FIN du journal (les événements les plus récents),
     // pas le début — un dashboard qui rate les derniers événements est un bug.
     const offset = Math.max(0, verify.nb_events - 1000);
-    const events = await fetch(`/api/v1/events?limit=1000&offset=${offset}`)
-      .then(r => r.json());
+    const events = await nbFetch(`/api/v1/events?limit=1000&offset=${offset}`);
     // Heatmap: keep the last known day-buckets if the aggregate endpoint
     // hiccups — a transient fetch failure must not blank the whole panel.
     activityData = await fetch("/api/v1/activity")
@@ -845,8 +864,14 @@ async function refresh() {
       `head covered <b>${short(anchor.payload?.head_hash || anchor.payload?.hash)}</b>` :
       'no RFC 3161 anchor sealed yet — run <b>make tsa</b> + POST /api/v1/anchors';
   } catch (err) {
-    document.getElementById("seal").textContent = "API UNREACHABLE";
-    document.getElementById("seal").className = "seal bad";
+    const seal = document.getElementById("seal");
+    if (err instanceof NbAuthRequired) {
+      seal.textContent = "🔒 AUTH — paste a token (🔑)";
+      seal.className = "seal bad";
+    } else {
+      seal.textContent = "API UNREACHABLE";
+      seal.className = "seal bad";
+    }
   }
 }
 
