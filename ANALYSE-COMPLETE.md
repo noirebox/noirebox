@@ -541,6 +541,13 @@ tuée : `make sync-count` régénère les 7 endroits publiés (119→126→173�
 dérives en dix jours). Validation : **pytest 185 passed / 4 skipped, ruff, Bandit
 clean** ; poussé (`56256de`).
 
+**Release 0.8.0 — PUBLIÉE le 2026-10-04 (même journée que la 0.7.0, deux releases en
+un jour).** Tag `v0.8.0` → **PyPI `noirebox 0.8.0`** (wheel + sdist ; wheel vérifiée :
+llm_judge.py, digests.py, verifier/ + racines épinglées, 2 modèles ML embarqués),
+Docker GHCR `v0.8.0` + `latest`, CI verte (matrix 3.11/3.12), Bandit vert, Pages
+re-déployée. Les manifests des plugins restent à 0.7.0 : leur contenu n'a pas changé ce
+cycle — chaque artefact porte la version de son propre contenu.
+
 **Reste ouvert (dans l'ordre) :**
 1. P2 restants : câbler merkle.py dans le produit (hub de flotte), regex guardrail
    `lang`, épinglage transport des IPs résolues (le fix complet du rebinding).
