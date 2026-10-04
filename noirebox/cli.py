@@ -58,6 +58,23 @@ def main(argv: list[str] | None = None) -> int:
     hooksub = hook.add_subparsers(dest="hook_event")
     hooksub.add_parser("tool-use", help="seal one agent tool action (PostToolUse)")
     hooksub.add_parser("session-end", help="seal the session transcript (SessionEnd)")
+    flt = sub.add_parser("fleet-anchor",
+                         help="fleet hub v0 (ADR 017): one Merkle seal covers N "
+                              "journals — root witnessed by the configured TSAs, "
+                              "proofs printed for every member")
+    flt.add_argument("journals", nargs="+", help="journal paths to include")
+    flt.add_argument("--db", default=None,
+                     help="the HUB journal that seals the fleet anchor "
+                          "(default: NOIREBOX_DB, nearest .noirebox/, repo layout)")
+    flt.add_argument("--allow-local", action="store_true",
+                     help="seal without a configured TSA (witness: local — the "
+                          "proofs verify, no external date attests them)")
+    flv = sub.add_parser("fleet-verify",
+                         help="is this journal covered by the hub's latest fleet seal? "
+                              "(local recomputation, exit 0/1)")
+    flv.add_argument("journal", help="the member journal to check")
+    flv.add_argument("--db", default=None,
+                     help="the HUB journal holding the fleet_anchor (same defaults)")
     seal = sub.add_parser("seal",
                           help="seal one free-form event into the journal "
                                "(digests and short facts, never raw content)")
@@ -170,6 +187,46 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[{'✓' if check['valid'] else '✗'}] chain valid over "
               f"{check['nb_events']} events")
         return 0 if check["valid"] else 1
+
+    if args.command == "fleet-anchor":
+        from noirebox import locate
+        from noirebox.chain import KeyPair
+        from noirebox.fleet import fleet_anchor
+        from noirebox.store import EventStore
+
+        hub = args.db or locate.resolve_existing_journal()
+        store = EventStore(hub)
+        key = KeyPair.load_or_create(hub + ".key")
+        try:
+            result = fleet_anchor(args.journals, store, key,
+                                  require_witness=not args.allow_local)
+        except (ValueError, RuntimeError) as exc:
+            print(f"[✗] {exc}")
+            return 1
+        print(f"[✓] fleet_anchor sealed in {hub} (seq {result['event_seq']}) — "
+              f"root {result['root'][:16]}… over {len(result['members'])} journal(s)")
+        for w in result["warnings"]:
+            print(f"    [!] {w}")
+        for name in result["members"]:
+            print(f"    member: {name}")
+        return 0
+
+    if args.command == "fleet-verify":
+        from noirebox import locate
+        from noirebox.fleet import fleet_verify
+        from noirebox.store import EventStore
+
+        hub = args.db or locate.resolve_existing_journal()
+        result = fleet_verify(args.journal, EventStore(hub))
+        if result["covered"] and result["inclusion_ok"]:
+            print(f"[✓] COVERED — head {result['head'][:16]}… recomputes to the "
+                  f"sealed root {result['root'][:16]}…")
+            return 0
+        print(f"[✗] NOT COVERED — {result.get('warning', 'inclusion failed')}")
+        if result.get("head"):
+            print(f"    head: {result['head'][:16]}…  sealed root: "
+                  f"{(result.get('root') or '—')[:16]}…")
+        return 1
 
     if args.command == "hook":
         import sys

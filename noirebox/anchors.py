@@ -178,7 +178,7 @@ def extract_token_certs(token: bytes) -> str:
         return out.read_text(encoding="ascii")
 
 
-def _token_for(profile: dict, head_hash: str, head_seq: int) -> dict:
+def token_for(profile: dict, head_hash: str, head_seq: int) -> dict:
     """One witness token: a TSA signs the head hash (RFC 3161), or an
     OpenTimestamps receipt covers a manifest naming it (ADR 009)."""
     if profile.get("kind") == "ots":
@@ -250,7 +250,7 @@ def anchor_now(store: EventStore, key: KeyPair, tsa_url: str | None = None,
         else:
             profiles = load_profiles()
 
-    tokens = [_token_for(profile, head_hash, head_seq) for profile in profiles]
+    tokens = [token_for(profile, head_hash, head_seq) for profile in profiles]
     payload = {"head_seq": head_seq, "head_hash": head_hash}
     # Legacy flat mirror: the FIRST RFC 3161 token, so pre-ADR-009 verifiers
     # (which read tsr/tsa_cert_pem directly) still verify something real.
