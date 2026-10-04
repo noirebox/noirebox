@@ -11,13 +11,18 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # requires-python is >=3.11: the floor is TESTED, not promised.
+        python-version: ["3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
           cache: pip
-      - run: pip install -r requirements.txt ruff
+      - run: pip install -r requirements.txt ruff pytest-cov
       - name: Lint (ruff)
         run: ruff check .
       - name: Retrain both language models (CI-proven reproducibility)
@@ -27,7 +32,7 @@ jobs:
           python ml/gen_dataset_en.py
           python ml/train.py --lang en
         shell: bash
-      - name: Full test suite
-        run: pytest -q
+      - name: Full test suite (coverage reported, not gated — a number, not a gate)
+        run: pytest -q --cov=noirebox --cov-report=term-missing
         env:
           NOIREBOX_DB: /tmp/ci-noirebox.db

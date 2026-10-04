@@ -5,6 +5,38 @@ versioning according to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **`NOIREBOX_METADATA_AUTH=1`** — the metadata routes (`/activity`,
+  `/attestation`, `/attestation.pdf`) can move behind the bearer token. They
+  expose aggregates and digests only — never payload content — and stay open
+  by default for the third-party and DPO hand-over flows; verification routes
+  (`/verify`, `/attestation/verify`) are never lockable (ADR 004 refinement).
+- `GET /api/v1/events` pagination is SQL-side (`store.page`, LIMIT/OFFSET on
+  the primary key) instead of loading and JSON-decoding the whole journal to
+  slice in Python.
+
+### Changed
+- CI tests the declared floor: matrix Python 3.11 + 3.12 (`requires-python
+  >=3.11` was never actually tested at 3.11), coverage reported
+  informationally (`pytest-cov` in the dev extra), and the Docker publish
+  smoke-tests the pushed image (`/health` must answer before the job is
+  green).
+- Honest security claims: the TSA egress check narrows (not closes) the DNS
+  rebinding window — the check runs at request-build time while the HTTP
+  client re-resolves at connect; documented in `anchors.py` and ADR 008.
+
+### Fixed
+- The third-party verifier can no longer read as a clean INTACT when zero
+  witness tokens were cryptographically checked: the report now carries
+  `anchors_in_journal` vs `anchors_checked`, and the CLI prints a distinct
+  `[!] anchoring is UNPROVEN on this machine` warning plus the
+  reported-not-verified count (missing openssl/ots stays reported, never
+  hidden).
+- The ADR 012/013 sealing machinery is deduplicated (`noirebox/digests.py`):
+  one order-committed digest chain and one JSONL corruption policy instead of
+  two verbatim copies; the per-shape metadata extraction and verify wording
+  stay — they are the audit surface.
+
 ## [0.7.0] - 2026-10-04
 
 ### Added

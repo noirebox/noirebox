@@ -37,3 +37,19 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+      - name: Smoke test the pushed image (the healthcheck the HEALTHCHECK promises)
+        run: |
+          IMAGE="$(echo "${{ steps.meta.outputs.tags }}" | head -1)"
+          docker run -d --rm --name nb-smoke -p 8768:8768 "$IMAGE"
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8768/health | grep -q '"status":"ok"'; then
+              echo "smoke OK: /health answers on the published image"
+              docker logs nb-smoke | tail -3
+              docker stop nb-smoke
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "smoke FAILED: /health never answered" ; docker logs nb-smoke
+          docker stop nb-smoke || true
+          exit 1
