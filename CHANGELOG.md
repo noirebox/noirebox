@@ -84,8 +84,9 @@ versioning according to [Semantic Versioning](https://semver.org/).
   and plugin references updated (`ghcr.io/noirebox/noirebox`; the Docker
   image name is now derived from `${{ github.repository }}`). The old
   `slabbdev/noirebox` URL redirects; the PyPI package name is unchanged.
-  Creator attribution added to both READMEs. NOTE for maintainers: update
-  the PyPI trusted publisher to owner `noirebox` before the next release.
+  Creator attribution added to both READMEs. The PyPI trusted
+  publisher was re-pointed to owner `noirebox` before this release ships
+  (done 2026-10-04).
   The `noirebox-verify` GitHub Action repository moved to the org too —
   README examples now use `uses: noirebox/noirebox-verify@v1` and pin
   `noirebox-ref: v0.6.0` (was v0.5.0).
