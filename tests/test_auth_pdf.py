@@ -128,6 +128,66 @@ def test_jwt_roundtrip_and_expiry(monkeypatch):
     assert verify_token(expired) is None
 
 
+def test_jwt_fallback_uses_private_material_never_public(monkeypatch, tmp_path):
+    """ADR 014 adversarial test: the old fallback derived the HMAC secret from
+    the PUBLIC key — which ships in every export and is served openly at
+    /api/v1/attestation. A token forged from that public derivation must NOT
+    verify; the zero-config fallback must still roundtrip via private material.
+    """
+    import hashlib
+    import time
+
+    import jwt as pyjwt
+
+    from noirebox.chain import KeyPair
+
+    monkeypatch.delenv("NOIREBOX_JWT_SECRET", raising=False)
+    monkeypatch.setenv("NOIREBOX_DB", str(tmp_path / "journal.db"))
+
+    # Forged with the OLD public-key derivation: must be rejected.
+    key = KeyPair.load_or_create(str(tmp_path / "journal.db.key"))
+    forged = pyjwt.encode(
+        {"sub": "acme", "iat": int(time.time()), "exp": int(time.time()) + 3600},
+        hashlib.sha256(key.public_hex().encode()).hexdigest(), algorithm="HS256")
+    assert verify_token(forged) is None
+
+    # Zero-config roundtrip: issue and verify agree through the private derivation.
+    token = issue_token("acme", "s3cret", clients={"acme": "s3cret"})
+    assert verify_token(token) == "acme"
+
+
+def test_jwt_fallback_is_scoped_to_the_instance_key(monkeypatch, tmp_path):
+    """A token issued against journal A must not verify where only journal B
+    lives — each instance's fallback secret is bound to its own private key.
+    """
+    monkeypatch.delenv("NOIREBOX_JWT_SECRET", raising=False)
+    monkeypatch.setenv("NOIREBOX_DB", str(tmp_path / "a.db"))
+    token = issue_token("acme", "s3cret", clients={"acme": "s3cret"})
+    monkeypatch.setenv("NOIREBOX_DB", str(tmp_path / "b.db"))
+    assert verify_token(token) is None
+
+
+def test_keypair_creation_race_uses_the_winner_key(tmp_path, monkeypatch):
+    """Two processes at first boot: the loser of the O_EXCL race loads the
+    winner's PEM instead of crashing with FileExistsError (one journal, one key).
+    """
+    from cryptography.hazmat.primitives.serialization import (
+        Encoding, NoEncryption, PrivateFormat,
+    )
+
+    from noirebox.chain import KeyPair
+
+    path = str(tmp_path / "raced.key")
+    winner = KeyPair.generate()
+    pem = winner._priv.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption())
+    with open(path, "wb") as f:
+        f.write(pem)
+    # Simulate the interleaving: exists() said no, another process wrote, open(O_EXCL) loses.
+    monkeypatch.setattr("noirebox.chain.os.path.exists", lambda p: False)
+    loser = KeyPair.load_or_create(path)
+    assert loser.public_hex() == winner.public_hex()
+
+
 
 
 def test_attestation_pdf_is_a_real_pdf(client_open):

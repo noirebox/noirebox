@@ -61,24 +61,42 @@ class KeyPair:
 
         Created via os.open(..., 0o600) — permissions set atomically, never
         created-then-chmod'ed: a key file world-readable for even an instant
-        would be a vulnerability.
+        would be a vulnerability. Two processes racing at first boot never
+        end up with two keys: the loser of the O_EXCL race loads the winner's
+        PEM (one journal, one key).
         """
         if os.path.exists(path):
-            with open(path, "rb") as f:
-                priv = load_pem_private_key(f.read(), password=None)
-            if not isinstance(priv, Ed25519PrivateKey):
-                raise ValueError(f"{path} does not contain an Ed25519 key")
-            return cls(priv)
+            return cls._load_pem(path)
         kp = cls.generate()
         pem = kp._priv.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption())
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        try:
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            return cls._load_pem(path)
         with os.fdopen(fd, "wb") as f:
             f.write(pem)
         return kp
 
+    @classmethod
+    def _load_pem(cls, path: str) -> KeyPair:
+        with open(path, "rb") as f:
+            priv = load_pem_private_key(f.read(), password=None)
+        if not isinstance(priv, Ed25519PrivateKey):
+            raise ValueError(f"{path} does not contain an Ed25519 key")
+        return cls(priv)
+
     def public_hex(self) -> str:
         """Public key in hexadecimal — the value embedded in the exports."""
         return self._pub.public_bytes(Encoding.Raw, PublicFormat.Raw).hex()
+
+    def private_bytes_raw(self) -> bytes:
+        """Raw private key bytes — seed material for instance-scoped secrets.
+
+        Never leaves the process (no log, no export). The PUBLIC key is the
+        opposite: it ships in every attestation, so nothing security-critical
+        may ever be derived from it (ADR 014).
+        """
+        return self._priv.private_bytes_raw()
 
     def sign(self, data: bytes) -> str:
         """Signs bytes, returns the signature in hexadecimal."""

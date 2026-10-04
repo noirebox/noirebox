@@ -209,3 +209,19 @@ def scan_<engine>(text: str, min_confidence: float = 0.5) -> list[dict]:
 5. **Integrations are glue, the core stays single**: the first plugin (Claude Code) is manifest + hook JSON + command docs over these shared handlers. Every other agent with a hook system or MCP support reuses the same handlers (see `docs/ROADMAP-PLUGINS.md`).
 
 **Consequences**: adding an app costs a manifest and two hook lines, not a fork; formats named by shape avoid turning one vendor's log format into convention debt. The honest limit stays visible: agents that expose neither hooks, MCP, nor a per-call log cannot be flight-recorded — for those, NoireBox is the on-demand custody layer (seal/verify/attest via MCP), and we do not claim otherwise.
+
+---
+
+## ADR 014 — The JWT signing secret is derived from private material, never from public data
+
+**Status**: implemented (v0.7.x) — `noirebox/auth.py` `_jwt_secret()`, adversarial tests in `tests/test_auth_pdf.py`.
+
+**Context**: the optional OAuth2 layer (ADR 004) signs its 1 h HS256 tokens with `NOIREBOX_JWT_SECRET` when set. Its zero-config fallback, however, derived the secret as `sha256(public_hex)` — and the public key is not a secret at all: it travels in every export and attestation, and `GET /api/v1/attestation` serves it open by design (ADR 004: one never locks verification). Anyone able to read an export could therefore re-derive the "secret" and forge tokens for any `client_id` — bypassing both authentication and the per-client rate limit. Enabling auth without the env var gave false assurance; the flaw was found by the 2026-10 project-wide review, not by an incident.
+
+**Decision**:
+1. **Fallback derivation uses private key material only**: `sha256(private_bytes_raw)` of the instance's Ed25519 key. The private PEM is chmod 600 and read by the server process alone (chain.py), so the derived secret is as exposed as the key file itself — and whoever holds the key file already owns the journal; there is no weaker intermediate state. Every deployment still signs with something unique, zero-config still works.
+2. **`NOIREBOX_JWT_SECRET` remains the override** — deployments that rotate secrets independently of the journal key, or share one secret across replicas behind a load balancer, keep full control.
+3. **Token validity stays bound to the key file**: regenerating the journal key invalidates the derived-secret tokens (same behavior as the old public derivation; documented, not an accident).
+4. **Adversarial test as regression fence**: a token forged with the OLD public-key derivation must be rejected, the private-material roundtrip must pass, and a token issued against journal A must not verify where journal B lives (per-instance scoping).
+
+**Consequences**: enabling auth is now meaningful with configuration alone (`NOIREBOX_CLIENTS`); the threat "forge tokens from public information" is closed by construction and fenced by a test named after it. Tokens issued by a pre-fix deployment are invalidated by the upgrade — deployments that care re-issue; the journal itself is untouched (payloads are opaque to the chain). The broader review lesson is recorded in `ANALYSE-COMPLETE.md`: nothing security-critical may be derived from data the system publishes.

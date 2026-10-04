@@ -27,14 +27,21 @@ TOKEN_TTL_SECONDS = 3600
 
 def _jwt_secret() -> str:
     """JWT signing secret: NOIREBOX_JWT_SECRET, otherwise derived from the
-    instance key (every deployment signs with something unique)."""
+    instance PRIVATE key (every deployment signs with something unique).
+
+    The derivation must never touch public data: the public key ships in
+    every export/attestation and is served openly at /api/v1/attestation —
+    a secret derived from it is derivable by anyone (ADR 014). The private
+    key file is chmod 600 and read by this process alone; whoever holds it
+    already owns the journal.
+    """
     secret = os.environ.get("NOIREBOX_JWT_SECRET")
     if secret:
         return secret
     from .chain import KeyPair
 
     key = KeyPair.load_or_create(os.environ.get("NOIREBOX_DB", "data/noirebox.db") + ".key")
-    return hashlib.sha256(key.public_hex().encode()).hexdigest()
+    return hashlib.sha256(key.private_bytes_raw()).hexdigest()
 
 
 def issue_token(client_id: str, client_secret: str, clients: dict[str, str] | None = None) -> str | None:
