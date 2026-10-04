@@ -29,3 +29,7 @@ tsa/material/
 
 # OS / editor junk
 .DS_Store
+
+# Internal working documents — never published
+ANALYSE-COMPLETE.md
+.agentignore

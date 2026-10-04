@@ -251,7 +251,7 @@ closes (`locate.resolve_existing_journal`).
 3. **Token validity stays bound to the key file**: regenerating the journal key invalidates the derived-secret tokens (same behavior as the old public derivation; documented, not an accident).
 4. **Adversarial test as regression fence**: a token forged with the OLD public-key derivation must be rejected, the private-material roundtrip must pass, and a token issued against journal A must not verify where journal B lives (per-instance scoping).
 
-**Consequences**: enabling auth is now meaningful with configuration alone (`NOIREBOX_CLIENTS`); the threat "forge tokens from public information" is closed by construction and fenced by a test named after it. Tokens issued by a pre-fix deployment are invalidated by the upgrade — deployments that care re-issue; the journal itself is untouched (payloads are opaque to the chain). The broader review lesson is recorded in `ANALYSE-COMPLETE.md`: nothing security-critical may be derived from data the system publishes.
+**Consequences**: enabling auth is now meaningful with configuration alone (`NOIREBOX_CLIENTS`); the threat "forge tokens from public information" is closed by construction and fenced by a test named after it. Tokens issued by a pre-fix deployment are invalidated by the upgrade — deployments that care re-issue; the journal itself is untouched (payloads are opaque to the chain). The broader review lesson: nothing security-critical may be derived from data the system publishes.
 
 ---
 

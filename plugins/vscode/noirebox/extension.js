@@ -6,7 +6,7 @@
  * the journal through the ADR 013 convention (NOIREBOX_DB > nearest
  * .noirebox/ > ./.noirebox/journal.db). The extension never invents a
  * journal of its own — custody follows the working tree, exactly like the
- * Agent and Claude plugins.
+ * every other integration (editor-agnostic CLI).
  */
 const vscode = require("vscode");
 const { execFile } = require("child_process");

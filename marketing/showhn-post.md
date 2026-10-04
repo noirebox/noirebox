@@ -71,10 +71,11 @@ journals, Prometheus metrics, AI-Act-shaped event builders, and an
 audit-pack generator that renders the art. 12(3) mapping from the journal
 itself. MIT. Detection ships in French, English and Spanish.
 
-One self-demonstrating detail: since v0.7 the agent that built this repo
-seals its own tool calls and its own per-call model logs into the repo's
-journal — the flight recorder recorded its own construction, and the
-shipped verifier checks that log the same way it would check yours.
+One design consequence worth naming: the development itself ran with the
+recorder switched on — tool calls and model logs sealed locally by the
+same pipeline `pip install noirebox` gives you. The journal stays local
+(it holds session content; it is deliberately not committed) — the repo
+ships the method, your deployment ships the evidence.
 
 What it deliberately is not: a detector. It proves what was sealed and
 when — not whether the content is true.
@@ -91,12 +92,14 @@ Répondre **une fois**, factuel, sans défensive, puis laisser le verifier
 parler. Jamais de 2e réponse au troll.
 
 ```markdown
-Yes, written with AI agents under my direction. The journal in the repo is
-the actual log of those sessions, and the shipped verifier lets you check
-the journal wasn't altered afterwards. That's literally the product. Even
-the published test count is generated from pytest by
-tools/sync_test_count.py — the number drifted three times by hand before
-that, which is the failure mode the tool exists against.
+Yes, written with AI agents under my direction, with the recorder running
+the whole time — the same pipeline `pip install noirebox` gives you. The
+journal itself stays local (session content is deliberately never
+committed); what's auditable is the method: every claim in the README
+points at a reproducible command. Even the published test count is
+generated from pytest by tools/sync_test_count.py — the number drifted
+three times by hand before that, which is the failure mode the tool exists
+against.
 ```
 
 ### 2. « What about model collapse / training on synthetic data? »

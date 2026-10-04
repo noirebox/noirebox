@@ -268,10 +268,10 @@ commentaires, pas de re-post du même lien ailleurs la même semaine.
 - [ ] daily.dev direct post lundi ~9h30 (ou mardi si HN absorbe tout)
 - [ ] Répondre aux commentaires 2-3h après chaque post
 - [ ] Si "is this AI-written?" tombe : UNE réponse factuelle (même ligne que le
-      playbook HN : "Yes, written with AI agents under my direction. The journal
-      in the repo is the actual log of those sessions, and the shipped verifier
-      lets you check the journal wasn't altered afterwards."), puis laisser le
-      verifier parler
+      playbook HN : "Yes, written with AI agents under my direction, with the
+      recorder running the whole time. The journal stays local — what's
+      auditable is the method: every claim points at a reproducible command."),
+      puis laisser le verifier parler
 - [ ] Ne jamais demander de vote sur aucune plateforme
 
 ## Sources (recherche 2026-09-27)
