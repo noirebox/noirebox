@@ -358,7 +358,7 @@ examples, then `make train`.
 
 ## Tests
 
-173 tests: cryptography (tampering, reordering, wrong key), regex and **ML
+189 tests: cryptography (tampering, reordering, wrong key), regex and **ML
 guardrails on held-out sentences in FR and EN**, the guarded pipeline with a
 stub LLM (no Ollama needed, runs in CI), API agent, MCP server, SDK
 client against a **real uvicorn server** (ephemeral port), real LLM agent
