@@ -203,3 +203,34 @@ def test_attestation_pdf_is_a_real_pdf(client_open):
     assert b"NoireBox - Journal Integrity Attestation" in r.content
     assert b"GDPR" in r.content
     assert b"/Keywords" in r.content
+
+
+def test_metadata_routes_can_be_locked_behind_auth(monkeypatch, tmp_path):
+    """NOIREBOX_METADATA_AUTH=1: aggregates and the attestation move behind
+    the bearer token — while verification routes stay open ALWAYS (ADR 004:
+    one never locks verification)."""
+    monkeypatch.setenv("NOIREBOX_CLIENTS", "acme:s3cret")
+    monkeypatch.setenv("NOIREBOX_METADATA_AUTH", "1")
+    monkeypatch.setenv("NOIREBOX_DB", str(tmp_path / "meta.db"))
+    api = TestClient(create_app(str(tmp_path / "meta.db")))
+
+    assert api.get("/api/v1/verify").status_code == 200          # never locked
+    assert api.post("/api/v1/attestation/verify", json={}).status_code in (200, 422)
+    for path in ("/api/v1/activity", "/api/v1/attestation", "/api/v1/attestation.pdf"):
+        assert api.get(path).status_code == 401, path
+
+    token = _get_token(api)
+    h = {"Authorization": f"Bearer {token}"}
+    assert api.get("/api/v1/activity", headers=h).status_code == 200
+    assert api.get("/api/v1/attestation", headers=h).status_code == 200
+
+
+def test_metadata_routes_open_by_default(monkeypatch, tmp_path):
+    """Default unchanged: with auth enabled, the metadata routes stay open —
+    the third-party and DPO hand-over flows never carry a token."""
+    monkeypatch.setenv("NOIREBOX_CLIENTS", "acme:s3cret")
+    monkeypatch.delenv("NOIREBOX_METADATA_AUTH", raising=False)
+    monkeypatch.setenv("NOIREBOX_DB", str(tmp_path / "open-meta.db"))
+    api = TestClient(create_app(str(tmp_path / "open-meta.db")))
+    for path in ("/api/v1/activity", "/api/v1/attestation"):
+        assert api.get(path).status_code == 200, path

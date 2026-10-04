@@ -76,6 +76,17 @@ def scan_<engine>(text: str, min_confidence: float = 0.5) -> list[dict]:
 
 ---
 
+**Refinement (2026-10-04)**: the open routes come in two classes. Verification
+(`GET /api/v1/verify`, `POST /api/v1/attestation/verify`) is open ALWAYS — the class the
+"never lock verification" rule is about. The metadata routes (`GET /api/v1/activity`,
+`GET /api/v1/attestation`, `GET /api/v1/attestation.pdf`) expose aggregates and digests
+only — never payload content (that is what the auth-gated `/events` and `/export` carry) —
+and stay open by default because the third-party and DPO hand-over flows fetch them
+without credentials; a deployment that wants even the aggregates behind the bearer token
+sets `NOIREBOX_METADATA_AUTH=1` (protection is an explicit choice, the mirror of this
+ADR's activation rule). `/dashboard` serves static HTML: behind auth its event fetches
+degrade to the locked state while the verify badge keeps working.
+
 ## ADR 005 — PDF attestation: proof for humans, JSON for machines
 
 **Status**: implemented (v0.2.0).

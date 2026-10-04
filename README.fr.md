@@ -347,6 +347,8 @@ noirebox/            ← package (≈ namespace PSR-4)
 🔒 = exige `Authorization: Bearer <token>` quand `NOIREBOX_CLIENTS=id:secret,…`
 est posé ; **les routes de vérification restent ouvertes par principe** — on ne
 verrouille jamais la vérification ([ADR 004](docs/ADRs.md)). Rate limit : 60 req/min/client.
+Les routes de métadonnées (`/activity`, `/attestation*`) n'exposent que des agrégats et des
+digests (jamais le contenu des payloads) et passent derrière le token avec `NOIREBOX_METADATA_AUTH=1`.
 
 ## Plugin embarqué — taxonomie v0
 

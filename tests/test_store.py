@@ -137,3 +137,22 @@ def test_activity_buckets_days_utc(monkeypatch, tmp_path):
         {"day": "2026-03-23", "count": 2, "anchors": 0},
         {"day": "2026-03-24", "count": 1, "anchors": 1},
     ]
+
+
+def test_page_is_sql_sided_and_matches_slicing(tmp_path):
+    """Pagination reads a window with LIMIT/OFFSET instead of loading the
+    whole journal to slice it in Python — page(n, k) == all()[n:n+k]."""
+    from noirebox.chain import KeyPair
+    from noirebox.store import EventStore
+
+    db = str(tmp_path / "paged.db")
+    store = EventStore(db)
+    key = KeyPair.generate()
+    for i in range(5):
+        store.append("test", {"i": i}, key)
+    everything = store.all()
+    assert [e["seq"] for e in store.page(0, 2)] == [e["seq"] for e in everything[0:2]]
+    assert [e["seq"] for e in store.page(2, 2)] == [e["seq"] for e in everything[2:4]]
+    assert [e["seq"] for e in store.page(4, 100)] == [e["seq"] for e in everything[4:]]
+    assert store.page(50, 10) == []  # past the end: empty, never a crash
+    assert store.page(0, 2)[0]["payload"] == {"i": 0}  # payloads still deserialized

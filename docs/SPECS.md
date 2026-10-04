@@ -106,7 +106,7 @@ Base: `http://127.0.0.1:8768` — full detail: [`openapi.json`](openapi.json).
 | `POST /api/v1/anchors` | 🔒 | — → 201 | `{anchor_event_seq, anchored_head_seq, anchored_head_hash, tsr_bytes}` |
 | `GET /api/v1/export` | 🔒 | — | `{format_version, service, public_key, events, attestation}` |
 
-\* **Auth** (ADR 004): only enabled if `NOIREBOX_CLIENTS=id:secret,…` is set — 1-hour JWT HS256 in `Authorization: Bearer`, 60 req/min client rate limit (sliding window, 429 + `Retry-After`), constant-time secret comparison. **Verification routes remain open by design.**
+\* **Auth** (ADR 004): only enabled if `NOIREBOX_CLIENTS=id:secret,…` is set — 1-hour JWT HS256 in `Authorization: Bearer`, 60 req/min client rate limit (sliding window, 429 + `Retry-After`), constant-time secret comparison. **Verification routes remain open by design.** The metadata routes (`/activity`, `/attestation`, `/attestation.pdf`) expose aggregates and digests only — never payload content — and stay open by default; `NOIREBOX_METADATA_AUTH=1` moves them behind the bearer token (verification itself is never lockable).
 
 Errors: 401 missing/invalid token (`WWW-Authenticate: Bearer`) · 422 Pydantic validation · 429 quota exceeded · 503 engine unavailable (actionable message) · verification failures always include exact location (`seq`).
 

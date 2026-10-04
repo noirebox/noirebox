@@ -41,6 +41,19 @@ def create_app(db_path: str | None = None) -> FastAPI:
     auth_enabled = bool(os.environ.get("NOIREBOX_CLIENTS"))
     require_auth = build_auth_dependency(enabled=auth_enabled)
     app.state.require_auth = require_auth
+    # Metadata routes (activity, attestation, attestation.pdf) stay OPEN by
+    # default: they expose aggregates and digests only — never payload
+    # content — and the third-party / DPO hand-over flows fetch them without
+    # credentials. A deployment that wants even the aggregates behind the
+    # bearer token opts in with NOIREBOX_METADATA_AUTH=1 (protection is an
+    # explicit choice, mirroring ADR 004's activation rule; it presupposes
+    # auth being enabled). Verification routes (GET /verify, POST
+    # /attestation/verify) stay open ALWAYS — ADR 004: one never locks
+    # verification.
+    metadata_locked = auth_enabled and os.environ.get(
+        "NOIREBOX_METADATA_AUTH", "").strip().lower() in ("1", "true", "yes")
+    require_metadata_auth = build_auth_dependency(enabled=metadata_locked)
+    app.state.require_metadata_auth = require_metadata_auth
 
     @app.get("/health")
     def health() -> dict:
@@ -76,8 +89,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
         """
         if since_seq:
             return store.since(since_seq, limit)
-        events = store.all()
-        return events[offset : offset + limit]
+        return store.page(offset, limit)
 
     @app.get("/api/v1/verify")
     def verify() -> dict:
@@ -85,13 +97,13 @@ def create_app(db_path: str | None = None) -> FastAPI:
         return verify_chain(key.public_hex(), store.all())
 
     @app.get("/api/v1/activity")
-    def activity() -> list[dict]:
+    def activity(client_id: str = Depends(require_metadata_auth)) -> list[dict]:
         """Per-day sealed-event counts (UTC) — the dashboard heatmap's source.
 
-        Open like /verify: an aggregate (day → count) carries no payload,
-        and the dashboard fetches are plain browser calls that never carry
-        an Authorization header. Same sensitivity class as the verify
-        diagnostic it sits next to.
+        Open by default: an aggregate (day → count) carries no payload, and
+        the dashboard fetches are plain browser calls that never carry an
+        Authorization header. `NOIREBOX_METADATA_AUTH=1` moves it behind the
+        bearer token (never /verify — ADR 004).
         """
         return store.activity()
 
@@ -142,12 +154,18 @@ def create_app(db_path: str | None = None) -> FastAPI:
         }
 
     @app.get("/api/v1/attestation")
-    def attestation() -> dict:
-        """Signed attestation of the current state (digest only, no detail)."""
+    def attestation(client_id: str = Depends(require_metadata_auth)) -> dict:
+        """Signed attestation of the current state (digest only, no detail).
+
+        Open by default — this is what a third party checks without
+        credentials; `NOIREBOX_METADATA_AUTH=1` moves it behind the token
+        (the exported dossier still carries a copy, so the auditor's flow
+        never depends on this route being open).
+        """
         return build_attestation(store, key)
 
     @app.get("/api/v1/attestation.pdf")
-    def attestation_pdf_route() -> Response:
+    def attestation_pdf_route(client_id: str = Depends(require_metadata_auth)) -> Response:
         """Attestation as PDF — the document a DPO files in a case record.
 
         The source of truth remains the JSON (machine-readable); the PDF is

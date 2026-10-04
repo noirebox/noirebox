@@ -135,6 +135,21 @@ class EventStore:
             rows = self._conn.execute("SELECT seq, ts, type, payload, prev_hash, event_hash, signature FROM events WHERE seq > ? ORDER BY seq ASC LIMIT ?", (seq, limit)).fetchall()
         return [self._row(r) for r in rows]
 
+    def page(self, offset: int, limit: int) -> list[dict]:
+        """A window of the journal, oldest to newest — SQL-side pagination.
+
+        LIMIT/OFFSET on the integer primary key: the API used to load and
+        JSON-decode every row to slice in Python — O(N) per page request on
+        a journal that grows forever. Both bounds travel as bound parameters.
+        """
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT seq, ts, type, payload, prev_hash, event_hash, signature "
+                "FROM events ORDER BY seq ASC LIMIT ? OFFSET ?",
+                (limit, offset),
+            ).fetchall()
+        return [self._row(r) for r in rows]
+
     @staticmethod
     def _row(r: tuple) -> dict:
         return {

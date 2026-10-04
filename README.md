@@ -341,6 +341,8 @@ noirebox/            ← package (≈ PSR-4 namespace)
 🔒 = requires `Authorization: Bearer <token>` when `NOIREBOX_CLIENTS=id:secret,…`
 is set; **verification routes stay open by design** — one never locks the
 verification ([ADR 004](docs/ADRs.md)). Rate limit: 60 req/min per client.
+The metadata routes (`/activity`, `/attestation*`) expose aggregates and digests only
+(never payload content) and can be moved behind the token with `NOIREBOX_METADATA_AUTH=1`.
 
 ## Bundled plugin — v0 attack taxonomy
 
