@@ -548,11 +548,23 @@ Docker GHCR `v0.8.0` + `latest`, CI verte (matrix 3.11/3.12), Bandit vert, Pages
 re-déployée. Les manifests des plugins restent à 0.7.0 : leur contenu n'a pas changé ce
 cycle — chaque artefact porte la version de son propre contenu.
 
+**Passe features 2026-10-04 (soir) — le juge réel, le tiering et le hub de flotte
+existent :** llama-guard3:1b **pullé, évalué et rejeté en conditions réelles** (3/4
+attaques ratées, format natif S6) — l'ADR 015 amendé retarget le juge vers
+`qwen2.5-coder:3b` + prompt few-shot (4/4, 0 FP sur l'évaluation ; 12 tests juge dont
+2 réels verts ; démo réelle : verdict correct, 0 FP, chaîne valide). **ADR 016** :
+`engine="tiered"` — regex → ML → juge sur la bande de doute [0.20, 0.50), meta de
+tiering scellée dans le payload, juge absent = `judge_skipped` visible. **ADR 017** :
+hub de flotte v0 — `fleet-anchor` (un sceau Merkle + token TSA racine pour N journaux)
+et `fleet-verify` (preuve d'inclusion locale, journal régénéré = non couvert, exit 1).
+Validation : **pytest 201 passed / 2 skipped** (échec passager du test LLM réel =
+contention Ollama, passe isolément), ruff, Bandit clean, CI distante verte ; poussé
+(`6a8b07e`).
+
 **Reste ouvert (dans l'ordre) :**
-1. P2 restants : câbler merkle.py dans le produit (hub de flotte), regex guardrail
-   `lang`, épinglage transport des IPs résolues (le fix complet du rebinding).
-2. Roadmap produit : composition tiering auto (regex → ML → juge sur scores ambigus,
-   ADR 003-style), extension VSCode, Prometheus/Grafana, HSM/KMS.
-3. Lancement : confirmer/réaliser Show HN + daily.dev, post-mortem à tracer.
-4. Juge réel : `make judge-pull` puis `make demo-judge` sur une machine avec Ollama
-   pour valider les tests skip-gated en conditions réelles.
+1. Lancement : packs prêts à 0.8.0+ — le maker comment peut citer le tiering et le
+   hub ; dev.to ce soir, daily.dev lundi 9h30, Show HN lundi 14h30.
+2. P2 restants : regex guardrail `lang`, épinglage transport des IPs résolues,
+   verifier apprend `fleet_anchor` (vérifier les tokens de flotte dans un export).
+3. Roadmap produit : console hub de flotte (agrégation programmée, alerting),
+   extension VSCode, Prometheus/Grafana, HSM/KMS.
