@@ -252,3 +252,20 @@ closes (`locate.resolve_existing_journal`).
 4. **Adversarial test as regression fence**: a token forged with the OLD public-key derivation must be rejected, the private-material roundtrip must pass, and a token issued against journal A must not verify where journal B lives (per-instance scoping).
 
 **Consequences**: enabling auth is now meaningful with configuration alone (`NOIREBOX_CLIENTS`); the threat "forge tokens from public information" is closed by construction and fenced by a test named after it. Tokens issued by a pre-fix deployment are invalidated by the upgrade — deployments that care re-issue; the journal itself is untouched (payloads are opaque to the chain). The broader review lesson is recorded in `ANALYSE-COMPLETE.md`: nothing security-critical may be derived from data the system publishes.
+
+---
+
+## ADR 015 — The tier-2 judge: a local LLM behind the house taxonomy, JSON-pinned, honest when silent
+
+**Status**: implemented (v0.8.x) — `noirebox/llm_judge.py`, `engine: "llm"` on `POST /api/v1/transcripts/scan` and the SDK, demo (`demo/demo_judge.py`), skip-gated real-judge tests + always-on stub tests.
+
+**Context**: ADR 001 defined the guardrail as stages — regex (free, deterministic) → ML micro-model (paraphrases) → an LLM judge "only for doubtful cases" — and left stage 2 in the roadmap. The judge must not reintroduce what ADR 002 rejected: cloud calls, gated weights, unparseable binary output, or a taxonomy foreign to the journal's. The transcript also must not leave the machine: the judge is a LOCAL LLM (llama-guard3:1b via Ollama, `NOIREBOX_JUDGE_MODEL` to swap), the same runtime the demos already ship.
+
+**Decision**:
+1. **The house taxonomy is the contract** (`JUDGE_CATEGORIES`): the judge is prompted with the four families the journal already seals (instruction_override, data_exfiltration, pii_request, tool_abuse) — not with llama-guard's own S-category list, whose overlap with meeting-transcript injection is partial. A verdict outside the taxonomy is DROPPED: a hallucinated category is not an incident. The trade-off is stated: we prompt the model off its native policy format in exchange for a taxonomy the whole pipeline shares.
+2. **JSON-pinned, temperature 0**: Ollama's `format: "json"` makes the parser's strictness enforceable, and a judgment must be reproducible before it is auditable. Line NUMBERS are the mapping contract (the model never emits offsets); the parser maps them back to exact text spans with the same splitlines walk the guarded pipeline's filtering uses — judge incidents filter lines exactly like regex/ML ones.
+3. **Binary verdicts, honest shape**: score is fixed at 1.0 (a judgment is not a probability dressed as a measurement) and each verdict carries a short `reason` (≤ 200 chars) in the incident dict — additive key, other engines' dicts unchanged.
+4. **Honest when silent**: an unparsable judge answer raises → the route answers 503; nothing is manufactured into an incident. Unavailability is detected, never assumed (`judge_available` checks Ollama AND the model's presence, mirroring `model_available`).
+5. **Surface**: `engine: "llm"` on the scan route + SDK (the MCP tool keeps the regex engine in v1 — its surface stays minimal, the API carries the engines). Sealed incident payloads carry `engine: "llm"`, so the journal distinguishes which judge sealed what.
+
+**Consequences**: the guardrail now has all three ADR 001 stages; deployers choose per scan whether to pay for the judge (explicit engine choice, no silent escalation in v1 — auto-tiering "regex → ML → judge on ambiguous scores" is documented as the next composition step, ADR 003-style). The real-judge tests are skip-gated like every Ollama path; the stub suite carries CI without the model. The judge inherits the honest limits: it is probabilistic, its false negatives are non-zero, and it is a PLUGIN — delete `llm_judge.py` and the core still runs.

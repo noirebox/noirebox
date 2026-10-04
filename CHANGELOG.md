@@ -6,6 +6,19 @@ versioning according to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **The tier-2 LLM judge (ADR 015)** — stage 2 of ADR 001's layered guardrail
+  finally exists: `engine: "llm"` on `POST /api/v1/transcripts/scan` and the
+  SDK. A local llama-guard3:1b via Ollama (`NOIREBOX_JUDGE_MODEL` to swap) is
+  prompted with the house taxonomy (the journal's 4 attack families — not
+  llama-guard's native policy list), JSON-pinned, temperature 0, line-number
+  contract mapped back to exact text offsets. Binary verdicts (score 1.0)
+  with a short `reason` in the incident dict (optional key, this engine
+  only); unparsable output → 503, never a manufactured incident; verdicts
+  outside the taxonomy are dropped. `Incident.reason` is additive — old
+  engines' dicts unchanged. Demo: `make demo-judge` (install once with
+  `make judge-pull`). Real-judge tests skip-gated like every Ollama path;
+  the stub suite carries CI. The MCP scan tool keeps the regex engine in v1
+  (documented in the ADR).
 - **`NOIREBOX_METADATA_AUTH=1`** — the metadata routes (`/activity`,
   `/attestation`, `/attestation.pdf`) can move behind the bearer token. They
   expose aggregates and digests only — never payload content — and stay open

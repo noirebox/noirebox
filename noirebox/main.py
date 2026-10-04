@@ -136,6 +136,21 @@ def create_app(db_path: str | None = None) -> FastAPI:
                                     detail=f"ML model {body.lang} missing — run `make train`")
             incidents = scan_ml(body.text, lang=body.lang)
             engine = "ml"
+        elif body.engine == "llm":
+            from .llm_judge import judge_available, judge_model, scan_llm
+
+            if not judge_available():
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"LLM judge unavailable — install Ollama and run "
+                           f"`ollama pull {judge_model()}` (or set NOIREBOX_JUDGE_MODEL)")
+            try:
+                incidents = [i.as_dict() for i in scan_llm(body.text, lang=body.lang)]
+            except RuntimeError as exc:
+                # An unparsable judge answer is reported, never manufactured
+                # into incidents (ADR 015).
+                raise HTTPException(status_code=503, detail=str(exc)) from exc
+            engine = "llm"
         else:
             incidents = [i.as_dict() for i in scan_transcript(body.text)]
             engine = "regex"

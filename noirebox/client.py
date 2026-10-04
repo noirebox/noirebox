@@ -34,7 +34,8 @@ class NoireBoxClient:
                              {"type": type_, "payload": payload or {}})
 
     def scan(self, meeting_id: str, text: str, engine: str = "regex", lang: str = "fr") -> dict:
-        """Guardrail on a text. `engine`: "regex" or "ml"; `lang`: "fr"/"en" (ml engine)."""
+        """Guardrail on a text. `engine`: "regex", "ml" or "llm" (ADR 015 judge —
+503 if the local judge is not pulled); `lang`: "fr"/"en"."""
         return self._request("POST", "/api/v1/transcripts/scan",
                              {"meeting_id": meeting_id, "text": text,
                               "engine": engine, "lang": lang})

@@ -420,7 +420,7 @@ domaine = ajouter des exemples au dataset et relancer `make train`.
 - [x] **Ancrage multi-témoins + racines épinglées côté auditeur** — `NOIREBOX_TSA_PROFILES`, allowlist d'egress, `verifier/tsa_roots/` ([ADR 008](docs/ADRs.md))
 - [x] **Témoin OpenTimestamps** — un reçu ancré dans Bitcoin dans le même événement `anchor` ([ADR 009](docs/ADRs.md))
 - [x] **Vocabulaire AI Act + audit-pack** — builders art. 12(3), `noirebox audit-pack` ([ADR 010](docs/ADRs.md))
-- [ ] LLM-juge local pour les cas douteux — étage 2 de l'[ADR 001](docs/ADRs.md)
+- [x] LLM-juge local pour les cas douteux — étage 2 de l'[ADR 001](docs/ADRs.md), `engine: "llm"` ([ADR 015](docs/ADRs.md))
 - [ ] Métriques Prometheus + Grafana
 - [ ] Migration clé privée HSM/KMS ([threat model](docs/THREAT-MODEL.md))
 - [x] Site produit refait pour GitHub Pages — landing dark premium (face de boîtier de vol :

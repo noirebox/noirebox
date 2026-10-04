@@ -68,22 +68,32 @@ _COMPILED = [
 
 @dataclass
 class Incident:
-    """A detection: what, how severe, where in the text."""
+    """A detection: what, how severe, where in the text.
+
+    `reason` is set only by the LLM judge (ADR 015): its one-line verdict
+    rationale, capped at 200 chars. The other engines carry no rationale —
+    their score IS the reason — so the key stays absent from their dicts
+    (old payloads keep verifying: the chain hashes whatever is sealed).
+    """
 
     category: str
     score: float
     excerpt: str
     start: int
     end: int
+    reason: str | None = None
 
     def as_dict(self) -> dict:
-        return {
+        d = {
             "category": self.category,
             "score": self.score,
             "excerpt": self.excerpt,
             "start": self.start,
             "end": self.end,
         }
+        if self.reason is not None:
+            d["reason"] = self.reason
+        return d
 
 
 def scan_transcript(text: str) -> list[Incident]:

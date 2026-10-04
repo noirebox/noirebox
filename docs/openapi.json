@@ -200,7 +200,7 @@
     "/api/v1/activity": {
       "get": {
         "summary": "Activity",
-        "description": "Per-day sealed-event counts (UTC) — the dashboard heatmap's source.\n\nOpen like /verify: an aggregate (day → count) carries no payload,\nand the dashboard fetches are plain browser calls that never carry\nan Authorization header. Same sensitivity class as the verify\ndiagnostic it sits next to.",
+        "description": "Per-day sealed-event counts (UTC) — the dashboard heatmap's source.\n\nOpen by default: an aggregate (day → count) carries no payload, and\nthe dashboard fetches are plain browser calls that never carry an\nAuthorization header. `NOIREBOX_METADATA_AUTH=1` moves it behind the\nbearer token (never /verify — ADR 004).",
         "operationId": "activity_api_v1_activity_get",
         "responses": {
           "200": {
@@ -265,7 +265,7 @@
     "/api/v1/attestation": {
       "get": {
         "summary": "Attestation",
-        "description": "Signed attestation of the current state (digest only, no detail).",
+        "description": "Signed attestation of the current state (digest only, no detail).\n\nOpen by default — this is what a third party checks without\ncredentials; `NOIREBOX_METADATA_AUTH=1` moves it behind the token\n(the exported dossier still carries a copy, so the auditor's flow\nnever depends on this route being open).",
         "operationId": "attestation_api_v1_attestation_get",
         "responses": {
           "200": {
@@ -443,7 +443,8 @@
             "type": "string",
             "enum": [
               "regex",
-              "ml"
+              "ml",
+              "llm"
             ],
             "title": "Engine",
             "default": "regex"

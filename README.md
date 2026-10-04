@@ -200,6 +200,7 @@ Full regulatory mapping: [docs/COMPLIANCE-EU.md](docs/COMPLIANCE-EU.md).
 |---|---|---|---|---|
 | `regex` | ~0 | FR+EN | obvious cases, zero cost | none |
 | `ml` | 243–293 KB | **fr** & **en** (`lang` param) | paraphrases the regex misses, local | scikit-learn |
+| `llm` | ~1 GB model | FR+EN | tier-2 judge for doubtful lines — binary verdicts + reason, local | Ollama + `llama-guard3:1b` ([ADR 015](docs/ADRs.md)) |
 
 **Architecture decision — [ADR 002](docs/ADRs.md)**: we evaluated Meta's
 Llama Prompt Guard 2 (the industry classifier, ~90 MB) and **rejected it
@@ -319,6 +320,7 @@ noirebox/            ← package (≈ PSR-4 namespace)
 ├── mcp_server.py    MCP tools server (stdio JSON-RPC)
 ├── guardrail.py     PLUGIN: 4 FR/EN attack categories caught by regex
 ├── ml_guardrail.py  PLUGIN: trained micro-models (fr + en, ~250 KB each)
+├── llm_judge.py     PLUGIN: tier-2 judge — local llama-guard3:1b (ADR 015)
 └── llm_agent.py     PLUGIN DEMO: real Ollama agent behind the guarded pipeline
 ```
 
@@ -386,7 +388,7 @@ the integrity of the journal — the verifier ships as a GitHub Action
 
 - [x] OAuth2 (JWT bearer) + rate limiting — [ADR 004](docs/ADRs.md)
 - [x] PDF attestation export for DPOs — [ADR 005](docs/ADRs.md)
-- [ ] Local LLM judge for doubtful cases — tier 2 of [ADR 001](docs/ADRs.md)
+- [x] Local LLM judge for doubtful cases — tier 2 of [ADR 001](docs/ADRs.md), `engine: "llm"` ([ADR 015](docs/ADRs.md))
 - [x] RFC 3161 timestamping of the chain head — [ADR 006/007](docs/ADRs.md), self-hosted TSA included
 - [x] **Fleet anchoring (Merkle)** — `noirebox/merkle.py`: one TSA seal covers
       N journals (Certificate-Transparency pattern); inclusion proofs are
