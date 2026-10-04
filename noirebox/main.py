@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse
 from . import __version__
 from .attestation import build_attestation, verify_attestation
 from .auth import build_auth_dependency, issue_token
-from .chain import KeyPair, verify_chain
+from .chain import load_instance_key, verify_chain
 from .dashboard import DASHBOARD_HTML
 from .guardrail import scan_transcript
 from .schemas import EventIn, ScanIn, TokenIn
@@ -34,7 +34,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
     )
     path = db_path or os.environ.get("NOIREBOX_DB", "data/noirebox.db")
     store = EventStore(path)
-    key = KeyPair.load_or_create(path + ".key")
+    key = load_instance_key(path)
     app.state.store = store
     app.state.key = key
 

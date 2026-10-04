@@ -109,13 +109,13 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "reconcile":
         from noirebox import locate
-        from noirebox.chain import KeyPair
+        from noirebox.chain import KeyPair, load_instance_key
         from noirebox.reconcile import journal_report, load_config, reconcile
         from noirebox.store import EventStore
 
         db = args.db or locate.resolve_existing_journal()
         store = EventStore(db)
-        key = KeyPair.load_or_create(db + ".key")
+        key = load_instance_key(db)
         invariants = load_config(args.config)
         findings = reconcile(store.all(), invariants)
         for f in findings:
@@ -129,12 +129,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "audit-pack":
         from noirebox import locate
         from noirebox.aiact import audit_pack
-        from noirebox.chain import KeyPair
+        from noirebox.chain import KeyPair, load_instance_key
         from noirebox.store import EventStore
 
         db = args.db or locate.resolve_existing_journal()
         store = EventStore(db)
-        key = KeyPair.load_or_create(db + ".key")
+        key = load_instance_key(db)
         report = audit_pack(store, key, args.outdir)
         print(f"[{'✓' if report['valid'] else '✗'}] verifier report: "
               f"valid={report['valid']}, {report['nb_events_checked']} events, "
@@ -148,7 +148,7 @@ def main(argv: list[str] | None = None) -> int:
         import sys
 
         from noirebox import locate
-        from noirebox.chain import KeyPair, verify_chain
+        from noirebox.chain import KeyPair, load_instance_key, load_instance_key, verify_chain
         from noirebox.store import EventStore
         from noirebox.trajectory import read_model_io, trajectory_payload
 
@@ -185,7 +185,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[✗] {exc}")
             return 1
         store = EventStore(db)
-        key = KeyPair.load_or_create(db + ".key")
+        key = load_instance_key(db)
         event = store.append("model_trajectory", payload, key)
         tail = " (truncated tail ignored)" if summary.truncated_tail else ""
         print(f"[✓] {summary.record_count} model call(s) sealed{tail} — "
@@ -199,7 +199,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "fleet-anchor":
         from noirebox import locate
-        from noirebox.chain import KeyPair
+        from noirebox.chain import KeyPair, load_instance_key
         from noirebox.fleet import fleet_anchor
         from noirebox.store import EventStore
 
@@ -269,7 +269,7 @@ def main(argv: list[str] | None = None) -> int:
         import json as _json
 
         from noirebox import locate
-        from noirebox.chain import KeyPair, verify_chain
+        from noirebox.chain import KeyPair, load_instance_key, load_instance_key, verify_chain
         from noirebox.store import EventStore
 
         try:
@@ -282,14 +282,14 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         db = args.db or locate.ensure_journal_dir()
         store = EventStore(db)
-        key = KeyPair.load_or_create(db + ".key")
+        key = load_instance_key(db)
         event = store.append(args.type, payload, key)
         print(f"[✓] sealed {args.type}: seq={event.seq} hash={event.event_hash}")
         return 0
 
     if args.command == "verify":
         from noirebox import locate
-        from noirebox.chain import KeyPair, verify_chain
+        from noirebox.chain import KeyPair, load_instance_key, load_instance_key, verify_chain
         from noirebox.store import EventStore
 
         db = args.db or locate.resolve_journal()
@@ -298,7 +298,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[✗] no journal at {db}")
             return 1
         store = EventStore(db)
-        key = KeyPair.load_or_create(db + ".key")
+        key = load_instance_key(db)
         check = verify_chain(key.public_hex(), store.all())
         verdict = "VALID" if check["valid"] else "TAMPERED"
         print(f"[{verdict}] {check['nb_events']} events — {db}")

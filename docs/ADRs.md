@@ -319,3 +319,18 @@ on the real corpus before defaulting, not after.
 4. **Honest limits**: empty journals are skipped loudly (a GENESIS head proves nothing); duplicate member names are refused (proofs are indexed by journal name); the third-party verifier does not yet check `fleet_anchor` tokens inside a full export — fleet verification goes through `fleet-verify` until the verifier learns the event type.
 
 **Consequences**: the fleet story is now product, not poetry: N boxes, one seal, per-member proofs, local detection of rewritten members. What stays open is the scheduled hub (console, alerting, automatic re-anchoring of a growing fleet) — the operational layer around a primitive that now exists.
+
+---
+
+## ADR 018 — The key may live outside the disk: secret-manager injection, loud on mismatch
+
+**Status**: implemented (v0.9.x) — `noirebox/chain.py` `load_instance_key()` + `KeyPair.from_private_pem()`, wired through the server and every CLI journal path.
+
+**Context**: the threat model says it plainly — the private key on disk is a v0 limit (HSM/KMS on the roadmap), the countermeasure being the published, anchored attestation. The honest middle step before hardware: let the deployment's secret manager (Vault, AWS/GCP secret stores, KMS-wrapped PEM) hold the key and inject it, so no PEM file has to exist at all. What the journal cannot tolerate is the OTHER direction: a key that changes, because the chain's identity IS its key — a new event signed by a different key breaks verification from that append on.
+
+**Decision**:
+1. **`NOIREBOX_KEY_PEM` wins over the key file**: the environment hands the Ed25519 PEM the secret manager holds; `load_instance_key` uses it and never writes a file. No env → the classic 0600 file beside the journal, unchanged.
+2. **Mismatch is refused at boot, loudly**: if a key file already exists and the injected PEM is a DIFFERENT key, booting fails with a RuntimeError naming the consequence ("appending with it would break the chain") — a misconfigured secret becomes a boot error, not an auditor's discovery weeks later.
+3. **The key is the journal's identity, and that is not negotiable**: rotating the secret requires re-anchoring and a new journal (or an explicit, deliberate key-file removal). No silent rekey path exists — by design.
+
+**Consequences**: the HSM/KMS checkbox moves from "key on disk, documented" to "key in the operator's secret infrastructure, injection contract tested" — the hardware step (an HSM actually signing inside itself, so the key never exists in process memory) remains the genuinely roadmap item. Everything else in the stack needed no change: the verifier never sees the private key, the attestation carries only the public one, and the anchoring machinery is agnostic to where the key sleeps.

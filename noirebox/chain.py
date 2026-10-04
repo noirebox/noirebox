@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
@@ -88,6 +89,15 @@ class KeyPair:
     def public_hex(self) -> str:
         """Public key in hexadecimal — the value embedded in the exports."""
         return self._pub.public_bytes(Encoding.Raw, PublicFormat.Raw).hex()
+
+    @classmethod
+    def from_private_pem(cls, pem: bytes) -> KeyPair:
+        """Builds the KeyPair from an injected PEM (ADR 018) — the secret
+        manager's job is to hand over the same key every boot."""
+        priv = load_pem_private_key(pem, password=None)
+        if not isinstance(priv, Ed25519PrivateKey):
+            raise ValueError("NOIREBOX_KEY_PEM does not contain an Ed25519 key")
+        return cls(priv)
 
     def private_bytes_raw(self) -> bytes:
         """Raw private key bytes — seed material for instance-scoped secrets.
@@ -184,3 +194,28 @@ def verify_chain(public_hex: str, events: list[dict]) -> dict:
                     "first_error": {"seq": ev["seq"], "reason": reason}}
         prev = ev["event_hash"]
     return {"valid": True, "nb_events": len(events), "first_error": None}
+
+
+def load_instance_key(db_path: str) -> KeyPair:
+    """Key resolution for an instance (ADR 018): NOIREBOX_KEY_PEM — a PEM
+    injected by the deployment's secret manager — wins; else the 0600 PEM
+    file beside the journal, created on first boot.
+
+    The guard is the point: if a key file ALREADY exists and the injected
+    PEM differs, booting would chain new events onto a journal with a
+    different key — the chain would verify broken from the next append.
+    That is refused loudly at boot, not discovered by an auditor later.
+    """
+    env_pem = os.environ.get("NOIREBOX_KEY_PEM")
+    if not env_pem:
+        return KeyPair.load_or_create(db_path + ".key")
+    injected = KeyPair.from_private_pem(env_pem.encode())
+    key_file = Path(db_path + ".key")
+    if key_file.exists():
+        on_disk = KeyPair._load_pem(str(key_file))
+        if on_disk.public_hex() != injected.public_hex():
+            raise RuntimeError(
+                "NOIREBOX_KEY_PEM does not match the journal's existing key — "
+                "appending with it would break the chain (the journal's identity "
+                "is its key); fix the secret or remove the key file deliberately")
+    return injected

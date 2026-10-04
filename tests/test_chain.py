@@ -1,5 +1,11 @@
 import stat
+from pathlib import Path
 
+from cryptography.hazmat.primitives.serialization import (
+    Encoding,
+    NoEncryption,
+    PrivateFormat,
+)
 from noirebox.chain import (
     GENESIS,
     KeyPair,
@@ -114,3 +120,37 @@ def test_key_persistence_roundtrip_and_permissions(tmp_path):
     assert kp1.public_hex() == kp2.public_hex()
     mode = stat.S_IMODE(key_path.stat().st_mode)
     assert mode == 0o600
+
+
+def test_instance_key_can_live_in_a_secret_manager(tmp_path, monkeypatch):
+    """ADR 018: NOIREBOX_KEY_PEM injects the key the secret manager holds —
+    the key file is not required, and a MISMATCHED injection is refused at
+    boot instead of breaking the chain at the next append."""
+    import pytest as _pytest
+
+    from noirebox.chain import KeyPair, load_instance_key
+
+    db = str(tmp_path / "journal.db")
+    original = KeyPair.load_or_create(db + ".key")
+
+    # the operator moves the generated key into their secret manager
+    pem = original._priv.private_bytes(
+        Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()).decode()
+    monkeypatch.setenv("NOIREBOX_KEY_PEM", pem)
+    injected = load_instance_key(db)
+    assert injected.public_hex() == original.public_hex()
+
+    # a secret manager holding the WRONG key is refused loudly, at boot
+    other = KeyPair.generate()
+    other_pem = other._priv.private_bytes(
+        Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()).decode()
+    monkeypatch.setenv("NOIREBOX_KEY_PEM", other_pem)
+    with _pytest.raises(RuntimeError, match="break the chain"):
+        load_instance_key(db)
+
+    # a fresh journal with only the env key: no key file is ever written
+    db2 = str(tmp_path / "fresh.db")
+    monkeypatch.setenv("NOIREBOX_KEY_PEM", pem)
+    fresh = load_instance_key(db2)
+    assert fresh.public_hex() == original.public_hex()
+    assert not Path(db2 + ".key").exists()
