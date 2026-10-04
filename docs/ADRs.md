@@ -144,6 +144,15 @@ degrade to the locked state while the verify badge keeps working.
 
 ---
 
+**Refinement (2026-10-04)**: the egress control's honest shape. `_checked_endpoint`
+resolves the allowlisted host and refuses if ANY resolved address is link-local — but the
+check runs at request-build time while the HTTP client re-resolves DNS at connect time:
+an attacker controlling the DNS zone of an allowlisted host could swap the IP in between
+(DNS rebinding). The window is NARROWED (admin-controlled allowlist, no redirects,
+credentials never in URLs), not CLOSED — transport-level pinning of the resolved
+addresses is the complete fix and stays on the roadmap. Overclaiming a security boundary
+is how boundaries stop meaning anything.
+
 ## ADR 009 — OpenTimestamps witness: the compute-grade layer (no operator at all)
 
 **Status**: implemented (v0.5.x).

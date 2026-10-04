@@ -69,12 +69,18 @@ def _checked_endpoint(url: str) -> str:
     Fail-closed allowlist: the host must be in NOIREBOX_TSA_ALLOWED_HOSTS
     (default: loopback only, for `make tsa`). The URL must be a plain
     http(s) endpoint without embedded credentials. After the allowlist, the
-    host is DNS-resolved and link-local results (169.254.0.0/16 — the
-    cloud-metadata SSRF prize, fe80::/10) are refused even if the name was
-    allowlisted: no legitimate TSA lives there, and resolution-time checking
-    is what closes the rebinding window. Redirects are never followed
+    host is DNS-resolved and EVERY resolved address must be off the
+    link-local ranges (169.254.0.0/16 — the cloud-metadata SSRF prize,
+    fe80::/10): no legitimate TSA lives there. Redirects are never followed
     (shared client, follow_redirects=False), so an endpoint cannot bounce
     the request elsewhere.
+
+    Honest limit: this check runs at REQUEST-BUILD time while httpx
+    re-resolves DNS at connect time, so an attacker controlling the DNS
+    zone of an allowlisted host could still swap the IP in between (DNS
+    rebinding). The allowlist is admin-controlled, which keeps that window
+    narrow — but "narrow" is not "closed". The complete fix is transport-
+    level pinning of the resolved addresses (roadmap).
     """
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https") or (parsed.username or parsed.password):

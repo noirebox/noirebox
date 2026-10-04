@@ -148,9 +148,11 @@ def verify_export(export: dict) -> dict:
     anchors_checked = 0
     anchors_unverifiable = 0
     anchors_pinned = 0
+    anchors_in_journal = 0
     for ev in events:
         if ev["type"] != "anchor":
             continue
+        anchors_in_journal += 1
         payload = ev["payload"]
         head_seq = payload.get("head_seq")
         idx_ok = (
@@ -179,6 +181,7 @@ def verify_export(export: dict) -> dict:
     return {
         "valid": valid,
         "nb_events_checked": len(events),
+        "anchors_in_journal": anchors_in_journal,
         "anchors_checked": anchors_checked,
         "anchors_unverifiable": anchors_unverifiable,
         "anchors_pinned": anchors_pinned,
@@ -195,10 +198,20 @@ def main() -> int:
     report = verify_export(export)
 
     if report["valid"]:
+        unverified = report["anchors_unverifiable"]
         print(f"[✓] INTACT — {report['nb_events_checked']} events verified, "
               f"attestation valid, {report['anchors_checked']} anchor tokens "
-              f"({report['anchors_pinned']} against pinned roots), "
+              f"({report['anchors_pinned']} against pinned roots, "
+              f"{unverified} reported-not-verified), "
               f"head of chain: {report['head_hash'][:16]}…")
+        if report["anchors_in_journal"] and report["anchors_checked"] == 0:
+            # Chain intact ≠ anchoring proven: the verdict stays about the
+            # chain, but the report must not let a reader believe witnesses
+            # were checked when none was (missing tooling is reported, and
+            # now impossible to scroll past).
+            print("[!] no witness token was cryptographically checked — "
+                  "the chain is intact, the anchoring is UNPROVEN on this "
+                  "machine (missing openssl/ots?)")
         return 0
 
     print("[✗] TAMPERING DETECTED")
