@@ -1,0 +1,30 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.noirebox/noirebox",
+  "description": "Seal your coding agent's decisions into the tamper-evident NoireBox journal: seal, verify, attest — from the VSCode sidebar.",
+  "repository": {
+    "url": "https://github.com/noirebox/noirebox",
+    "source": "github",
+    "subfolder": "plugins/vscode/noirebox"
+  },
+  "version": "0.10.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "noirebox",
+      "version": "0.10.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "description": "Your API key for the service",
+          "isRequired": true,
+          "format": "string",
+          "isSecret": true,
+          "name": "YOUR_API_KEY"
+        }
+      ]
+    }
+  ]
+}

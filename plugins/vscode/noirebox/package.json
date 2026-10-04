@@ -2,7 +2,7 @@
   "name": "noirebox",
   "displayName": "NoireBox \u2014 Flight Recorder",
   "description": "Seal your coding agent's decisions into the tamper-evident NoireBox journal: seal, verify, attest \u2014 from the VSCode sidebar.",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "publisher": "noirebox",
   "license": "MIT",
   "engines": {
@@ -61,5 +61,6 @@
   "bugs": {
     "url": "https://github.com/noirebox/noirebox/issues"
   },
-  "homepage": "https://github.com/noirebox/noirebox#readme"
+  "homepage": "https://github.com/noirebox/noirebox#readme",
+  "icon": "icon.png"
 }
