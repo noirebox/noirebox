@@ -5,6 +5,8 @@ versioning according to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-04
+
 ### Added
 - **The tiered scan (ADR 016)** — `engine: "tiered"`: the full ADR 001 pipeline,
   regex → ML → judge, where the judge pays only for doubt. Lines the cheap
@@ -26,6 +28,32 @@ versioning according to [Semantic Versioning](https://semver.org/).
   the default judge is `qwen2.5-coder:3b` with the few-shot house-taxonomy
   JSON prompt: 4/4 detections, correct categories, zero false positives on
   that evaluation. `make judge-pull` pulls the validated model.
+
+- **Prometheus + Grafana metrics** — `GET /metrics` (text format 0.0.4, zero
+  dependency): events by type, anchors, incidents, fleet seals, build info,
+  and `noirebox_head_intact` — a light custody gauge that recomputes the
+  last event and deliberately does NOT claim full chain verification. Sample
+  dashboard: `docs/grafana-dashboard.json`.
+- **Fleet-status alerting** — `noirebox fleet-status member1 member2 --db
+  hub [--json]`: cron/CI-friendly check of every member against the hub's
+  latest seal (exit 0 covered, exit 1 alarm).
+- **VSCode extension source (P2, ROADMAP-PLUGINS)** — seal-note, verify,
+  audit-pack, locate: glue over the installed CLI, source-only by design.
+- **The attestation PDF speaks French on demand** (`?lang=fr`, ADR 005's
+  deferred consequence) — bilingual prose table, language-independent
+  identifiers, enum enforced at the boundary.
+
+### Changed
+- **DNS rebinding closed at the transport level** (ADR 008 refinement done):
+  anchors.py leaves httpx for a stdlib pinned transport — resolve once,
+  link-local-check every address, connect to THAT address, TLS identity on
+  the hostname, redirects refused at the transport. Proof tests included.
+- The landing pages sell only what exists: the Cloud/Enterprise tiers are
+  gone — self-hosted is the product, verification free forever.
+
+### Fixed
+- `ScanIn.lang` documents that the bilingual regex engine deliberately
+  ignores it (was silently ignored).
 
 ## [0.8.0] - 2026-10-04
 
@@ -368,7 +396,8 @@ versioning according to [Semantic Versioning](https://semver.org/).
 - ADR 002: Llama Prompt Guard 2 (Meta) evaluated and rejected (language, binary output,
   gated licensing, dependencies)
 
-[Unreleased]: https://github.com/noirebox/noirebox/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/noirebox/noirebox/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/noirebox/noirebox/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/noirebox/noirebox/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/noirebox/noirebox/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/noirebox/noirebox/compare/v0.5.0...v0.6.0

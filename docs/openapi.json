@@ -3,7 +3,7 @@
   "info": {
     "title": "NoireBox",
     "description": "\nFlight data recorder for AI agents: **tamper-proof journal** (SHA-256 chain + Ed25519),\n**guardrail** on transcripts, **exportable attestation** verifiable by a third party.\n\nAuth (optional, enabled with `NOIREBOX_CLIENTS=id:secret,...`):\n`POST /api/v1/token` → 1 h JWT → `Authorization: Bearer ...`. Rate limit 60 req/min/client.\n",
-    "version": "0.8.0"
+    "version": "0.9.0"
   },
   "paths": {
     "/health": {
@@ -286,14 +286,37 @@
     "/api/v1/attestation.pdf": {
       "get": {
         "summary": "Attestation Pdf Route",
-        "description": "Attestation as PDF — the document a DPO files in a case record.\n\nThe source of truth remains the JSON (machine-readable); the PDF is\nthe human version, with the verification procedure printed on it.\n\nThe PDF engine is an optional extra: without `noirebox[pdf]` the\nroute answers 501 with the install hint — never a traceback.",
+        "description": "Attestation as PDF — the document a DPO files in a case record.\n\nThe source of truth remains the JSON (machine-readable); the PDF is\nthe human version, with the verification procedure printed on it.\n`?lang=fr` serves the French DPO wording; identifiers stay\nlanguage-independent.\n\nThe PDF engine is an optional extra: without `noirebox[pdf]` the\nroute answers 501 with the install hint — never a traceback.",
         "operationId": "attestation_pdf_route_api_v1_attestation_pdf_get",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(en|fr)$",
+              "default": "en",
+              "title": "Lang"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -457,6 +480,7 @@
               "en"
             ],
             "title": "Lang",
+            "description": "consumed by the ml, llm and tiered engines; the regex patterns are bilingual and deliberately ignore it",
             "default": "fr"
           }
         },
