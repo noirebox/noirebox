@@ -334,3 +334,88 @@ on the real corpus before defaulting, not after.
 3. **The key is the journal's identity, and that is not negotiable**: rotating the secret requires re-anchoring and a new journal (or an explicit, deliberate key-file removal). No silent rekey path exists — by design.
 
 **Consequences**: the HSM/KMS checkbox moves from "key on disk, documented" to "key in the operator's secret infrastructure, injection contract tested" — the hardware step (an HSM actually signing inside itself, so the key never exists in process memory) remains the genuinely roadmap item. Everything else in the stack needed no change: the verifier never sees the private key, the attestation carries only the public one, and the anchoring machinery is agnostic to where the key sleeps.
+
+---
+
+## ADR 019 — Receipt schema v0.2: the verdict binds its check, its evaluator, and its reach
+
+**Status**: accepted — consolidation of the public launch threads (sunnydachs "verified", anp2network, mayailands, housharenet/Ryan Cole); implementation in `reconcile.py` v0.2 + the `witness` convention. To be linked to sunnydachs ("yes to the schema pass when it exists").
+
+**Context**: the journal seals what was sealed — but a verdict like "tests pass" is a self-report unless the receipt binds (a) the exact bytes judged, (b) the check that judged them, (c) the checker itself, (d) the questions asked, and (e) a signature the judged party cannot forge. Each gap was named in public, independently, within one week.
+
+**Decision** — a `receipt` payload carries:
+1. **`artifact_sha256`** — the verdict binds the bytes (existing).
+2. **`check_id` = predicate + declared inputs + version** — the verdict binds the check that produced it. A no-op verifier can no longer emit the same record as a real one: the predicate is part of the commitment (anp2network).
+3. **`evaluator_sha256`** — hash of the checker script itself. If the judged agent can touch the test suite, receipts produced after the touch are invalid — the exam and the candidate hash together (housharenet/Ryan Cole).
+4. **`predicate_id` anchored on the BASE BRANCH** — the questions live outside the agent's working tree; "the agent cannot rewrite the exam".
+5. **`run_id` + timestamp** — correlation across the run; counting becomes sum-to-n (sunnydachs).
+6. **Signature outside the judged party's reach** — a receipt signing key NOT in the agent's context, a verdict file written read-only, a gate enforced at merge/handoff. The agent cannot self-certify; that is deployment architecture, not schema — but the schema names the requirement.
+7. **Pairing imposed by schema, not requested from integrators**: the receipt and the check-name are emitted under **two different keys** (sunnydachs, reply to slabb, 05/10). A check name is fabricable as true by whoever holds one key; two keys with a reconciliation pairing make the forgery a visible two-writer problem.
+8. **Normalized witness, not raw** (Ryan Cole's question): binding exit_code + raw stdout is noise (timestamps, locale, progress bars). The witness binds: exit code, byte counts stdout/stderr, SHA-256 tree of modified files before/after, container image digest. When content is needed, canonicalize first (volatile fields stripped, fixed locale, no wall-clock) then hash. Both sides of the conversation independently byte-count — the pattern is validated.
+9. **Clean passes are events too** — the reconciliation layer seals its report even when everything matched: a checker that only journals findings has no proof it ever ran (sunnydachs). Sum-to-n must climb from the analyzer to the handoff.
+10. **Negative controls are receipts too** — the checker emits receipts on deliberately-false probes; a verifier that never said false carries no information (mayailands + close). A scheduled false probe is the cheapest proof the check still bites.
+
+**Consequences**: `reconcile.py` v0.2 ships the implementable core tonight — always-sealed reports with run counts, negative probes, the attempt/outcome pairing (ADR 020). The two-key receipt pairing and merge-gate enforcement are deployment contracts the schema names; first implementations may start single-key and say so in the payload (`pairing: "single-key"`), because a labeled weakness beats an invisible one.
+
+---
+
+## ADR 020 — The denominator: attempt-first sealing, outcomes ≤ attempts
+
+**Status**: accepted — the hardest critique of the week (arhancanli, thread james): "every logged number is real and the denominator is missing." James conceded it publicly; whoever solves it scores.
+
+**Context**: a hash chain catches tampering with what was written. It structurally cannot catch **the entry never written**: an agent that attempts 20 times, seals one success, produces a perfectly intact chain of an omission. Integrity of what is sealed ≠ completeness of what happened.
+
+**Decision**:
+1. **Attempt-first convention**: every consequential action is preceded by an `attempt` event sealed BEFORE the outcome exists — attempt (intent + inputs digest) → outcome (result). The attempt is cheap, it is the denominator, and it is sealed at the moment of least temptation.
+2. **The invariant is testable**: `outcomes sealed ≤ attempts sealed` per correlation key. An outcome with no attempt sealed earlier is the omission, surfaced: status `unlogged_attempt`.
+3. **Sum-to-n climbs the ladder**: run receipts (ADR 019) carry attempt/outcome counts; reconciliation reports them; a hand-off can demand n attempts and n-1 outcomes with an explanation — the count is a first-class artifact.
+4. **Honest limit, stated in the schema**: the convention only covers flows that USE it. An agent bypassing the attempt convention produces a chain that is intact AND incomplete — which is why the denominator critique is answered with a convention + an invariant, not a promise. Completeness of coverage remains the deployer's discipline (as with the guardrail: the journal is domain-blind).
+
+**Consequences**: `reconcile.py` gains `attempt_type` support and the `unlogged_attempt` status; the demo flows seal attempts. The critique's residue is now a named, counted, reconcilable gap instead of a blind spot.
+
+---
+
+## ADR 021 — Flow independence is a testable invariant, not a claim
+
+**Status**: accepted — shared-dependency attack (glenallen, picked up by james as "the attack that would actually hurt"); clock/key independence (indiainfranotes); sealer identity (naveen thread, 27/09 + james: "a name, not a role").
+
+**Context**: two flows — the audit flow and the truth flow. If ONE compromised service, credential or store touches both, independence is theater: the attacker rewrites the truth and the evidence in the same stroke.
+
+**Decision**:
+1. **The shared-dependency test** is the first invariant of the independence layer: enumerate what each flow touches (store, key, clock, network, process) and assert the intersection is empty. A bench ships the assertion — "can one compromise reach both?" becomes a CI answer, not a paragraph.
+2. **Clock and key independence**: the reconciliation flow is independent only if its clock and its key are. Each flow's chain head is anchored to a third party on its own cadence — backdating one flow shows against the other's anchors.
+3. **Sealer identity — "a name, not a role"**: one instance = one keypair does NOT mean independent writers. Keys are per PROCESS, and the payload names the sealer in a way that resolves to a person ("who authorized this" has an answer). A role label ("ci-bot") is a costume; a name is an accountability path.
+4. **The invariant document lives before the break**: the taxonomy + test land in this repo ahead of the review that will hunt them.
+
+**Consequences**: the independence bench is the prepared ground for external review; ADR 019's two-key pairing is the first instance of the per-process key rule; multi-flow deployments get a vocabulary ("flow", "head", "anchor cadence") that makes independence assertions writable.
+
+---
+
+## ADR 022 — Custody vs anchoring: map the trust boundary, disclose the proof grade
+
+**Status**: accepted — the best framing received this week (mickyarun, PSD2); ops cadence from the reid thread (30/09) + mickyarun.
+
+**Context**: anchoring (TSA/OTS) answers WHEN and is structurally indifferent to WHAT. Custody answers WHAT, because the counterparty who wrote their own record has a reason to disagree with yours. Conflating them oversells anchoring — the bank does not care that your hash is in Bitcoin; the bank cares that YOUR record of the payment matches THEIRS.
+
+**Decision**:
+1. **Every consequential action maps to its trust boundary**: if a counterparty exists (payment, message, contract, order), custody beats anchoring — require THEIR flow and reconcile the two (ADR 019 pairing). If the action is first-party end-to-end, anchoring is the grade of proof — and you disclose which: "operator-held, anchored, no second party."
+2. **Disclose the grade** in payloads and docs: the receipt says what its proof is worth. The AI Act's art. 12 asks for the weakest grade explicitly — a tool that states its grade is auditable by its own documentation.
+3. **Ops cadence defaults (the anchor window)**: "the interesting events live between the last anchor and the incident." Defaults: anchor on a WALL-CLOCK timer (a killed session's dead time counts in minutes, not in turn boundaries), and anchor BEFORE consequential actions (a destructive gesture starts on an anchored head). Shipped as the server's optional auto-anchor timer.
+4. **Reconciliation names its cost** (mickyarun): multi-flow custody has a bill — another store, another key, another cadence, reconciliation latency. An honest cost note accompanies the benefit pitch; a tool that only sells the benefit is selling.
+
+**Consequences**: the trust-boundary mapping becomes part of deployment docs; the auto-anchor timer ships (wall-clock cadence, before-consequence guidance documented); the cost note is a standing section in the reconciliation docs.
+
+---
+
+## ADR 023 — Seal the belief, not only the action: the resolved view before the consequence
+
+**Status**: accepted — james ("real addition", credited by him); implement it before he does it on his side.
+
+**Context**: a journal full of actions answers WHAT was done. The harder question is what the agent BELIEVED when it did it — which environment did it see, which identity did it assume, which target did it resolve this name to. A wrong action taken on a false belief is indistinguishable from a malicious one unless the belief itself is on the record.
+
+**Decision**:
+1. **`decision_belief` convention** (free-form payload, sealed BEFORE the consequential action): `{resolved_target, environment, identity_assumed, inputs_seen (digests), confidence?, source: {tool, version}}`. The resolved view at decision time — the WHY, falsifiable after the fact.
+2. **The belief is a self-report, and the schema says so**: a field `belief_grade: "self-report"` travels with it. It is not evidence of the world — it is evidence of what the agent claimed to see, which is exactly what an investigator replays the environment against.
+3. **Ordering is the proof**: belief sealed before the action means the action could not have been retro-fitted to a rewritten belief — the sequence in the chain forbids it (an attempt-style convention, ADR 020's shape).
+
+**Consequences**: incident forensics gain the why ("it resolved api.example.net to this IP because..."); ADR 021's identity question gains its input ("which identity did it assume"); the self-report grade keeps the honesty line — a tool that labels its evidence grades is the opposite of one that oversells them.

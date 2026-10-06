@@ -128,3 +128,45 @@ def test_events_since_seq_tail_mode(tmp_path):
             client.get("/api/v1/events?since_seq=0&limit=2").json()] == [1, 2]
     assert [e["seq"] for e in
             client.get("/api/v1/events?offset=1&limit=2").json()] == [2, 3]
+
+
+def test_auto_anchor_timer_fires_and_survives_failures(tmp_path, monkeypatch):
+    """ADR 022 §3: with a TSA configured, the server anchors on a wall-clock
+    timer; a failing TSA is logged and retried, never fatal."""
+    import threading
+    import time
+
+    import noirebox.main as nb_main
+
+    monkeypatch.setenv("NOIREBOX_TSA_PROFILES", '[{"name":"x","url":"http://127.0.0.1:1/tsa"}]')
+    monkeypatch.setenv("NOIREBOX_ANCHOR_INTERVAL_MIN", "0.001")  # ~60 ms — test cadence
+
+    calls, failures = [], []
+    real_loop = nb_main._anchor_loop
+
+    def recording_loop(store, key, interval, stop):
+        fake = lambda *a, **k: calls.append(1)  # noqa: E731
+        # two ticks: one success, one failure — the loop must survive both
+        while not stop.wait(interval):
+            try:
+                fake()
+                if len(calls) == 1:
+                    raise RuntimeError("TSA unreachable")
+            except Exception:
+                failures.append(1)
+
+    monkeypatch.setattr(nb_main, "_anchor_loop", recording_loop)
+    app = nb_main.create_app(str(tmp_path / "anchor.db"))
+    time.sleep(0.3)
+    assert app.state.anchor_timer_stop is not None
+    app.state.anchor_timer_stop.set()
+    assert calls, "the timer must have fired at least once"
+
+    # the real loop swallows an anchor failure without dying:
+    class Boom:
+        def append(self, *a, **k):
+            raise RuntimeError("no network")
+
+    stop = threading.Event()
+    threading.Timer(0.3, stop.set).start()
+    real_loop(Boom(), object(), 0.001, stop)  # every tick fails — exits anyway

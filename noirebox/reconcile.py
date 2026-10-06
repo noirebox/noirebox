@@ -1,4 +1,4 @@
-"""Reconciliation plugin (v0.1) — business invariants over the journal.
+"""Reconciliation plugin (v0.2) — business invariants over the journal.
 
 The journal proves integrity and order. It deliberately does NOT know what a
 "missing half" is: that knowledge is domain-specific, and this plugin is where
@@ -50,13 +50,19 @@ _UNITS = {"s": 1, "m": 60, "h": 3600}
 
 @dataclass(frozen=True)
 class Invariant:
-    """One business invariant: every decision_type must get its outcome_type."""
+    """One business invariant: every decision_type must get its outcome_type.
+
+    `attempt_type` (ADR 020, optional): the type sealing each ATTEMPT before
+    its outcome. When set, every outcome must have an attempt with the same
+    correlation key sealed EARLIER — an outcome without one is the omission
+    the hash chain cannot see on its own (status `unlogged_attempt`)."""
 
     name: str
     decision_type: str
     outcome_type: str
     correlation_key: str
     within_seconds: int | None = None
+    attempt_type: str | None = None
 
 
 @dataclass(frozen=True)
@@ -72,6 +78,10 @@ class Finding:
         orphan_outcome  — outcome with no decision (inferred by absence)
         unauthorized    — outcome explicitly flagged `unauthorized: true`
                           ("never authorized" — auditors search for the flag)
+        unlogged_attempt — outcome with NO attempt sealed earlier (ADR 020):
+                           the denominator lied — outcomes > attempts
+        probe_did_not_bite — a negative control produced the wrong verdict:
+                             the checker itself is broken (ADR 019)
     """
 
     invariant: str
@@ -98,16 +108,23 @@ def load_config(path: str) -> list[Invariant]:
     """Loads invariants from a JSON file (see reconciliation.example.json)."""
     with open(path, encoding="utf-8") as f:
         cfg = json.load(f)
-    return [
+    invariants = [
         Invariant(
             name=inv["name"],
             decision_type=inv["decision_type"],
             outcome_type=inv["outcome_type"],
             correlation_key=inv["correlation_key"],
             within_seconds=parse_duration(inv.get("within")),
+            attempt_type=inv.get("attempt_type"),
         )
         for inv in cfg.get("invariants", [])
     ]
+    probes = [
+        {"name": pr["name"], "invariant": pr["invariant"],
+         "expect": pr.get("expect", "unconfirmed")}
+        for pr in cfg.get("negative_probes", [])
+    ]
+    return invariants, probes
 
 
 def _ts(event: dict) -> datetime:
@@ -144,6 +161,7 @@ def reconcile(events: list[dict], invariants: list[Invariant],
     for inv in invariants:
         decisions: dict[str, dict] = {}
         outcomes: dict[str, dict] = {}
+        attempts: dict[str, dict] = {}
         for e in events:
             key = e.get("payload", {}).get(inv.correlation_key)
             if key is None:
@@ -153,6 +171,18 @@ def reconcile(events: list[dict], invariants: list[Invariant],
                 decisions.setdefault(key, e)
             elif e.get("type") == inv.outcome_type:
                 outcomes.setdefault(key, e)
+            elif inv.attempt_type and e.get("type") == inv.attempt_type:
+                attempts.setdefault(key, e)
+        # ADR 020 — the denominator: an outcome whose attempt was never
+        # sealed is the lie by omission, surfaced structurally. The attempt
+        # must be sealed EARLIER: an attempt appended after the fact does not
+        # resurrect the count.
+        if inv.attempt_type:
+            for cid, outcome in outcomes.items():
+                attempt = attempts.get(cid)
+                if attempt is None or attempt["seq"] > outcome["seq"]:
+                    findings.append(Finding(inv.name, "unlogged_attempt", cid,
+                                            outcome_seq=outcome["seq"]))
 
         for cid, decision in decisions.items():
             outcome = outcomes.get(cid)
@@ -191,16 +221,59 @@ def reconcile(events: list[dict], invariants: list[Invariant],
     return findings
 
 
+def run_probes(events: list[dict], invariants: list[Invariant],
+               probes: list[dict], now: datetime | None = None) -> list[Finding]:
+    """Negative controls (ADR 019): deliberately-broken fixtures that MUST
+    produce a finding. A checker that never says false carries no
+    information — each probe injects a synthetic pair (decision with an
+    expired deadline, no outcome) and demands the expected status. A probe
+    that does not bite is itself a finding: the checker is broken."""
+    ref = now or datetime.now(timezone.utc)
+    inv_by_name = {inv.name: inv for inv in invariants}
+    findings: list[Finding] = []
+    for probe in probes:
+        inv = inv_by_name.get(probe["invariant"])
+        if inv is None:
+            findings.append(Finding("probe", "probe_did_not_bite", probe["name"]))
+            continue
+        cid = f"__probe__{probe['name']}"
+        expired = (ref - timedelta(seconds=3600)).isoformat()
+        fixtures = [
+            {"seq": 0, "ts": expired, "type": inv.decision_type,
+             "payload": {inv.correlation_key: cid, "expected_by": expired}},
+        ]
+        results = reconcile(events + fixtures, [inv], now=ref)
+        got = {f.correlation_id: f.status for f in results if f.correlation_id == cid}
+        if got.get(cid) != probe["expect"]:
+            findings.append(Finding("probe", "probe_did_not_bite", probe["name"]))
+    return findings
+
+
 def journal_report(store, key, invariants: list[Invariant],
-                   findings: list[Finding]) -> dict:
+                   findings: list[Finding], probes: list[Finding] | None = None,
+                   events: list[dict] | None = None) -> dict:
     """Seals the reconciliation report as a `reconciliation` event.
 
-    The checker journals its own findings: at audit time, "these gaps were
-    open" is part of the sealed history. The journal audits its auditor.
+    v0.2 (ADR 019): the report is sealed EVEN WHEN EVERYTHING MATCHED — a
+    checker that only journals findings has no proof it ever ran. The report
+    carries the run counts (how many decisions, attempts, outcomes were
+    actually examined — the sum-to-n evidence) and the negative-control
+    results. The journal audits its auditor.
     """
+    by_status: dict[str, int] = {}
+    for f in findings:
+        by_status[f.status] = by_status.get(f.status, 0) + 1
+    counts: dict[str, int] = {}
+    for e in events or []:
+        counts[e["type"]] = counts.get(e["type"], 0) + 1
     report = {
         "invariants": [inv.name for inv in invariants],
         "total_findings": len(findings),
         "findings": [f.__dict__ for f in findings],
+        "findings_by_status": by_status,
+        "events_examined": counts,
+        "clean_pass": len(findings) == 0,
+        "negative_probes": [f.__dict__ for f in (probes or [])],
+        "probes_ok": not any(f.status == "probe_did_not_bite" for f in (probes or [])),
     }
     return store.append("reconciliation", report, key)

@@ -167,7 +167,8 @@ def test_load_config_reads_json(tmp_path):
                    ' "outcome_type": "provider_response", "correlation_key": "decision_id",'
                    ' "within": "5m"}]}', encoding="utf-8")
     from noirebox.reconcile import load_config
-    invariants = load_config(str(cfg))
+    invariants, probes = load_config(str(cfg))
+    assert probes == []  # no negative controls in this fixture
     assert invariants[0].name == "inv"
     assert invariants[0].within_seconds == 300
 
@@ -184,4 +185,81 @@ def test_report_is_sealed_and_chain_stays_valid(tmp_path):
     assert event.payload["total_findings"] == 2  # matched + unconfirmed
     assert event.payload["findings"][1]["status"] == "unconfirmed"
     assert event.payload["findings"][1]["correlation_id"] == "d_pi_gap"
+    assert verify_chain(key.public_hex(), store.all())["valid"]
+
+
+# --- ADR 020 — the denominator: attempt-first sealing ------------------------
+
+def test_outcome_without_sealed_attempt_is_the_omission(tmp_path):
+    """20 attempts, one success sealed, and the chain is intact — the lie by
+    omission. With attempt_type set, the outcome with no EARLIER attempt
+    surfaces as unlogged_attempt."""
+    store, key = _store(tmp_path)
+    inv = Invariant("pay", "policy_decision", "provider_response",
+                    "decision_id", attempt_type="payment_attempt")
+    # outcome sealed, no attempt at all
+    _outcome(store, key, "pi_ghost")
+    findings = reconcile(store.all(), [inv], now=NOW)
+    statuses = [f.status for f in findings]
+    assert "unlogged_attempt" in statuses  # the omission, surfaced
+    assert "orphan_outcome" in statuses     # the no-decision half, unchanged
+
+    # attempt sealed AFTER the outcome: does not resurrect the count
+    store2, key2 = _store(tmp_path)
+    _outcome(store2, key2, "pi_late_attempt")
+    store2.append("payment_attempt", {"decision_id": "d_pi_late_attempt"}, key2)
+    findings2 = reconcile(store2.all(), [inv], now=NOW)
+    assert any(f.status == "unlogged_attempt" for f in findings2)
+
+
+def test_attempt_sealed_before_outcome_is_clean(tmp_path):
+    store, key = _store(tmp_path)
+    inv = Invariant("pay", "policy_decision", "provider_response",
+                    "decision_id", attempt_type="payment_attempt")
+    store.append("payment_attempt", {"decision_id": "d_ok"}, key)
+    _pair(store, key, "ok")
+    _outcome(store, key, "ok")
+    findings = reconcile(store.all(), [inv], now=NOW)
+    assert not any(f.status == "unlogged_attempt" for f in findings)
+
+
+# --- ADR 019 — negative controls and the always-sealed report ----------------
+
+def test_negative_probe_must_bite(tmp_path):
+    """The probe injects a deliberately-broken fixture: the checker MUST flag
+    it. A checker that never says false carries no information."""
+    from noirebox.reconcile import run_probes
+
+    store, key = _store(tmp_path)
+    probes = [{"name": "must_flag_unconfirmed", "invariant": INV[0].name,
+               "expect": "unconfirmed"}]
+    results = run_probes(store.all(), INV, probes, now=NOW)
+    assert results == []  # the probe bit: the expected finding came out
+
+    # a BROKEN checker (invariant renamed → probe hits nothing) is itself caught
+    broken = [Invariant("renamed", "policy_decision", "provider_response", "decision_id")]
+    results = run_probes(store.all(), broken, probes, now=NOW)
+    assert [f.status for f in results] == ["probe_did_not_bite"]
+
+
+def test_report_sealed_even_when_clean_with_counts_and_probes(tmp_path):
+    """A checker that only journals findings has no proof it ever ran: the
+    report is sealed on a CLEAN pass too, carrying the run counts and the
+    negative-control results (sum-to-n evidence)."""
+    from noirebox.reconcile import run_probes
+
+    store, key = _store(tmp_path)
+    _pair(store, key, "pi_1")
+    _outcome(store, key, "pi_1")
+    events = store.all()
+    findings = reconcile(events, INV, now=NOW)
+    assert findings and all(f.status == "matched" for f in findings)
+    probes = run_probes(events, INV,
+                        [{"name": "bite", "invariant": INV[0].name, "expect": "unconfirmed"}],
+                        now=NOW)
+    event = journal_report(store, key, INV, [], probes=probes, events=events)
+    assert event.type == "reconciliation"
+    assert event.payload["clean_pass"] is True
+    assert event.payload["events_examined"]["policy_decision"] >= 1
+    assert event.payload["probes_ok"] is True
     assert verify_chain(key.public_hex(), store.all())["valid"]

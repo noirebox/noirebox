@@ -110,20 +110,27 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "reconcile":
         from noirebox import locate
         from noirebox.chain import KeyPair, load_instance_key
-        from noirebox.reconcile import journal_report, load_config, reconcile
+        from noirebox.reconcile import journal_report, load_config, reconcile, run_probes
         from noirebox.store import EventStore
 
         db = args.db or locate.resolve_existing_journal()
         store = EventStore(db)
         key = load_instance_key(db)
-        invariants = load_config(args.config)
-        findings = reconcile(store.all(), invariants)
+        invariants, probes = load_config(args.config)
+        events = store.all()
+        findings = reconcile(events, invariants)
         for f in findings:
             print(f"  [{f.status:<14}] {f.correlation_id}  (invariant: {f.invariant})")
-        print(f"[✓] {len(findings)} finding(s) over {len(store.all())} events")
+        probe_findings = run_probes(events, invariants, probes) if probes else []
+        for f in probe_findings:
+            print(f"  [{'PROBE':<14}] {f.correlation_id}  (negative control)")
+        print(f"[✓] {len(findings)} finding(s) over {len(events)} events, "
+              f"{len(probe_findings)} negative-control result(s)")
         if args.journal_report:
-            journal_report(store, key, invariants, findings)
-            print("[✓] report sealed as a `reconciliation` event")
+            journal_report(store, key, invariants, findings,
+                           probes=probe_findings, events=events)
+            print("[✓] report sealed as a `reconciliation` event "
+                  "(always sealed — clean pass included, ADR 019)")
         return 2 if args.fail_on_findings and findings else 0
 
     if args.command == "audit-pack":

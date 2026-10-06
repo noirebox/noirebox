@@ -174,6 +174,34 @@ def verify_event(public_hex: str, ev: dict) -> str | None:
     return None
 
 
+def verify_chain_multi(public_hexes: list[str], events: list[dict]) -> dict:
+    """Verifies the chain when SEVERAL writers seal into one journal
+    (ADR 021 — keys per process, 'a name, not a role').
+
+    Same rules as verify_chain — order, links, hashes — but each event's
+    signature is checked against the SET of known writer keys: the first
+    key that verifies wins, and an event signed by NO known key is the
+    finding ('signed by an unknown key'). The chain stays the chain; the
+    writer identity becomes per-event evidence."""
+    prev = GENESIS
+    for expected_seq, ev in enumerate(events, start=1):
+        if ev["seq"] != expected_seq:
+            return {"valid": False, "nb_events": len(events),
+                    "first_error": {"seq": ev["seq"], "reason": "broken sequence (reordering or deletion)"}}
+        if ev["prev_hash"] != prev:
+            return {"valid": False, "nb_events": len(events),
+                    "first_error": {"seq": ev["seq"], "reason": f"broken link: prev_hash ≠ hash of event {ev['seq'] - 1}"}}
+        recomputed = compute_event_hash(ev["seq"], ev["ts"], ev["type"], ev["payload"], ev["prev_hash"])
+        if recomputed != ev["event_hash"]:
+            return {"valid": False, "nb_events": len(events),
+                    "first_error": {"seq": ev["seq"], "reason": "invalid hash (content was modified)"}}
+        if not any(ed25519_verify(k, ev["signature"], bytes.fromhex(ev["event_hash"])) for k in public_hexes):
+            return {"valid": False, "nb_events": len(events),
+                    "first_error": {"seq": ev["seq"], "reason": "signed by an unknown key (writer outside the known set)"}}
+        prev = ev["event_hash"]
+    return {"valid": True, "nb_events": len(events), "first_error": None}
+
+
 def verify_chain(public_hex: str, events: list[dict]) -> dict:
     """Verifies the whole chain: order, links, hashes, signatures.
 

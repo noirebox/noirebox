@@ -11,8 +11,10 @@ from noirebox.chain import (
     KeyPair,
     compute_event_hash,
     verify_chain,
+    verify_chain_multi,
     verify_event,
 )
+from noirebox.store import EventStore
 
 
 def _events(store_key, store):
@@ -154,3 +156,26 @@ def test_instance_key_can_live_in_a_secret_manager(tmp_path, monkeypatch):
     fresh = load_instance_key(db2)
     assert fresh.public_hex() == original.public_hex()
     assert not Path(db2 + ".key").exists()
+
+
+def test_multi_writer_chain_verifies_under_the_key_set(tmp_path):
+    """ADR 021 first brick: several writers, one journal. Every event checks
+    against the SET of known keys; a signature from OUTSIDE the set is the
+    finding — 'signed by an unknown key' is per-event evidence."""
+    store = EventStore(str(tmp_path / "multi.db"))
+    agent, gate = KeyPair.generate(), KeyPair.generate()
+    store.append("install_claim", {"package": "x"}, agent)
+    store.append("install_decision", {"package": "x", "decision": "deny"}, gate)
+    events = store.all()
+
+    ok = verify_chain_multi([agent.public_hex(), gate.public_hex()], events)
+    assert ok["valid"] is True
+
+    outsider = KeyPair.generate()
+    bad = verify_chain_multi([outsider.public_hex()], events)
+    assert bad["valid"] is False
+    assert "unknown key" in bad["first_error"]["reason"]
+
+    # tampering is still caught exactly like the single-writer chain
+    events[0]["payload"]["package"] = "evil"
+    assert verify_chain_multi([agent.public_hex(), gate.public_hex()], events)["valid"] is False

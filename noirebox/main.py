@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import threading
 
 from fastapi.responses import JSONResponse
 from fastapi import Depends, FastAPI, HTTPException, Query, Response
@@ -22,6 +23,32 @@ Flight data recorder for AI agents: **tamper-proof journal** (SHA-256 chain + Ed
 Auth (optional, enabled with `NOIREBOX_CLIENTS=id:secret,...`):
 `POST /api/v1/token` → 1 h JWT → `Authorization: Bearer ...`. Rate limit 60 req/min/client.
 """
+
+
+def _tsa_available() -> bool:
+    """A TSA profile exists (the auto-anchor needs somewhere to anchor to)."""
+    return bool(os.environ.get("NOIREBOX_TSA_URL")
+                or os.environ.get("NOIREBOX_TSA_PROFILES"))
+
+
+def _anchor_loop(store, key, interval_seconds: int, stop: threading.Event) -> None:
+    """Anchors the chain head every `interval_seconds` until stopped.
+
+    Failures are logged, never raised: an unreachable TSA must not take the
+    API down — the next tick retries, and the un-anchored window stays
+    visible in every export (the last anchor event says when coverage
+    stopped, ADR 022's honest window).
+    """
+    from .anchors import anchor_now
+
+    while not stop.wait(interval_seconds):
+        try:
+            result = anchor_now(store, key)
+            print(f"[noirebox] auto-anchor: seq {result['anchor_event_seq']} "
+                  f"covers head {result['anchored_head_seq']} "
+                  f"({', '.join(result['tsas'])})", flush=True)
+        except Exception as exc:  # noqa: BLE001 — the timer must survive anything
+            print(f"[noirebox] auto-anchor failed (will retry): {exc}", flush=True)
 
 
 def create_app(db_path: str | None = None) -> FastAPI:
@@ -275,6 +302,24 @@ def create_app(db_path: str | None = None) -> FastAPI:
             content=render_metrics(store, key.public_hex()),
             media_type="text/plain; version=0.0.4; charset=utf-8",
         )
+
+    # ── auto-anchor timer (ADR 022 §3, ops default) ──
+    # "The interesting events live between the last anchor and the incident."
+    # When a TSA is configured, the server anchors the chain head on a
+    # WALL-CLOCK timer — a killed session's dead time counts in minutes, not
+    # in turn boundaries. Off by default without a witness; 60 min when one
+    # is configured; NOIREBOX_ANCHOR_INTERVAL_MIN overrides (0 = off).
+    interval_min = float(os.environ.get(
+        "NOIREBOX_ANCHOR_INTERVAL_MIN",
+        "60" if _tsa_available() else "0"))
+    if interval_min > 0:
+        stop = threading.Event()
+        t = threading.Thread(
+            target=_anchor_loop,
+            args=(store, key, int(interval_min * 60), stop),
+            daemon=True, name="noirebox-auto-anchor")
+        t.start()
+        app.state.anchor_timer_stop = stop
 
     @app.post("/api/v1/attestation/verify")
     def verify_attestation_endpoint(att: dict) -> dict:
