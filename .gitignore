@@ -33,3 +33,6 @@ tsa/material/
 # Internal working documents — never published
 ANALYSE-COMPLETE.md
 .zcodeignore
+
+# Internal strategy documents — local only, never published
+marketing/
