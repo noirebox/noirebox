@@ -1,6 +1,6 @@
 {
   "lang": "en",
-  "trained_at": "2026-09-20T09:09:29+00:00",
+  "trained_at": "2026-10-06T15:01:42+00:00",
   "train_size": 4320,
   "test_size": 1080,
   "accuracy": 1.0,
@@ -37,7 +37,7 @@
       "support": 180
     }
   },
-  "never_seen_sanity": "6/2",
+  "never_seen_sanity": "6/6",
   "labels": [
     "clean",
     "data_exfiltration",
