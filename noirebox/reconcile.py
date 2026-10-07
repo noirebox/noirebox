@@ -63,6 +63,7 @@ class Invariant:
     correlation_key: str
     within_seconds: int | None = None
     attempt_type: str | None = None
+    require_two_key: bool = False
 
 
 @dataclass(frozen=True)
@@ -82,6 +83,8 @@ class Finding:
                            the denominator lied — outcomes > attempts
         probe_did_not_bite — a negative control produced the wrong verdict:
                              the checker itself is broken (ADR 019)
+        same_key_pairing — receipt and check-name sealed under the SAME key
+                           while the invariant demands two writers (ADR 019 §7)
     """
 
     invariant: str
@@ -147,14 +150,40 @@ def _deadline(decision: dict, inv: Invariant) -> datetime | None:
     return None
 
 
+def _signer(event: dict, signers: list[tuple[str, str]] | None) -> str:
+    """Resolves WHICH known key sealed this event — by signature, not by
+    claim (ADR 021: a name, not a role). None passed or no match →
+    "unknown" (handcrafted fixtures are not judged on pairing; the verifier
+    judges their signatures separately)."""
+    if not signers:
+        return "unknown"
+    try:
+        sig = bytes.fromhex(event["signature"])
+        digest = bytes.fromhex(event["event_hash"])
+    except (KeyError, ValueError):
+        return "unknown"
+    from .chain import ed25519_verify
+
+    for public_hex, label in signers:
+        if ed25519_verify(public_hex, sig.hex(), digest):
+            return label
+    return "unknown"
+
+
 def reconcile(events: list[dict], invariants: list[Invariant],
-              now: datetime | None = None) -> list[Finding]:
+              now: datetime | None = None,
+              signers: list[tuple[str, str]] | None = None) -> list[Finding]:
     """Runs every invariant over the events, returns the findings.
 
     `events` is what `store.all()` returns — or any handcrafted list with
     the same shape (seq, ts, type, payload). First occurrence wins on
     duplicate correlation ids: the original decision, the first response.
     `now` is the reference clock for deadline checks (injectable in tests).
+    `signers` is the known-writer set (public_hex, label) — required by
+    invariants that demand two-key pairing (ADR 019 §7): the receipt and
+    the check-name under the SAME key is the default state of every
+    pipeline, and the schema treats it as a finding when the invariant
+    demands two writers.
     """
     ref = now or datetime.now(timezone.utc)
     findings: list[Finding] = []
@@ -197,6 +226,13 @@ def reconcile(events: list[dict], invariants: list[Invariant],
                 else:
                     findings.append(Finding(inv.name, "pending", cid,
                                             decision_seq=decision["seq"]))
+                continue
+            if (inv.require_two_key and signers
+                    and _signer(decision, signers) != "unknown"
+                    and _signer(decision, signers) == _signer(outcome, signers)):
+                findings.append(Finding(inv.name, "same_key_pairing", cid,
+                                        decision_seq=decision["seq"],
+                                        outcome_seq=outcome["seq"]))
                 continue
             lag = (_ts(outcome) - _ts(decision)).total_seconds()
             if inv.within_seconds is not None and lag > inv.within_seconds:
@@ -276,4 +312,10 @@ def journal_report(store, key, invariants: list[Invariant],
         "negative_probes": [f.__dict__ for f in (probes or [])],
         "probes_ok": not any(f.status == "probe_did_not_bite" for f in (probes or [])),
     }
+    # ADR 019 §8 — the report witnesses its own run: byte counts of the
+    # sealed payload, normalized (no wall-clock, no content beyond counts).
+    from .chain import canonical
+    from .witness import canonical_witness
+
+    report["witness"] = canonical_witness(0, canonical(report))
     return store.append("reconciliation", report, key)

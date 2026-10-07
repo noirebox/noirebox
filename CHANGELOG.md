@@ -5,6 +5,40 @@ versioning according to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **reconcile v0.2 (ADRs 019/020)** — the reconciliation layer implements the
+  community-feedback schema: the report is sealed EVEN on a clean pass (with
+  the examined counts — sum-to-n evidence), **negative probes** inject
+  deliberately-broken fixtures that must bite (a checker that never says
+  false is itself a finding), **attempt-first support** (`attempt_type` +
+  `unlogged_attempt`: an outcome with no earlier attempt is the lie by
+  omission, surfaced), and **two-key pairing** (`require_two_key` + the
+  known-writer set: receipt and check-name under the same key is the
+  finding, resolved by signature — a name, not a role).
+- **The normalized witness (`witness.py`, ADR 019 §8)** — exit code, byte
+  counts of stdout/stderr, file-tree SHA-256 before/after, container digest;
+  canonicalize-then-hash, no wall-clock — and the guard that refuses to seal
+  a witness carrying raw streams. Wired into the GuardedAgent (every run
+  seals a `run_witness`) and into the reconciliation report.
+- **The receipt builders (`receipt.py`, ADR 019)** — `check_id` (predicate +
+  declared inputs + version, hashed), `evaluator_sha256`, `build_receipt`
+  with the validated schema (`schema: "receipt/0.2"`, pairing grade
+  `two-key`/`single-key`, base_commit).
+- **The independence bench (`independence.py`, ADR 021)** — the
+  shared-dependency test as a runnable assertion: store, key, endpoints,
+  anchor cadence; an empty list means the audit flow and the truth flow
+  share nothing.
+- **Belief capture (ADR 023)** — the GuardedAgent seals `decision_belief`
+  (resolved view, self-report grade) BEFORE the attempt and the call: the
+  ordering in the chain is the proof.
+- **The install gate demo** (`demo/demo_install_gate.py`, `make
+  demo-install-gate`) — claim/verify/decision under two keys, the
+  slopsquatting-thread pattern: an agent that can install is an agent that
+  must journal.
+- **The deployment custody map and the reconciliation cost note** (ADR 022,
+  issue #33) — every consequential action mapped to its trust boundary, and
+  the real bill of multi-flow custody, named.
+
 ## [0.10.0] - 2026-10-04
 
 ### Removed

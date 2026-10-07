@@ -66,6 +66,12 @@ def main() -> None:
                    for vendor, cents in requests]
         for (vendor, cents), intent in zip(requests, intents, strict=True):
             decision, reason = policy_agent(vendor, cents)
+            # ADR 020 — attempt-first: the attempt is the denominator, sealed
+            # before the outcome exists. Whatever happens next, the try was here.
+            store.append("payment_attempt", {
+                **MARK, "payment_intent_id": intent, "vendor": vendor,
+                "amount_cents": cents,
+            }, key)
             store.append("policy_decision", {
                 **MARK, "payment_intent_id": intent, "vendor": vendor,
                 "amount_cents": cents, "decision": decision,

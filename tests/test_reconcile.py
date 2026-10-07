@@ -263,3 +263,43 @@ def test_report_sealed_even_when_clean_with_counts_and_probes(tmp_path):
     assert event.payload["events_examined"]["policy_decision"] >= 1
     assert event.payload["probes_ok"] is True
     assert verify_chain(key.public_hex(), store.all())["valid"]
+
+
+# --- ADR 019 §7 — the two-key pairing, enforced by the schema -----------------
+
+def test_same_key_pairing_is_a_finding_and_two_keys_are_clean(tmp_path):
+    """The default state of every pipeline: one writer on both sides. When
+    the invariant demands two writers, same-key pairing is the finding —
+    resolved by SIGNATURE, not by claim."""
+    from noirebox.chain import KeyPair
+    from noirebox.store import EventStore
+
+    store = EventStore(str(tmp_path / "pair.db"))
+    writer_a, writer_b = KeyPair.generate(), KeyPair.generate()
+    now = "2026-10-06T12:00:00+00:00"
+    store.append("policy_decision", {"decision_id": "d1", "expected_by": "2026-10-07T12:00:00+00:00"}, writer_a)
+    store.append("provider_response", {"decision_id": "d1"}, writer_a)  # same key: the pipeline default
+    store.append("policy_decision", {"decision_id": "d2", "expected_by": "2026-10-07T12:00:00+00:00"}, writer_a)
+    store.append("provider_response", {"decision_id": "d2"}, writer_b)  # two writers: enforced
+
+    inv = Invariant("pay", "policy_decision", "provider_response",
+                    "decision_id", require_two_key=True)
+    signers = [(writer_a.public_hex(), "agent"), (writer_b.public_hex(), "gate")]
+    findings = reconcile(store.all(), [inv], now=now, signers=signers)
+    got = {f.correlation_id: f.status for f in findings}
+    assert got["d1"] == "same_key_pairing"   # the pipeline default, surfaced
+    assert got["d2"] == "matched"            # the two-writer receipt, clean
+
+
+def test_two_key_check_passes_handcrafted_unsigned_events(tmp_path):
+    """Events whose signatures resolve to nothing: pairing is not judged
+    (the verifier judges signatures separately) — no false finding."""
+    store, key = _store(tmp_path)
+    inv = Invariant("pay", "policy_decision", "provider_response",
+                    "decision_id", require_two_key=True)
+    _pair(store, key, "h")
+    _outcome(store, key, "h")
+    events = [{**e, "signature": "ff" * 64} for e in store.all()]  # signatures resolve to nothing
+    findings = reconcile(events, [inv], now=NOW,
+                         signers=[(key.public_hex(), "someone")])
+    assert all(f.status != "same_key_pairing" for f in findings)

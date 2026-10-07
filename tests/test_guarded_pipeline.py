@@ -91,3 +91,30 @@ def test_clean_transcript_leaves_no_incident_event(stubbed):
 
 def test_ollama_available_false_when_unreachable():
     assert ollama_available("http://127.0.0.1:1") is False
+
+
+def test_the_sealed_sequence_is_the_proof(tmp_path):
+    """ADR 020/023: belief BEFORE attempt BEFORE call BEFORE output, and the
+    run_witness last — the ORDER in the chain is itself the evidence."""
+    from noirebox.chain import verify_chain
+
+    agent = StubAgent()
+    store = EventStore(str(tmp_path / "seq.db"))
+    key = KeyPair.generate()
+    GuardedAgent(agent, store, key).run("MTG-SEQ", CLEAN)
+
+    seq = {e["type"]: e["seq"] for e in store.all()}
+    assert seq["decision_belief"] < seq["llm_attempt"] < seq["llm_call"] \
+        < seq["llm_output"] < seq["run_witness"]
+
+    belief = [e for e in store.all() if e["type"] == "decision_belief"][-1]
+    assert belief["payload"]["belief_grade"] == "self-report"  # the grade says what it is
+    assert belief["payload"]["resolved_target"] == agent.model
+    attempt = [e for e in store.all() if e["type"] == "llm_attempt"][-1]
+    assert attempt["payload"]["clean_transcript_sha256"] == belief["payload"]["inputs_seen"]["clean_transcript_sha256"]
+
+    witness = [e for e in store.all() if e["type"] == "run_witness"][-1]
+    assert witness["payload"]["stdout_bytes"] > 0  # the answer's volume, sealed as counts
+    assert "stdout" not in witness["payload"]  # byte counts, never the content
+
+    assert verify_chain(key.public_hex(), store.all())["valid"] is True
