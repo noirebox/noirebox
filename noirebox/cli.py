@@ -279,12 +279,16 @@ def main(argv: list[str] | None = None) -> int:
 
         def notify(alarm: dict) -> None:
             if args.webhook:
-                import urllib.request
+                import httpx
 
-                req = urllib.request.Request(
-                    args.webhook, data=_json.dumps(alarm).encode(),
-                    headers={"Content-Type": "application/json"})
-                urllib.request.urlopen(req, timeout=10)
+                from urllib.parse import urlparse
+
+                parsed = urlparse(args.webhook)
+                if parsed.scheme not in ("http", "https"):
+                    raise ValueError(
+                        f"webhook must be a plain http(s) URL: {args.webhook[:80]}")
+                httpx.post(args.webhook, json=alarm, timeout=10,
+                           follow_redirects=False)
             else:
                 print(f"[noirebox] ALARM {alarm['at']}: "
                       f"{[m['journal'] for m in alarm['members'] if not (m['covered'] and m['inclusion_ok'])]}",
