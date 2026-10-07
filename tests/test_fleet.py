@@ -188,7 +188,6 @@ def test_fleet_watch_alarms_on_drift_and_reseals_when_healthy(tmp_path, monkeypa
     assert alarms[0]["alarm"] == "fleet_drift"
     assert len(anchors) >= 2  # healthy ticks re-sealed the fleet
     # and the re-sealed fleet covers the moved member again
-    import json as _json
     hub_store2 = EventStore(str(tmp_path / "hub.db"))
     seals = [e for e in hub_store2.all() if e["type"] == "fleet_anchor"]
     assert len(seals) >= 2  # the original + the re-seals
