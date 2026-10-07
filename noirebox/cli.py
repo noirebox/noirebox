@@ -84,6 +84,20 @@ def main(argv: list[str] | None = None) -> int:
                      help="the HUB journal holding the fleet_anchor (same defaults)")
     fls.add_argument("--json", action="store_true",
                      help="machine-readable report on stdout (for alerting)")
+    flw = sub.add_parser("fleet-watch",
+                         help="fleet console, service form (ADR 022): check "
+                              "members on a wall-clock cadence, alarm on drift, "
+                              "optionally re-seal the fleet (Ctrl-C to stop)")
+    flw.add_argument("members", nargs="+", help="member journal paths to watch")
+    flw.add_argument("--db", default=None,
+                     help="the HUB journal (same defaults as fleet-status)")
+    flw.add_argument("--interval", type=int, default=300,
+                     help="seconds between checks (default 300)")
+    flw.add_argument("--reanchor", action="store_true",
+                     help="re-seal the fleet when the check is healthy "
+                          "(shrinks the falsifiable window to the interval)")
+    flw.add_argument("--webhook", default=None,
+                     help="POST the alarm JSON to this URL on drift")
     seal = sub.add_parser("seal",
                           help="seal one free-form event into the journal "
                                "(digests and short facts, never raw content)")
@@ -250,6 +264,41 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[{'✓' if report['ok'] else '✗'}] fleet status over "
                   f"{len(report['members'])} member(s) — hub {hub}")
         return 0 if report["ok"] else 1
+
+    if args.command == "fleet-watch":
+        import json as _json
+        import threading
+
+        from noirebox import locate
+        from noirebox.chain import KeyPair
+        from noirebox.fleet import fleet_watch
+        from noirebox.store import EventStore
+
+        hub = args.db or locate.resolve_existing_journal()
+        key = KeyPair.load_or_create(hub + ".key") if args.reanchor else None
+
+        def notify(alarm: dict) -> None:
+            if args.webhook:
+                import urllib.request
+
+                req = urllib.request.Request(
+                    args.webhook, data=_json.dumps(alarm).encode(),
+                    headers={"Content-Type": "application/json"})
+                urllib.request.urlopen(req, timeout=10)
+            else:
+                print(f"[noirebox] ALARM {alarm['at']}: "
+                      f"{[m['journal'] for m in alarm['members'] if not (m['covered'] and m['inclusion_ok'])]}",
+                      flush=True)
+
+        stop = threading.Event()
+        try:
+            fleet_watch(EventStore(hub), args.members, stop=stop,
+                        interval_seconds=args.interval,
+                        reanchor=args.reanchor, key=key, notify=notify)
+        except KeyboardInterrupt:
+            stop.set()
+            print("[noirebox] fleet-watch stopped")
+        return 0
 
     if args.command == "hook":
         import sys

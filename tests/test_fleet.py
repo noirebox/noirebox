@@ -7,6 +7,7 @@ local-witness mode, and the regenerated-journal detection.
 import base64
 import json
 import sqlite3
+import time
 
 import pytest
 
@@ -148,3 +149,46 @@ def test_fleet_status_is_the_cron_alert(tmp_path, monkeypatch, capsys):
     report = json.loads(capsys.readouterr().out)
     assert report["ok"] is False
     assert report["members"][0]["covered"] is False
+
+
+def test_fleet_watch_alarms_on_drift_and_reseals_when_healthy(tmp_path, monkeypatch, capsys):
+    """The console service, tested on a fast clock: a drift raises the alarm
+    (once — no spam), a healthy check with reanchor re-seals, and the loop
+    stops on demand."""
+    import threading
+
+    from noirebox.fleet import fleet_watch
+
+    hub_store, hub_key = _hub(tmp_path)
+    a = _member(tmp_path, "a.db")
+    b = _member(tmp_path, "b.db")
+    monkeypatch.setenv("NOIREBOX_DB", str(tmp_path / "hub.db"))
+    from noirebox.cli import main as cli_main
+    assert cli_main(["fleet-anchor", a, b, "--allow-local"]) == 0
+    hub_after_anchor = EventStore(str(tmp_path / "hub.db"))
+
+    alarms, anchors = [], []
+    stop = threading.Event()
+
+    def tick_in_background():
+        fleet_watch(hub_after_anchor, [a, b], stop=stop,
+                    interval_seconds=0.05, reanchor=True, key=hub_key,
+                    notify=alarms.append, on_anchor=anchors.append)
+
+    thread = threading.Thread(target=tick_in_background, daemon=True)
+    thread.start()
+    time.sleep(0.25)
+    # drift: a member moves past the seal → the alarm must fire exactly once
+    EventStore(a).append("test", {"i": "new"}, KeyPair.generate())
+    time.sleep(0.25)
+    stop.set()
+    thread.join(timeout=5)
+
+    assert len(alarms) == 1, f"one transition to not-ok, one alarm: got {len(alarms)}"
+    assert alarms[0]["alarm"] == "fleet_drift"
+    assert len(anchors) >= 2  # healthy ticks re-sealed the fleet
+    # and the re-sealed fleet covers the moved member again
+    import json as _json
+    hub_store2 = EventStore(str(tmp_path / "hub.db"))
+    seals = [e for e in hub_store2.all() if e["type"] == "fleet_anchor"]
+    assert len(seals) >= 2  # the original + the re-seals

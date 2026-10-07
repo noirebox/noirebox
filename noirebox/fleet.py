@@ -136,3 +136,51 @@ def fleet_status(hub_store: EventStore, member_paths: list[str]) -> dict:
         members.append({"journal": Path(path).name, "path": str(path), **result})
     return {"ok": all(m["covered"] and m["inclusion_ok"] for m in members),
             "members": members}
+
+
+def fleet_watch(hub_store: EventStore, member_paths: list[str], *,
+                stop, interval_seconds: int = 300, reanchor: bool = False,
+                key: KeyPair | None = None, notify=None,
+                on_anchor=None) -> None:
+    """The fleet console, service form (ADR 022's cadence rule): every
+    interval, check every member against the hub's LATEST seal — and when
+    `reanchor` is set, a healthy check re-seals the fleet so the window
+    where a rewrite could hide shrinks to the interval itself.
+
+    `notify(alarm_dict)` is the alarm channel (webhook, Slack, whatever the
+    operator wires) — called ONCE per transition to a not-ok state, never
+    spamming while the alarm persists. The loop runs until `stop` is set;
+    anchor failures are logged to stderr and retried next tick, never fatal.
+    """
+    import sys
+    import time
+
+    last_ok = None
+    while not stop.is_set():
+        report = fleet_status(hub_store, member_paths)
+        ok = report["ok"]
+        if last_ok is not None and not ok and last_ok:
+            alarm = {"alarm": "fleet_drift", "members": report["members"],
+                     "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+            print("[noirebox] FLEET ALARM: a member is not covered by the "
+                  "latest seal", file=sys.stderr, flush=True)
+            if notify:
+                try:
+                    notify(alarm)
+                except Exception as exc:
+                    print(f"[noirebox] notify failed (alarm still raised): {exc}",
+                          file=sys.stderr, flush=True)
+        if reanchor and ok and key is not None:
+            try:
+                result = fleet_anchor(member_paths, hub_store, key,
+                                      require_witness=False)
+                if on_anchor:
+                    on_anchor(result)
+                print(f"[noirebox] fleet re-sealed: root {result['root'][:16]}… "
+                      f"over {len(result['members'])} journal(s)", file=sys.stderr,
+                      flush=True)
+            except Exception as exc:
+                print(f"[noirebox] re-anchor failed (will retry): {exc}",
+                      file=sys.stderr, flush=True)
+        last_ok = ok
+        stop.wait(interval_seconds)

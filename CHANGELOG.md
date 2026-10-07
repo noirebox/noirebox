@@ -38,6 +38,12 @@ versioning according to [Semantic Versioning](https://semver.org/).
 - **The deployment custody map and the reconciliation cost note** (ADR 022,
   issue #33) — every consequential action mapped to its trust boundary, and
   the real bill of multi-flow custody, named.
+- **`noirebox fleet-watch`** — the fleet console in service form: members
+  checked against the hub's latest seal on a wall-clock cadence, the alarm
+  fires ONCE per drift transition (to the terminal or POSTed to a webhook),
+  and `--reanchor` re-seals the fleet whenever the check is healthy — the
+  falsifiable window shrinks to the interval itself. The last item of the
+  fleet-hub roadmap's operational layer.
 
 ## [0.10.0] - 2026-10-04
 
