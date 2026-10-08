@@ -3,9 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NoireBox — The flight recorder for AI agents</title>
+<title>NoireBox — Proof, not promises. Tamper-evident AI agent audit trails</title>
 <meta name="description" content="Every decision your AI agent makes — sealed in a tamper-evident journal, timestamped by an external witness, provable by anyone. Without trusting anyone.">
-<link rel="stylesheet" href="style.css?v=26">
+<meta property="og:title" content="NoireBox — Proof, not promises">
+<meta property="og:description" content="Tamper-evident AI agent audit trails: hash-chained, signed, timestamped by an external witness, verifiable offline.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://noirebox.github.io/noirebox/assets/banner.jpg">
+<meta property="og:image:width" content="1672">
+<meta property="og:image:height" content="941">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="style.css?v=27">
 </head>
 <body>
 
@@ -13,7 +20,7 @@
 
 <!-- ═══════════════ NAV ═══════════════ -->
 <nav class="nav">
-  <a class="brand" href="#top"><span class="brand-cube"></span>NOIREBOX</a>
+  <a class="brand" href="#top"><span class="brand-cube"></span>NOIRE<span>BOX</span></a>
   <div class="nav-links">
     <a href="#core">The journal</a>
     <a href="#plugin">Guardrail</a>
@@ -25,22 +32,17 @@
   </div>
 </nav>
 
-<!-- ═══════════════ HERO — the face of the flight recorder ═══════════════ -->
+<!-- ═══════════════ HERO — the banner, live ═══════════════ -->
 <header class="hero" id="top">
-  <div class="stripes" aria-hidden="true"><i></i><i></i></div>
-
   <div class="hero-inner">
-    <p class="kicker">// NOIREBOX — THE FLIGHT RECORDER FOR AI AGENTS</p>
-    <div class="hero-title-row">
-      <span class="hero-brand-stamp" aria-hidden="true">NOIREBOX</span>
-      <h1>FLIGHT<span class="h1-white">DATA</span><br>RECORDER</h1>
-    </div>
+    <p class="kicker">// TAMPER-EVIDENT AI AGENT AUDIT TRAILS</p>
+    <h1 class="wordmark">Noire<span class="wm-grad">Box</span></h1>
+    <p class="tagline">Proof, not promises</p>
 
-    <p class="pitch">Every AI decision, <strong>sealed forever.</strong></p>
     <p class="hero-sub">
-      Immutable, tamper-evident journaling for AI agents.
-      Hash-chained. Signed. Timestamped by an external witness.
-      Verifiable offline — without trusting anyone.
+      Every decision your AI agent makes — sealed in a hash-chained, signed journal,
+      timestamped by an external witness. Verifiable offline, by anyone,
+      <strong>without trusting anyone.</strong>
     </p>
 
     <div class="gh-badges">
@@ -51,7 +53,7 @@
 
     <div class="cta-row">
       <a class="btn btn-light" href="https://github.com/noirebox/noirebox#quickstart" target="_blank">Start free — self-host</a>
-      <a class="btn btn-ghost-dark" href="#proof">See the proof ↓</a>
+      <a class="btn btn-ghost" href="#core">See the proof ↓</a>
     </div>
 
     <ul class="stats">
@@ -66,6 +68,12 @@
       <button class="copy-btn" id="copy-install" title="Copy to clipboard" aria-label="Copy install command">⧉</button>
     </div>
   </div>
+
+  <figure class="hero-visual reveal">
+    <img src="assets/banner.webp" width="1672" height="941"
+      alt="The NoireBox journal drawn as a chain of sealed blocks #1023 to #1027, each carrying its hash and signature. Block #1025 glows red: its content was rewritten and the hash mismatch exposes the tampering. An attestation card lists the journal hash, Merkle root, Ed25519 signature and timestamp — all verified. Append-only journal · SHA-256 hash chain · Ed25519 signatures · prompt-injection detection · attestations & Merkle proofs.">
+    <figcaption>Event #1025 was rewritten after the fact. The chain caught it — everything it sealed stays provable.</figcaption>
+  </figure>
 </header>
 
 <!-- ═══════════════ TICKER ═══════════════ -->
@@ -84,13 +92,15 @@
       payload. That's why it fits <em>every</em> agent, every stack, every language.
     </p>
     <div class="chain">
-      <div class="link ok"><span>#1</span><code>prev 000…0</code><code>5a5cb5a2…</code></div>
+      <div class="link ok c-blue"><span>#1023</span><code>4f2c6e9a…</code><code>sig ✓</code></div>
       <div class="chain-arrow">→</div>
-      <div class="link ok"><span>#2</span><code>prev 5a5cb5a2…</code><code>b3fe86ad…</code></div>
+      <div class="link ok c-violet"><span>#1024</span><code>9b7e3c1d…</code><code>sig ✓</code></div>
       <div class="chain-arrow">→</div>
-      <div class="link bad"><span>#3 ✗</span><code>content rewritten</code><code>hash mismatch</code></div>
+      <div class="link bad"><span>#1025 ✗</span><code>e03a9f7c…</code><code>content rewritten</code></div>
       <div class="chain-arrow">→</div>
-      <div class="link dim"><span>#4</span><code>prev ?</code><code>chain broken</code></div>
+      <div class="link dim"><span>#1026</span><code>7c9d2e1b…</code><code>prev hash ✗</code></div>
+      <div class="chain-arrow">→</div>
+      <div class="link dim"><span>#1027</span><code>a1f3b9d4…</code><code>unverifiable</code></div>
     </div>
     <div class="pipeline" aria-label="How a decision becomes proof">
       <span class="pl-step">AI decision</span>
@@ -124,7 +134,7 @@
     <div class="sources">
       <div class="source"><span class="dot g"></span><div><strong>Your guardrail</strong><em>its verdicts, as events</em></div></div>
       <div class="source"><span class="dot g"></span><div><strong>Your agent</strong><em>llm_call · llm_output · eval</em></div></div>
-      <div class="source"><span class="dot r"></span><div><strong>Bundled plugin</strong><em>regex + 250 KB ML, fr &amp; en</em></div></div>
+      <div class="source"><span class="dot b"></span><div><strong>Bundled plugin</strong><em>regex + 250 KB ML, fr &amp; en</em></div></div>
     </div>
     <div class="plug-flow" aria-label="Drop-in integration">
       <span class="pf-chip">OpenAI</span>
@@ -265,11 +275,11 @@ $ python verifier/verifier.py export.json
 
     <p class="note mono" style="margin-top:20px;letter-spacing:.02em">
       GET IT —
-      <a href="https://pypi.org/project/noirebox/" style="color:var(--red-soft)">pip install noirebox</a> ·
-      <a href="https://marketplace.visualstudio.com/items?itemName=noirebox.noirebox" style="color:var(--red-soft)">VS Code / Cursor — Marketplace</a> ·
-      <a href="https://open-vsx.org/extension/noirebox/noirebox" style="color:var(--red-soft)">Open VSX</a> ·
-      <a href="https://github.com/noirebox/noirebox/releases/tag/v0.10.0" style="color:var(--red-soft)">VSIX + sources</a> ·
-      <a href="https://github.com/noirebox/noirebox/pkgs/container/noirebox" style="color:var(--red-soft)">Docker — GHCR</a>
+      <a href="https://pypi.org/project/noirebox/" style="color:var(--violet-soft)">pip install noirebox</a> ·
+      <a href="https://marketplace.visualstudio.com/items?itemName=noirebox.noirebox" style="color:var(--violet-soft)">VS Code / Cursor — Marketplace</a> ·
+      <a href="https://open-vsx.org/extension/noirebox/noirebox" style="color:var(--violet-soft)">Open VSX</a> ·
+      <a href="https://github.com/noirebox/noirebox/releases/tag/v0.10.0" style="color:var(--violet-soft)">VSIX + sources</a> ·
+      <a href="https://github.com/noirebox/noirebox/pkgs/container/noirebox" style="color:var(--violet-soft)">Docker — GHCR</a>
     </p>
     <div class="plug-flow" aria-label="Developer surface">
       <span class="pf-chip">FastAPI</span>
@@ -331,7 +341,7 @@ $ python verifier/verifier.py export.json
 </section>
 
 <footer class="footer">
-  <div><span class="brand-cube"></span> <strong>NoireBox</strong> — the flight recorder for AI agents.</div>
+  <div><span class="brand-cube"></span> <strong>NoireBox</strong> — proof, not promises.</div>
   <div class="foot-links">
     <a href="https://github.com/noirebox/noirebox" target="_blank">GitHub</a>
     <a href="https://github.com/noirebox/noirebox/blob/main/docs/SPECS.md">Specs</a>
@@ -341,6 +351,6 @@ $ python verifier/verifier.py export.json
   </div>
 </footer>
 
-<script src="script.js?v=26"></script>
+<script src="script.js?v=27"></script>
 </body>
 </html>

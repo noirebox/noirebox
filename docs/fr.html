@@ -3,9 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NoireBox — Le boîtier de vol des agents IA</title>
+<title>NoireBox — Preuves, pas promesses. Pistes d'audit infalsifiables pour agents IA</title>
 <meta name="description" content="Chaque décision de votre agent IA — scellée dans un journal infalsifiable, horodatée par un témoin externe, prouvable par n'importe qui. Sans faire confiance à personne.">
-<link rel="stylesheet" href="style.css?v=26">
+<meta property="og:title" content="NoireBox — Preuves, pas promesses">
+<meta property="og:description" content="Pistes d'audit infalsifiables pour agents IA : chaînage par hash, signatures, horodatage par un témoin externe, vérifiable hors-ligne.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://noirebox.github.io/noirebox/assets/banner.jpg">
+<meta property="og:image:width" content="1672">
+<meta property="og:image:height" content="941">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="style.css?v=27">
 </head>
 <body>
 
@@ -13,7 +20,7 @@
 
 <!-- ═══════════════ NAV ═══════════════ -->
 <nav class="nav">
-  <a class="brand" href="#top"><span class="brand-cube"></span>NOIREBOX</a>
+  <a class="brand" href="#top"><span class="brand-cube"></span>NOIRE<span>BOX</span></a>
   <div class="nav-links">
     <a href="#core">Le journal</a>
     <a href="#plugin">Garde-fou</a>
@@ -25,22 +32,17 @@
   </div>
 </nav>
 
-<!-- ═══════════════ HERO — la face du boîtier de vol ═══════════════ -->
+<!-- ═══════════════ HERO — la bannière, en live ═══════════════ -->
 <header class="hero" id="top">
-  <div class="stripes" aria-hidden="true"><i></i><i></i></div>
-
   <div class="hero-inner">
-    <p class="kicker">// NOIREBOX — LE BOÎTIER DE VOL DES AGENTS IA</p>
-    <div class="hero-title-row">
-      <span class="hero-brand-stamp" aria-hidden="true">NOIREBOX</span>
-      <h1>FLIGHT<span class="h1-white">DATA</span><br>RECORDER</h1>
-    </div>
+    <p class="kicker">// PISTES D'AUDIT INFALSIFIABLES POUR AGENTS IA</p>
+    <h1 class="wordmark">Noire<span class="wm-grad">Box</span></h1>
+    <p class="tagline">Preuves, pas promesses</p>
 
-    <p class="pitch">Chaque décision IA, <strong>scellée pour toujours.</strong></p>
     <p class="hero-sub">
-      Journal immuable et infalsifiable pour agents IA.
-      Chaîné par hash. Signé. Horodaté par un témoin externe.
-      Vérifiable hors-ligne — sans faire confiance à personne.
+      Chaque décision de votre agent IA — scellée dans un journal chaîné par hash et
+      signé, horodaté par un témoin externe. Vérifiable hors-ligne, par n'importe qui,
+      <strong>sans faire confiance à personne.</strong>
     </p>
 
     <div class="gh-badges">
@@ -51,7 +53,7 @@
 
     <div class="cta-row">
       <a class="btn btn-light" href="https://github.com/noirebox/noirebox#quickstart" target="_blank">Démarrer — auto-hébergé</a>
-      <a class="btn btn-ghost-dark" href="#proof">Voir la preuve ↓</a>
+      <a class="btn btn-ghost" href="#core">Voir la preuve ↓</a>
     </div>
 
     <ul class="stats">
@@ -66,6 +68,12 @@
       <button class="copy-btn" id="copy-install" title="Copier la commande" aria-label="Copier la commande d'installation">⧉</button>
     </div>
   </div>
+
+  <figure class="hero-visual reveal">
+    <img src="assets/banner.webp" width="1672" height="941"
+      alt="Le journal NoireBox dessiné comme une chaîne de blocs scellés #1023 à #1027, chacun portant son hash et sa signature. Le bloc #1025 brille en rouge : son contenu a été réécrit et l'écart de hash révèle la falsification. Une carte d'attestation liste le hash du journal, la racine de Merkle, la signature Ed25519 et l'horodatage — tous vérifiés. Journal append-only · chaîne de hash SHA-256 · signatures Ed25519 · détection d'injection de prompt · attestations & preuves de Merkle.">
+    <figcaption>L'événement #1025 a été réécrit après coup. La chaîne l'a attrapé — tout ce qu'il scellait reste prouvable.</figcaption>
+  </figure>
 </header>
 
 <!-- ═══════════════ TICKER ═══════════════ -->
@@ -85,13 +93,15 @@
       stack, toute langue.
     </p>
     <div class="chain">
-      <div class="link ok"><span>#1</span><code>prev 000…0</code><code>5a5cb5a2…</code></div>
+      <div class="link ok c-blue"><span>#1023</span><code>4f2c6e9a…</code><code>sig ✓</code></div>
       <div class="chain-arrow">→</div>
-      <div class="link ok"><span>#2</span><code>prev 5a5cb5a2…</code><code>b3fe86ad…</code></div>
+      <div class="link ok c-violet"><span>#1024</span><code>9b7e3c1d…</code><code>sig ✓</code></div>
       <div class="chain-arrow">→</div>
-      <div class="link bad"><span>#3 ✗</span><code>contenu réécrit</code><code>hash invalide</code></div>
+      <div class="link bad"><span>#1025 ✗</span><code>e03a9f7c…</code><code>contenu réécrit</code></div>
       <div class="chain-arrow">→</div>
-      <div class="link dim"><span>#4</span><code>prev ?</code><code>chaîne brisée</code></div>
+      <div class="link dim"><span>#1026</span><code>7c9d2e1b…</code><code>hash précédent ✗</code></div>
+      <div class="chain-arrow">→</div>
+      <div class="link dim"><span>#1027</span><code>a1f3b9d4…</code><code>invérifiable</code></div>
     </div>
     <div class="pipeline" aria-label="Comment une décision devient une preuve">
       <span class="pl-step">Décision IA</span>
@@ -126,7 +136,7 @@
     <div class="sources">
       <div class="source"><span class="dot g"></span><div><strong>Votre garde-fou</strong><em>ses verdicts, en événements</em></div></div>
       <div class="source"><span class="dot g"></span><div><strong>Votre agent</strong><em>llm_call · llm_output · eval</em></div></div>
-      <div class="source"><span class="dot r"></span><div><strong>Plugin embarqué</strong><em>regex + 250 Ko de ML, fr &amp; en</em></div></div>
+      <div class="source"><span class="dot b"></span><div><strong>Plugin embarqué</strong><em>regex + 250 Ko de ML, fr &amp; en</em></div></div>
     </div>
     <div class="plug-flow" aria-label="Intégration sans effort">
       <span class="pf-chip">OpenAI</span>
@@ -270,11 +280,11 @@ $ python verifier/verifier.py export.json
 
     <p class="note mono" style="margin-top:20px;letter-spacing:.02em">
       RÉCUPÉRER —
-      <a href="https://pypi.org/project/noirebox/" style="color:var(--red-soft)">pip install noirebox</a> ·
-      <a href="https://marketplace.visualstudio.com/items?itemName=noirebox.noirebox" style="color:var(--red-soft)">VS Code / Cursor — Marketplace</a> ·
-      <a href="https://open-vsx.org/extension/noirebox/noirebox" style="color:var(--red-soft)">Open VSX</a> ·
-      <a href="https://github.com/noirebox/noirebox/releases/tag/v0.10.0" style="color:var(--red-soft)">VSIX + sources</a> ·
-      <a href="https://github.com/noirebox/noirebox/pkgs/container/noirebox" style="color:var(--red-soft)">Docker — GHCR</a>
+      <a href="https://pypi.org/project/noirebox/" style="color:var(--violet-soft)">pip install noirebox</a> ·
+      <a href="https://marketplace.visualstudio.com/items?itemName=noirebox.noirebox" style="color:var(--violet-soft)">VS Code / Cursor — Marketplace</a> ·
+      <a href="https://open-vsx.org/extension/noirebox/noirebox" style="color:var(--violet-soft)">Open VSX</a> ·
+      <a href="https://github.com/noirebox/noirebox/releases/tag/v0.10.0" style="color:var(--violet-soft)">VSIX + sources</a> ·
+      <a href="https://github.com/noirebox/noirebox/pkgs/container/noirebox" style="color:var(--violet-soft)">Docker — GHCR</a>
     </p>
     <div class="plug-flow" aria-label="Surface développeur">
       <span class="pf-chip">FastAPI</span>
@@ -336,7 +346,7 @@ $ python verifier/verifier.py export.json
 </section>
 
 <footer class="footer">
-  <div><span class="brand-cube"></span> <strong>NoireBox</strong> — le boîtier de vol des agents IA.</div>
+  <div><span class="brand-cube"></span> <strong>NoireBox</strong> — preuves, pas promesses.</div>
   <div class="foot-links">
     <a href="https://github.com/noirebox/noirebox" target="_blank">GitHub</a>
     <a href="https://github.com/noirebox/noirebox/blob/main/docs/SPECS.md">Specs</a>
@@ -346,6 +356,6 @@ $ python verifier/verifier.py export.json
   </div>
 </footer>
 
-<script src="script.js?v=26"></script>
+<script src="script.js?v=27"></script>
 </body>
 </html>
