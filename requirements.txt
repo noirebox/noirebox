@@ -6,5 +6,5 @@ pytest
 httpx
 scikit-learn
 joblib
-pyjwt
+PyJWT>=2.15
 reportlab
