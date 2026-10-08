@@ -64,6 +64,8 @@ class Invariant:
     within_seconds: int | None = None
     attempt_type: str | None = None
     require_two_key: bool = False
+    witnessed_expectations: bool = False
+    precedence: str | None = None  # which side wins on disagreement — decided BEFORE (issue #35)
 
 
 @dataclass(frozen=True)
@@ -85,6 +87,10 @@ class Finding:
                              the checker itself is broken (ADR 019)
         same_key_pairing — receipt and check-name sealed under the SAME key
                            while the invariant demands two writers (ADR 019 §7)
+        unwitnessed_expectation — an outbound expectation (deadline, no
+                           outcome yet) that is neither anchored nor
+                           co-signed: "a wish with a hash" (ADR 020, the
+                           outbound half — david_ilands)
     """
 
     invariant: str
@@ -119,6 +125,8 @@ def load_config(path: str) -> list[Invariant]:
             correlation_key=inv["correlation_key"],
             within_seconds=parse_duration(inv.get("within")),
             attempt_type=inv.get("attempt_type"),
+            witnessed_expectations=bool(inv.get("witnessed_expectations")),
+            precedence=inv.get("precedence"),
         )
         for inv in cfg.get("invariants", [])
     ]
@@ -170,6 +178,42 @@ def _signer(event: dict, signers: list[tuple[str, str]] | None) -> str:
     return "unknown"
 
 
+def _anchored_upto(events: list[dict], seq: int) -> bool:
+    """True when an anchor event provably covers `seq` — head_seq >= seq
+    AND the cited head_hash recomputes to the chain's event at that seq
+    (the same verification the third-party verifier performs)."""
+    by_seq = {e["seq"]: e for e in events}
+    for e in events:
+        if e["type"] != "anchor":
+            continue
+        head_seq = e.get("payload", {}).get("head_seq")
+        head_hash = e.get("payload", {}).get("head_hash")
+        if isinstance(head_seq, int) and head_seq >= seq and head_seq in by_seq \
+                and by_seq[head_seq]["event_hash"] == head_hash:
+            return True
+    return False
+
+
+def _co_signed(events: list[dict], decision: dict, correlation_key: str,
+               signers: list[tuple[str, str]] | None) -> bool:
+    """True when an expectation_ack for the same correlation key was sealed
+    by a DIFFERENT known writer than the decision's — co-signing in a
+    one-signature-per-event chain is a second event, not a second signature.
+    Without a known-writer set, co-signing is not provable (honest default)."""
+    if not signers:
+        return False
+    decision_signer = _signer(decision, signers)
+    cid = decision.get("payload", {}).get(correlation_key)
+    for e in events:
+        if e.get("type") != "expectation_ack":
+            continue
+        if e.get("payload", {}).get(correlation_key) != cid:
+            continue
+        if _signer(e, signers) not in ("unknown", decision_signer):
+            return True
+    return False
+
+
 def reconcile(events: list[dict], invariants: list[Invariant],
               now: datetime | None = None,
               signers: list[tuple[str, str]] | None = None) -> list[Finding]:
@@ -216,6 +260,17 @@ def reconcile(events: list[dict], invariants: list[Invariant],
         for cid, decision in decisions.items():
             outcome = outcomes.get(cid)
             if outcome is None:
+                # ADR 020, the outbound half (issue #37): a PENDING
+                # expectation must be witnessed — its head anchored, or the
+                # expectation co-signed by a different known writer.
+                # Otherwise it is a wish with a hash.
+                if inv.witnessed_expectations:
+                    witnessed = (_anchored_upto(events, decision["seq"])
+                                 or _co_signed(events, decision, inv.correlation_key, signers))
+                    if not witnessed:
+                        findings.append(Finding(inv.name, "unwitnessed_expectation", cid,
+                                                decision_seq=decision["seq"]))
+                        continue
                 deadline = _deadline(decision, inv)
                 if deadline is None:
                     findings.append(Finding(inv.name, "open_gap", cid,
@@ -319,3 +374,44 @@ def journal_report(store, key, invariants: list[Invariant],
 
     report["witness"] = canonical_witness(0, canonical(report))
     return store.append("reconciliation", report, key)
+
+
+def seal_policy(store, key, policy: dict) -> dict:
+    """Seals the reconciliation PRECEDENCE policy as a
+    `reconciliation_policy` event (issue #35 — mickyarun): when two
+    independently sealed streams disagree, which record wins and who is out
+    of pocket during the open window is a rule decided BEFORE the incident
+    and journaled like everything else — otherwise the argument is settled
+    by whoever is more senior.
+
+    Shape: {"scope", "winner": "decision"|"outcome"|"external", "absorbs_cost",
+    "decided_by"} — validated: winner is enum, decided_by required (a name,
+    not a role — ADR 021)."""
+    winner = policy.get("winner")
+    if winner not in ("decision", "outcome", "external"):
+        raise ValueError("precedence.winner must be decision | outcome | external")
+    if not policy.get("decided_by", "").strip():
+        raise ValueError("precedence.decided_by is required — a name, not a role (ADR 021)")
+    return store.append("reconciliation_policy", {
+        "schema": "reconciliation-policy/0.1",
+        "scope": policy.get("scope", "all"),
+        "winner": winner,
+        "absorbs_cost": policy.get("absorbs_cost", ""),
+        "decided_by": policy["decided_by"],
+    }, key)
+
+
+def check_lookup_control(name: str, expected_count: int, got_count: int) -> Finding:
+    """Per-parameter negative control on lookups (issue #36 — anp2network):
+    before a reconciler moves an operation out of Unknown, the destination
+    must have passed a negative control FOR EACH filter parameter used — a
+    query whose correct answer is known-zero must return zero, and the
+    control row must be one the degraded response wouldn't contain anyway
+    (an older row, a rare kind — not the newest). A miss is the finding
+    `lookup_silently_unfiltered`: the operation STAYS Unknown."""
+    if expected_count != 0:
+        raise ValueError("negative controls assert a known-zero answer — "
+                         "expected_count must be 0")
+    if got_count != expected_count:
+        return Finding("lookup", "lookup_silently_unfiltered", name)
+    return Finding("lookup", "lookup_control_ok", name)

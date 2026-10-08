@@ -365,6 +365,17 @@ on the real corpus before defaulting, not after.
 
 ---
 
+**Amendment (Oct 8, issue #35 — mickyarun)**: the precedence rule is a sealed
+event (`reconciliation_policy/0.1` — scope, winner enum decision|outcome|external,
+absorbs_cost, decided_by REQUIRED, a name not a role). Decided before the
+incident, journaled like everything else; the argument is no longer settled by
+seniority.
+
+**Amendment (Oct 8, issue #38 — glenallen)**: legitimate transformations are a
+sealed convention (`content_transformation/0.1` — before/after sha256,
+transformer identity). A formatter changes the artifact as a witnessed
+transformation, not an attack.
+
 ## ADR 020 — The denominator: attempt-first sealing, outcomes ≤ attempts
 
 **Status**: accepted — the hardest critique of the week (arhancanli, thread james): "every logged number is real and the denominator is missing." James conceded it publicly; whoever solves it scores.
@@ -378,6 +389,8 @@ on the real corpus before defaulting, not after.
 4. **Honest limit, stated in the schema**: the convention only covers flows that USE it. An agent bypassing the attempt convention produces a chain that is intact AND incomplete — which is why the denominator critique is answered with a convention + an invariant, not a promise. Completeness of coverage remains the deployer's discipline (as with the guardrail: the journal is domain-blind).
 
 **Consequences**: `reconcile.py` gains `attempt_type` support and the `unlogged_attempt` status; the demo flows seal attempts. The critique's residue is now a named, counted, reconcilable gap instead of a blind spot.
+
+**Amendment (Oct 8, issue #37 — david_ilands, the outbound half)**: a pending expectation is PROVABLE only if it is witnessed — its head anchored (verified against the chain, not claimed) or co-signed by a different known writer (`expectation_ack`). Otherwise the finding is `unwitnessed_expectation`: a wish with a hash. The invariant opts in with `witnessed_expectations: true`.
 
 ---
 
@@ -427,6 +440,8 @@ on the real corpus before defaulting, not after.
 **Consequences**: incident forensics gain the why ("it resolved api.example.net to this IP because..."); ADR 021's identity question gains its input ("which identity did it assume"); the self-report grade keeps the honesty line — a tool that labels its evidence grades is the opposite of one that oversells them.
 
 ---
+
+**Amendment (Oct 8, issue #39 — tom_jones)**: witness ≠ author is ENFORCED at seal time (`build_receipt` refuses a witness resolving to the author) and available at serve time (`ensure_witness_distinct` — skip the slot and escalate). Tom's live failover found the witness running the drafter's own model twice: the failure mode is real, silent, and now structurally refused.
 
 ## ADR 024 — Cross-chain reconciliation: consumption edges, partial order, fan-in
 

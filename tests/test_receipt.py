@@ -72,3 +72,44 @@ def test_state_binding_without_a_version_is_refused():
         build_receipt(**_OK, state_binding={"resource": "/x"})
     with pytest.raises(ValueError, match="state_binding"):
         build_receipt(**_OK, state_binding="18421")  # not a dict: no shape, no binding
+
+
+# --- issue #38 — legitimate transformations ----------------------------------
+
+def test_transformation_binds_input_output_and_transformer():
+    from noirebox.receipt import transformation_payload
+
+    t = transformation_payload(
+        before_sha256=hashlib.sha256(b"raw.md").hexdigest(),
+        after_sha256=hashlib.sha256(b"raw.html").hexdigest(),
+        transformer="pandoc", version="3.1")
+    assert t["schema"] == "content-transformation/0.1"
+    assert t["transformer"] == {"tool": "pandoc", "version": "3.1"}
+
+    import pytest
+    with pytest.raises(ValueError, match="64-char"):
+        transformation_payload(before_sha256="x", after_sha256="y" * 64,
+                               transformer="pandoc", version="3.1")
+    with pytest.raises(ValueError, match="transformer identity"):
+        transformation_payload(before_sha256="a" * 64, after_sha256="b" * 64,
+                               transformer="  ", version="3.1")
+
+
+# --- issue #39 — witness != author, enforced at seal and serve time ----------
+
+def test_self_witnessing_is_refused_at_build_time():
+    with pytest.raises(RuntimeError, match="self-witnessing"):
+        build_receipt(**_OK, witness={"identity": "drafter-1", "author": "drafter-1"})
+
+
+def test_distinct_witness_is_accepted():
+    r = build_receipt(**_OK, witness={"identity": "notary-7", "author": "drafter-1"})
+    assert r["witness"]["identity"] == "notary-7"
+
+
+def test_ensure_witness_distinct_for_the_serving_layer():
+    from noirebox.receipt import ensure_witness_distinct
+
+    ensure_witness_distinct({"identity": "notary-7"}, "drafter-1")  # fine
+    with pytest.raises(RuntimeError, match="skip the slot"):
+        ensure_witness_distinct({"identity": "drafter-1"}, "drafter-1")  # failover caught the same model

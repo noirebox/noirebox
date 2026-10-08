@@ -303,3 +303,85 @@ def test_two_key_check_passes_handcrafted_unsigned_events(tmp_path):
     findings = reconcile(events, [inv], now=NOW,
                          signers=[(key.public_hex(), "someone")])
     assert all(f.status != "same_key_pairing" for f in findings)
+
+
+# --- issue #35 — the precedence policy, journaled before the incident --------
+
+def test_precedence_policy_seals_with_a_name(tmp_path):
+    from noirebox.reconcile import seal_policy
+
+    store, key = _store(tmp_path)
+    event = seal_policy(store, key, {
+        "scope": "payouts", "winner": "outcome",
+        "absorbs_cost": "the initiating party, during the open window",
+        "decided_by": "jane (treasury ops)",
+    })
+    assert event.type == "reconciliation_policy"
+    assert event.payload["winner"] == "outcome"
+    assert verify_chain(key.public_hex(), store.all())["valid"]
+
+    import pytest
+    with pytest.raises(ValueError, match="winner"):
+        seal_policy(store, key, {"winner": "whoever-shouts-loudest"})
+    with pytest.raises(ValueError, match="a name"):
+        seal_policy(store, key, {"winner": "decision"})  # no decided_by
+
+
+# --- issue #36 — per-parameter negative controls on lookups ------------------
+
+def test_lookup_control_known_zero_must_return_zero():
+    from noirebox.reconcile import check_lookup_control
+
+    ok = check_lookup_control("vendor=rare-kind-1987", expected_count=0, got_count=0)
+    assert ok.status == "lookup_control_ok"
+    miss = check_lookup_control("vendor=rare-kind-1987", expected_count=0, got_count=4)
+    assert miss.status == "lookup_silently_unfiltered"  # the operation STAYS Unknown
+
+    import pytest
+    with pytest.raises(ValueError, match="known-zero"):
+        check_lookup_control("not-a-negative-control", expected_count=3, got_count=3)
+
+
+# --- issue #37 — the outbound half: unwitnessed expectations ------------------
+
+def test_outbound_expectation_without_witness_is_a_wish_with_a_hash(tmp_path):
+    """The outbound case (email sent, reply expected): a pending expectation
+    is provable only if its head is ANCHORED or the expectation was
+    CO-SIGNED by a different known writer — otherwise it's a wish with a
+    hash (david_ilands)."""
+    from noirebox.chain import KeyPair
+    from noirebox.store import EventStore
+
+    inv = Invariant("mail", "policy_decision", "provider_response",
+                    "decision_id", witnessed_expectations=True)
+    from datetime import datetime as _dt
+    now = _dt.fromisoformat("2026-10-08T12:00:00+00:00")
+
+    # unwitnessed: a lone decision with a future deadline
+    store = EventStore(str(tmp_path / "unw.db"))
+    key = KeyPair.generate()
+    store.append("policy_decision",
+                 {"decision_id": "d1", "expected_by": "2026-10-09T12:00:00+00:00"}, key)
+    findings = reconcile(store.all(), [inv], now=now)
+    assert [f.status for f in findings] == ["unwitnessed_expectation"]
+
+    # witnessed by ANCHOR: an anchor event provably covering the decision
+    store2 = EventStore(str(tmp_path / "anch.db"))
+    key2 = KeyPair.generate()
+    store2.append("policy_decision",
+                  {"decision_id": "d2", "expected_by": "2026-10-09T12:00:00+00:00"}, key2)
+    events = store2.all()
+    head = events[-1]["event_hash"]
+    store2.append("anchor", {"head_seq": 1, "head_hash": head}, key2)
+    findings2 = reconcile(store2.all(), [inv], now=now)
+    assert [f.status for f in findings2] == ["pending"]  # witnessed → pending is provable
+
+    # witnessed by CO-SIGN: an expectation_ack from a DIFFERENT known writer
+    store3 = EventStore(str(tmp_path / "cosign.db"))
+    writer, notary = KeyPair.generate(), KeyPair.generate()
+    store3.append("policy_decision",
+                  {"decision_id": "d3", "expected_by": "2026-10-09T12:00:00+00:00"}, writer)
+    store3.append("expectation_ack", {"decision_id": "d3"}, notary)
+    signers = [(writer.public_hex(), "agent"), (notary.public_hex(), "notary")]
+    findings3 = reconcile(store3.all(), [inv], now=now, signers=signers)
+    assert [f.status for f in findings3] == ["pending"]

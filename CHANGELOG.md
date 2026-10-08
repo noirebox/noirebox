@@ -6,6 +6,16 @@ versioning according to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **The five Oct-8 gaps shipped as code** — the precedence policy sealed
+  before the incident (`seal_policy`, `reconciliation_policy/0.1`, winner
+  enum + decided_by required, issue #35); per-parameter negative controls
+  on lookups (`check_lookup_control`, `lookup_silently_unfiltered` — the
+  operation stays Unknown, issue #36); the outbound half of the denominator
+  (`witnessed_expectations` + `unwitnessed_expectation`: anchored or
+  co-signed, else a wish with a hash, issue #37); the legitimate
+  transformation convention (`transformation_payload`,
+  `content-transformation/0.1`, issue #38); witness ≠ author enforced at
+  seal time and serve time (`ensure_witness_distinct`, issue #39).
 - **ADR 024 — cross-chain reconciliation**: consumption edges as sealable
   events (the producer's chain head as observed, journaled on BOTH sides),
   the contract as a PARTIAL ORDER (edge admissibility, never a global

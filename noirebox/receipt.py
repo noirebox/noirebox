@@ -137,7 +137,52 @@ def build_receipt(*, artifact_sha256: str, check_id: str, evaluator_sha256: str,
             "resource_version": str(state_binding["resource_version"]),
         }
     if witness is not None:
+        if not isinstance(witness, dict):
+            raise ValueError("receipt: witness must be a dict carrying its identity")
+        identity = witness.get("identity")
+        if identity and identity == witness.get("author"):
+            # tom_jones, Oct 6: the failover found the witness running the
+            # SAME model as the drafter — enforced here at seal time, so the
+            # self-witnessing slot is refused, not alerted afterwards.
+            raise RuntimeError(
+                "receipt: witness identity equals the author — self-witnessing "
+                "is refused (skip the slot and escalate)")
         payload["witness"] = witness
     if counts is not None:
         payload["counts"] = counts
     return payload
+
+
+def ensure_witness_distinct(witness: dict, author_identity: str) -> None:
+    """Serve-time enforcement (issue #39 — tom_jones): the witness must not
+    resolve to the author — same key, same model, same process. The serving
+    layer calls this BEFORE sealing: on conflict, skip the slot and
+    escalate; never seal self-witnessing and alert afterwards."""
+    identity = str(witness.get("identity", ""))
+    if identity and identity == author_identity:
+        raise RuntimeError(
+            f"witness {identity!r} resolves to the author — skip the slot "
+            f"and escalate (witness != author is enforced at serve time)")
+
+
+def transformation_payload(*, before_sha256: str, after_sha256: str,
+                           transformer: str, version: str) -> dict:
+    """The legitimate-transformation convention (issue #38 — glenallen): a
+    formatter or compiler changes the artifact without being an attack. The
+    transformation binds input hash → output hash with the transformer's
+    identity, sealed like everything else — so the receipt layer can
+    distinguish a witnessed transformation from tampering instead of
+    flagging both."""
+    for name, value in (("before_sha256", before_sha256), ("after_sha256", after_sha256)):
+        if not _is_sha256(value):
+            raise ValueError(f"transformation: {name} must be a 64-char sha256 hex digest")
+    if not transformer.strip():
+        raise ValueError("transformation: transformer identity is required")
+    if not version.strip():
+        raise ValueError("transformation: version is required")
+    return {
+        "schema": "content-transformation/0.1",
+        "before_sha256": before_sha256,
+        "after_sha256": after_sha256,
+        "transformer": {"tool": transformer, "version": version},
+    }
