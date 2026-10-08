@@ -84,6 +84,11 @@ que le bénéfice ne vend pas honnêtement. Les coûts réels :
    du code à maintenir, testé comme le reste (les probes qui ne mordent
    plus sont des findings).
 
+**Et une ligne qui vaut un paragraphe** (le close du fil sinarezaei, Oct 8) :
+l'exécuteur vérifie la **SIGNATURE** du reçu, pas sa présence. Un contrôle où
+l'écrivain et l'exécuteur partagent un même domaine de confiance, c'est le test
+d'indépendance (ADR 021) une couche plus bas.
+
 Le bénéfice — un désaccord de records qui devient une preuve datée — vaut
 ces coûts quand une contrepartie existe. Sans contrepartie, l'ancrage seul
 suffit : ne payez pas pour la custody que vous n'avez pas à prouver.

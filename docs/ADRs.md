@@ -357,6 +357,12 @@ on the real corpus before defaulting, not after.
 
 **Consequences**: `reconcile.py` v0.2 ships the implementable core tonight — always-sealed reports with run counts, negative probes, the attempt/outcome pairing (ADR 020). The two-key receipt pairing and merge-gate enforcement are deployment contracts the schema names; first implementations may start single-key and say so in the payload (`pairing: "single-key"`), because a labeled weakness beats an invisible one.
 
+**Amendment (v0.2.1, Oct 8 — sinarezaei's TOCTOU + sunnydachs's spec step + the single-key refusal made explicit)**:
+1. **State binding**: a receipt can carry `state_binding: {resource, resource_version}` — the state version the gate evaluated, in the executor's own currency (Kubernetes resourceVersion, git tree-ish, ETag). The executor applies it as a precondition: a call carrying the sealed version fails loudly when the state moved (optimistic concurrency — the mechanism Kubernetes already ships; noirebox specifies it as a SCHEMA field, not an integrator option). Divergence is a sealed event: `receipt_expired_by_state_change` → new gate pass → new receipt — never silent reuse of a receipt invalidated by state change. Time-of-use now fails whenever it diverges from time-of-check.
+2. **The spec hash is inside the check identity**: `check_id` accepts `spec_hash` — the hash of the spec/prompt defining the predicate's semantics ("the step I had not taken" — sunnydachs). Required for LLM-judged checks; without it one check_version can validate two semantics under one id.
+3. **The single-key refusal, stated**: the schema LABELS (`pairing: "single-key"` is a required-validated field) and the layer above REFUSES — an invariant with `require_two_key` treats a same-key matched pair as the `same_key_pairing` finding (shipped in reconcile v0.2). Labeling is the schema's job; refusing is the gate's; both are now written down.
+4. **The executor verifies the SIGNATURE, not the presence** (slabb's close on the sinarezaei thread): a receipt proves non-mutation only if the executor verifies the writer's signature — a control plane where writer and executor share one trust domain is the shared-dependency test (ADR 021) one layer down. One line, now in the deployment docs.
+
 ---
 
 ## ADR 020 — The denominator: attempt-first sealing, outcomes ≤ attempts
@@ -419,3 +425,24 @@ on the real corpus before defaulting, not after.
 3. **Ordering is the proof**: belief sealed before the action means the action could not have been retro-fitted to a rewritten belief — the sequence in the chain forbids it (an attempt-style convention, ADR 020's shape).
 
 **Consequences**: incident forensics gain the why ("it resolved api.example.net to this IP because..."); ADR 021's identity question gains its input ("which identity did it assume"); the self-report grade keeps the honesty line — a tool that labels its evidence grades is the opposite of one that oversells them.
+
+---
+
+## ADR 024 — Cross-chain reconciliation: consumption edges, partial order, fan-in
+
+**Status**: accepted — full ADR by iteration on the sinarezaei threads, Oct 7–8. Lineage to credit: **sinarezaei** (consumption edges, partial order, the orphan case, fan-in propagation), **james/arhancanli** (the never-written entry — this ADR is its ancestor), **david_ilands** (silence as a first-class fact). Final formulation validated by slabb in-thread.
+
+**Context**: agents consume each other's outputs. Today those dependencies live in nobody's journal: agent A acts on agent B's report, and when B's output is later superseded or revealed orphaned, A's decision — and every downstream decision built on A's — sits in an intact chain with no thread to pull. A fleet of journals is a graph with no edges. This ADR adds the edges.
+
+**Decision**:
+1. **Consumption edges are sealable events**: when one agent consumes another's output, the consumption itself is an event carrying the producer's **chain head as observed** (`consumed_head`) plus the correlation id. The dependency enters BOTH journals — the producer's (what was consumed) and the consumer's (what was being consumed).
+2. **The contract is a partial order, not a global timeline**: the invariant is **admissibility of each edge** (an admissible predecessor → consumer relation), not "what happened first everywhere." A fleet that had to agree on one notion of time would be re-deriving consensus just to keep an audit trail — rejected by design.
+3. **Edge invariants are DERIVED from anchors, never asserted by the agent**:
+   - `consumed_head` is an **ancestor** of the producer's currently anchored head;
+   - the consumer's **anchor interval follows** the consumed event;
+   - a **temporal inversion** (fraud@41 consumed by underwriting@39) is a cross-chain finding — the same species as `orphan_outcome`, across chains.
+4. **No self-declared epoch field** (rejected alternative, recorded): a self-stamped watermark is a self-report — the exact thing ADR 023 grades as such; an allocator-issued one re-opens the per-call latency tax (reid's objection). Temporal position is a **relation between two sealed chains**, derived from anchors — not a field anyone writes.
+5. **Fan-in: forward finding propagation** — when a consumed head turns out superseded or orphaned, the finding propagates along the dependency graph to every downstream journal that recorded an edge to the dead head. The blast radius is a **precise path set**, not "everything downstream, maybe." The consumer's chain staying intact is the proof of belief; the producer's supersede event is the proof of staleness; the reconciliation layer correlates the two.
+6. **Silence is the starting fact** (david_ilands): a flow that never recorded the edge is not outside the blast radius — it is the first thing the propagation asks.
+
+**Consequences**: `reconcile` gains cross-chain findings (`stale_consumed_head`, `temporal_inversion`, `unrecorded_edge` — tracked in the follow-up issue); a consumer that journaled its edge can PROVE it believed the right thing when it acted; a producer that supersedes owes the graph a supersede event; and the fleet layer (ADR 017/021) gains its actual topology — journals are nodes, consumption edges are the graph, anchors are the clock. The ecosystem is already attacking this layer ("see you in the issue tracker"); this ADR must exist before they arrive.

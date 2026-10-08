@@ -6,6 +6,26 @@ versioning according to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **ADR 024 — cross-chain reconciliation**: consumption edges as sealable
+  events (the producer's chain head as observed, journaled on BOTH sides),
+  the contract as a PARTIAL ORDER (edge admissibility, never a global
+  timeline), edge invariants derived from anchors (ancestor check, anchor
+  interval, temporal inversion as a cross-chain finding), no self-declared
+  epoch (rejected alternative, recorded), and fan-in propagation — the
+  blast radius of a superseded head is a precise path set, not "everything
+  downstream, maybe". Lineage credited: sinarezaei, james/arhancanli,
+  david_ilands.
+- **Receipt v0.2.1** — `state_binding: {resource, resource_version}` (the
+  TOCTOU field: the executor applies the sealed version as a precondition —
+  a 409 on state move — and divergence becomes the sealed
+  `receipt_expired_by_state_change` event, never silent reuse);
+  `spec_hash` inside the `check_id` canonical form (one check_version can
+  no longer validate two semantics under one id — sunnydachs's "step I had
+  not taken"); the single-key refusal written into ADR 019 (label = schema,
+  refuse = gate, both shipped); the executor-verifies-the-signature line in
+  the deployment docs.
+
+### Added
 - **reconcile v0.2 (ADRs 019/020)** — the reconciliation layer implements the
   community-feedback schema: the report is sealed EVEN on a clean pass (with
   the examined counts — sum-to-n evidence), **negative probes** inject
