@@ -162,9 +162,10 @@ class GuardedAgent:
         # ADR 019 §8 — the normalized witness: what HAPPENED, without the
         # noise. Byte counts of the model's answer; never the content
         # (the content is already sealed as llm_output, by whoever journals it).
+        witness = canonical_witness(0, result.summary.encode("utf-8"), b"")
         self._store.append(
             "run_witness",
-            canonical_witness(0, result.summary.encode("utf-8"), b""),
+            {"meeting_id": meeting_id, "witness": witness},
             self._key,
         )
         return GuardedResult(result.summary, incidents, filtered, engine)

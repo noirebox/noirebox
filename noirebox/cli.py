@@ -84,6 +84,21 @@ def main(argv: list[str] | None = None) -> int:
                      help="the HUB journal holding the fleet_anchor (same defaults)")
     fls.add_argument("--json", action="store_true",
                      help="machine-readable report on stdout (for alerting)")
+    rep = sub.add_parser("replay",
+                         help="rebuild the decision timeline for one "
+                              "meeting/run from sealed evidence (the chain "
+                              "must verify first — replay refuses theater)")
+    rep.add_argument("subject", help="the meeting_id (or run_id) to replay")
+    rep.add_argument("--db", default=None,
+                     help="journal path (same defaults as verify)")
+    siem = sub.add_parser("export-siem",
+                          help="export journal events for a SIEM: CEF "
+                               "(ArcSight) or OTLP/JSON (OpenTelemetry)")
+    siem.add_argument("--format", choices=["cef", "otlp"], default="cef")
+    siem.add_argument("--since", type=int, default=0,
+                      help="only events with seq > SINCE (the tail since the last export)")
+    siem.add_argument("--db", default=None,
+                      help="journal path (same defaults as verify)")
     flw = sub.add_parser("fleet-watch",
                          help="fleet console, service form (ADR 022): check "
                               "members on a wall-clock cadence, alarm on drift, "
@@ -302,6 +317,33 @@ def main(argv: list[str] | None = None) -> int:
         except KeyboardInterrupt:
             stop.set()
             print("[noirebox] fleet-watch stopped")
+        return 0
+
+    if args.command == "replay":
+        from noirebox import locate
+        from noirebox.chain import KeyPair
+        from noirebox.replay import replay, render
+        from noirebox.store import EventStore
+
+        db = args.db or locate.resolve_existing_journal()
+        store = EventStore(db)
+        key = KeyPair.load_or_create(db + ".key")
+        print(render(replay(store.all(), key, args.subject)))
+        return 0
+
+    if args.command == "export-siem":
+        from noirebox import locate
+        from noirebox.siem import to_cef, to_otlp
+        from noirebox.store import EventStore
+
+        db = args.db or locate.resolve_existing_journal()
+        events = [e for e in EventStore(db).all() if e["seq"] > args.since]
+        if args.format == "cef":
+            print(to_cef(events))
+        else:
+            import json as _json
+
+            print(_json.dumps(to_otlp(events), ensure_ascii=False))
         return 0
 
     if args.command == "hook":

@@ -114,7 +114,8 @@ def test_the_sealed_sequence_is_the_proof(tmp_path):
     assert attempt["payload"]["clean_transcript_sha256"] == belief["payload"]["inputs_seen"]["clean_transcript_sha256"]
 
     witness = [e for e in store.all() if e["type"] == "run_witness"][-1]
-    assert witness["payload"]["stdout_bytes"] > 0  # the answer's volume, sealed as counts
-    assert "stdout" not in witness["payload"]  # byte counts, never the content
+    assert witness["payload"]["witness"]["stdout_bytes"] > 0  # the answer's volume, as counts
+    assert "stdout" not in witness["payload"]["witness"]  # byte counts, never the content
+    assert witness["payload"]["meeting_id"] == "MTG-SEQ"  # the witness is attributable
 
     assert verify_chain(key.public_hex(), store.all())["valid"] is True

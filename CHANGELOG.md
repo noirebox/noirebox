@@ -6,6 +6,27 @@ versioning according to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **The AI Act art. 12 position paper** (`docs/ART12-MAPPING.md`) — every
+  article 12 requirement mapped to the exact NoireBox mechanism and its
+  verification command, plus the five asks for the JTC 21 drafting
+  committee (externally testable integrity, the digest pattern, writer
+  identity as cryptography, the denominator, disclosed proof grades).
+  A working reference implementation is worth more to a drafting committee
+  than another position paragraph.
+- **The C2PA bridge (`c2pa.py`)** — C2PA 2.4-shaped claim documents built
+  from journal facts: our event vocabulary maps to C2PA actions
+  (`c2pa.created`/`edited`, and the `noirebox.*` namespace for what C2PA
+  has no word for), chain coordinates ride in every action, and the
+  verification assertion names the offline recomputation path. Agentic
+  provenance is C2PA's acknowledged gap; it is what this journal seals.
+- **SIEM export (`siem.py`, `noirebox export-siem`)** — CEF (ArcSight,
+  escaped by the book: a pipe in a payload must not split one event into
+  two lies) and OTLP/JSON (OpenTelemetry collectors), chain coordinates on
+  every record so alerts trace back to the exact sealed event.
+- **Replay (`replay.py`, `noirebox replay <meeting-id>`)** — the decision
+  timeline rebuilt from sealed evidence in chain order: belief → attempt →
+  call → output → witness. It verifies the chain FIRST (a replay over a
+  tampered chain is theater) and re-derives, never re-runs.
 - **The five Oct-8 gaps shipped as code** — the precedence policy sealed
   before the incident (`seal_policy`, `reconciliation_policy/0.1`, winner
   enum + decided_by required, issue #35); per-parameter negative controls
