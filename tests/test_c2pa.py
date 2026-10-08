@@ -47,6 +47,8 @@ def test_empty_claim_refused(tmp_path):
 
 def test_claim_canonical_bytes_are_deterministic(tmp_path):
     store, key = _journal(tmp_path)
-    kwargs = dict(artifact_sha256=hashlib.sha256(b"art").hexdigest(),
-                  title="t", events=store.all(), public_key=key.public_hex())
+    kwargs = {
+        "artifact_sha256": hashlib.sha256(b"art").hexdigest(),
+        "title": "t", "events": store.all(), "public_key": key.public_hex(),
+    }
     assert canonical_claim(claim(**kwargs)) == canonical_claim(claim(**kwargs))

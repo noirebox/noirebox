@@ -49,7 +49,7 @@ def replay(events: list[dict], key: KeyPair, subject: str) -> dict:
         sid = payload.get("meeting_id") or payload.get("run_id")
         if sid != subject:
             continue
-        for etype, kind, desc in _STEP_TYPES:
+        for etype, kind, _desc in _STEP_TYPES:
             if e["type"] != etype:
                 continue
             if etype == "incident":
@@ -79,8 +79,9 @@ def render(replay_report: dict) -> str:
     """Human-readable timeline (the CLI's output)."""
     if not replay_report["valid"]:
         return "[✗] the chain is TAMPERED — replay refuses theater (see /api/v1/verify)"
-    lines = [f"[✓] REPLAY {replay_report['meeting']} — {len(replay_report['steps'])} sealed step(s), "
-             f"chain verified:"]
+    lines = [
+        f"[✓] REPLAY {replay_report['meeting']} — {len(replay_report['steps'])} sealed step(s), chain verified:"
+    ]
     for s in replay_report["steps"]:
         lines.append(f"    seq {s['seq']:<5} {s['kind']:<9} {s['detail']}")
     if replay_report["witness"]:

@@ -357,6 +357,11 @@ def test_redirects_are_refused_never_followed(tmp_path_factory):
 
     class Redirector(http.server.BaseHTTPRequestHandler):
         def do_POST(self):
+            length = int(self.headers.get("Content-Length", 0))
+            if length:
+                self.rfile.read(length)  # drain the body BEFORE responding —
+                # closing without it can RST the client mid-send, which is a
+                # different failure than the redirect refusal being tested
             self.send_response(302)
             self.send_header("Location", "http://evil.example/tsr")
             self.end_headers()
@@ -366,7 +371,11 @@ def test_redirects_are_refused_never_followed(tmp_path_factory):
 
     httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Redirector)
     port = httpd.server_address[1]  # the OS picks a free port at bind time
-    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    server_ready = threading.Event()
+    threading.Thread(
+        target=lambda: (server_ready.set(), httpd.serve_forever()),
+        daemon=True).start()
+    server_ready.wait(timeout=5)  # the accept loop is up before the client fires
     try:
         with pytest.MonkeyPatch.context() as mp:
             mp.setenv("NOIREBOX_TSA_ALLOWED_HOSTS", "127.0.0.1")
