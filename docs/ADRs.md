@@ -419,6 +419,16 @@ elsewhere). Convention, not enforcement: the journal records the grade; it
 cannot make the counterparty answer — and the denominator critique (arhancanli)
 applies to the channel too.
 
+**Amendment (Oct 9, issue #48 — mickyarun, the two-sided denominator)**: across
+a trust boundary the denominator needs BOTH journals. The server seals
+`fetches_served`, the consumer seals `receipts_held` — both counters sealed
+like everything else — and `check_receipt_gap` grades the pair. A shortfall is
+the two-party `unlogged_attempt`: fetches went out with no receipt held, the
+consumer's chain intact AND incomplete. A surplus is the worse half — receipts
+for fetches the server never served: the fabricated side, surfaced with the
+same finding (`receipt_gap`), the note naming the direction. Zero-sum coverage
+is the only clean answer.
+
 ---
 
 ## ADR 021 — Flow independence is a testable invariant, not a claim
@@ -450,6 +460,15 @@ applies to the channel too.
 4. **Reconciliation names its cost** (mickyarun): multi-flow custody has a bill — another store, another key, another cadence, reconciliation latency. An honest cost note accompanies the benefit pitch; a tool that only sells the benefit is selling.
 
 **Consequences**: the trust-boundary mapping becomes part of deployment docs; the auto-anchor timer ships (wall-clock cadence, before-consequence guidance documented); the cost note is a standing section in the reconciliation docs.
+
+**Amendment (Oct 9, issue #47 — mickyarun, the top rung is regulatory)**:
+**"obligation, not immunity."** Every proof grade documents itself WITH the
+obligation it serves — the evidence exists to prove an obligation was met,
+never to shield the operator from it. The art. 12 log is the standing example:
+the record-keeping obligation is the point, and the log is the evidence OF the
+obligation, not immunity from it. A grade disclosed without its obligation
+answers "how good is the proof" while hiding "proof of WHAT is owed" — the
+disclosure rule in §2 gains its obligation line.
 
 ---
 

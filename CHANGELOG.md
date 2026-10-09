@@ -6,6 +6,19 @@ versioning according to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Obligation, not immunity (issue #47 — mickyarun)** — the top rung of the
+  custody/anchoring ladder is regulatory: every proof grade documents itself
+  WITH the obligation it serves (ADR 022 amendment). The evidence exists to
+  prove an obligation was met, never to shield the operator from it — the
+  art. 12 log is the evidence OF the record-keeping obligation, not immunity
+  from it.
+- **receipt_gap: the two-sided denominator (issue #48 — mickyarun)** —
+  across a trust boundary the denominator needs BOTH journals: the server
+  seals `fetches_served`, the consumer seals `receipts_held`, and
+  `check_receipt_gap` grades the pair (ADR 020 family). A shortfall is the
+  two-party omission (fetches out, no receipt held — the chain intact AND
+  incomplete); a surplus is the fabricated half (receipts beyond anything
+  served). Zero-sum coverage is the only clean answer.
 - **Cross-chain reconciliation (ADR 024, issue #41 — sinarezaei)** — the
   fleet's graph gets its edges. Consumption edges seal in BOTH journals
   (`consumption_edge`: the consumer's `consumed_head` as observed, the
