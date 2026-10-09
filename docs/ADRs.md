@@ -470,6 +470,19 @@ obligation, not immunity from it. A grade disclosed without its obligation
 answers "how good is the proof" while hiding "proof of WHAT is owed" — the
 disclosure rule in §2 gains its obligation line.
 
+**Amendment (Oct 9, issue #51 — mickyarun, the three-grade taxonomy, made
+explicit)**: the scale gets its names, and the audit-pack labels every event
+class with it — **grade 1, adverse counterparty** (custody: the other side's
+own record, reconciled against yours); **grade 2, disinterested custodian**
+(a third party with no stake attests WHEN — RFC 3161 / OTS); **grade 3,
+anchored self** (operator-held, hash-chained, anchored). Counterparty-shaped
+events grade 1, third-party witnesses grade 2, everything journal-local
+grade 3 — the honest default, because a fact the operator holds can never
+honestly claim a stronger grade than its own custody. Each label states
+whose obligation backs it: "no one can impose a cost here" means the
+evidence is voluntary. The authority-facing disclosure cannot hide a
+grade-2 custodian behind a grade-1 counterparty sentence.
+
 ---
 
 ## ADR 023 — Seal the belief, not only the action: the resolved view before the consequence
@@ -527,3 +540,38 @@ checks belong to the verifier), and with no anchor covering the edge
 nothing is asserted. The report seals always, clean pass included
 (`crosschain_reconciliation`), and the CLI gains `noirebox crosschain
 --journal name=path …`.
+
+---
+
+## ADR 025 — The toolset baseline: tool descriptions are instructions, pin them
+
+**Status**: accepted — bloqarl's Docker-thread observation (issue #50): tool
+descriptions are instructions the MODEL reads, and they ride outside the
+image pin — runtime-produced at registration time; for remote MCP servers,
+nothing is pinned at all. A changed description is a changed instruction
+surface, and nothing in the deployment noticed.
+
+**Decision**:
+1. **Capture the toolset at registration** — the `listTools` response's
+   tools array, hashed with the journal's own canonical serializer and
+   sealed as the reviewed baseline (`toolset-baseline/0.1`): the whole-set
+   hash plus a per-tool digest table, so the diff names the tool, not just
+   "something changed."
+2. **Two-writer by construction**: the baseline is sealed by whoever
+   REVIEWED it (`reviewed_by` — a name, not a role, ADR 021), never by the
+   process that connects. The connecting process holding the key that seals
+   its own instruction surface is the shared-dependency test (ADR 021) one
+   layer up.
+3. **Every session start diffs the served definitions against the baseline**:
+   a changed description or input schema, an added tool, a removed tool —
+   each a `toolset_changed` finding whose note names the tool and the
+   direction. "The model reads different instructions than the ones that
+   were reviewed" is the whole finding.
+4. **Checking against no baseline is refused**, never silently clean: no
+   baseline for the server is a loud error — the absence of a lockfile is
+   not compliance.
+
+**Consequences**: `noirebox toolset-pin` ships (seal, and `--check` as the
+session-start gate, `--fail-on-drift` for CI/cron); `demo_mcp_toolset.py`
+shows the silent rewrite caught. The model's instruction surface now has
+the same tamper-evidence as every other sealed surface.

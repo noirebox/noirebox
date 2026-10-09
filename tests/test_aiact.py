@@ -105,3 +105,47 @@ def test_annexe_reports_witnesses_when_anchored(tmp_path):
                                       "anchors_checked": 0, "anchors_pinned": 0},
                         key.public_hex())
     assert "`witness-test`" in text
+
+
+# --- issue #51 — evidence-grade labels in the audit-pack (mickyarun) ---------
+
+def test_evidence_grade_maps_the_three_grades():
+    """Counterparty-shaped events grade 1, third-party witnesses grade 2,
+    everything journal-local grade 3 — the honest default (a fact the
+    operator holds can never claim a stronger grade than its own custody)."""
+    from noirebox.aiact import evidence_grade
+
+    assert evidence_grade("provider_response")["grade"] == 1
+    assert evidence_grade("expectation_ack")["label"] == "adverse counterparty"
+    assert evidence_grade("anchor")["grade"] == 2
+    assert evidence_grade("fleet_anchor")["label"] == "disinterested custodian"
+    local = evidence_grade("policy_decision")
+    assert local["grade"] == 3
+    assert local["label"] == "anchored self"
+    # the obligation rule (#47's sibling): grade 3 without a regime is voluntary
+    assert "VOLUNTARY" in evidence_grade("policy_decision")["obligation"]
+    # every label carries whose obligation backs it — never bare
+    for t in ("provider_response", "anchor", "llm_call"):
+        assert evidence_grade(t)["obligation"].strip()
+
+
+def test_annexe_labels_every_class_with_its_grade(tmp_path):
+    """The authority-facing disclosure cannot hide a grade-2 custodian behind
+    a grade-1 counterparty sentence: every class present in the journal
+    appears in the grades table, with its proof and its obligation."""
+    db = str(tmp_path / "grades.db")
+    key = KeyPair.load_or_create(db + ".key")
+    store = EventStore(db)
+    store.append("provider_response", {"decision_id": "d1"}, key)   # grade 1
+    head = store.all()[-1]["event_hash"]
+    store.append("anchor", {"head_seq": 1, "head_hash": head}, key)  # grade 2
+    store.append("policy_decision", {"decision_id": "d1"}, key)      # grade 3
+    text = annexe_iv_2f(store.all(), {"valid": True}, key.public_hex())
+    assert "Evidence grades" in text
+    assert "obligation, not immunity" in text
+    for fragment in ("adverse counterparty", "disinterested custodian",
+                     "anchored self"):
+        assert fragment in text
+    # each class present is graded — no hiding
+    assert "`provider_response`" in text and "`anchor`" in text \
+        and "`policy_decision`" in text
