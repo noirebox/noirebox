@@ -488,3 +488,23 @@ applies to the channel too.
 6. **Silence is the starting fact** (david_ilands): a flow that never recorded the edge is not outside the blast radius — it is the first thing the propagation asks.
 
 **Consequences**: `reconcile` gains cross-chain findings (`stale_consumed_head`, `temporal_inversion`, `unrecorded_edge` — tracked in the follow-up issue); a consumer that journaled its edge can PROVE it believed the right thing when it acted; a producer that supersedes owes the graph a supersede event; and the fleet layer (ADR 017/021) gains its actual topology — journals are nodes, consumption edges are the graph, anchors are the clock. The ecosystem is already attacking this layer ("see you in the issue tracker"); this ADR must exist before they arrive.
+
+**Amendment (Oct 9, issue #41 — the findings ship)**: `crosschain.py`
+implements the vocabulary and the invariants. Consumption edges seal in BOTH
+journals (`consumption_edge` — consumer half `{edge_id, producer,
+consumed_head}`, producer half `{edge_id, consumer}`; a half missing on
+either side is `unrecorded_edge` — silence is the starting fact). A
+`supersede` event (`superseded_head` + reason) kills a head and drives the
+fan-in: a journal tainted from its stale edge taints every later head of its
+own that gets consumed — the blast radius travels as a precise path set in
+the finding's note. `stale_consumed_head` fires when the consumed head is
+absent from the producer's chain (rewritten away, or never was — the anchors
+decide WHO is lying, the verifier's job) or superseded; a head merely not
+yet covered by an anchor is UNDERIVABLE, not stale (the queue is the only
+open window). `temporal_inversion` fires when the consumed event's seal time
+postdates the anchor covering the consumer's edge — the anchor event's seal
+time is journal-local (the honest weakness stated; token-level genTime
+checks belong to the verifier), and with no anchor covering the edge
+nothing is asserted. The report seals always, clean pass included
+(`crosschain_reconciliation`), and the CLI gains `noirebox crosschain
+--journal name=path …`.
