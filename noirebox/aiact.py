@@ -52,6 +52,48 @@ def _iso(field: str, value) -> str:
     return value
 
 
+# --- The three evidence grades (issue #51 — mickyarun; ADR 022) --------------
+# Every event class labels itself with the grade of the proof it carries and
+# states WHOSE OBLIGATION backs it — "no one can impose a cost here" means
+# the evidence is voluntary. The authority-facing disclosure cannot hide a
+# grade-2 custodian behind a grade-1 counterparty sentence.
+
+_EVIDENCE_GRADES = {
+    1: {"label": "adverse counterparty",
+        "proof": "custody: the other side's own record, reconciled against yours",
+        "obligation": "the counterparty's record-keeping duty — two obliged "
+                      "journals reconciled (ADR 020/022)"},
+    2: {"label": "disinterested custodian",
+        "proof": "a third party with no stake attests WHEN the chain head existed",
+        "obligation": "the TSA's signing duty (RFC 3161, eIDAS-qualified where "
+                      "pinned) or the OpenTimestamps calendar's impersonal one"},
+    3: {"label": "anchored self",
+        "proof": "operator-held facts, hash-chained and externally anchored",
+        "obligation": "the operator's own record-keeping obligation — VOLUNTARY "
+                      "unless a regime imposes it: 'no one can impose a cost "
+                      "here' means the evidence is voluntary"},
+}
+
+# The default class → grade mapping. Counterparty-shaped events are grade 1;
+# third-party witnesses are grade 2; everything journal-local defaults to
+# grade 3 — the honest default, because a fact the operator holds can never
+# honestly claim a stronger grade than its own custody.
+_ADVERSE_COUNTERPARTY_EVENTS = ("provider_response", "expectation_ack")
+_DISINTERESTED_CUSTODIAN_EVENTS = ("anchor", "fleet_anchor")
+
+
+def evidence_grade(event_type: str) -> dict:
+    """The evidence-grade label for one event class: {grade, label, proof,
+    obligation} — ADR 022's scale made explicit (issue #51)."""
+    if event_type in _ADVERSE_COUNTERPARTY_EVENTS:
+        grade = 1
+    elif event_type in _DISINTERESTED_CUSTODIAN_EVENTS:
+        grade = 2
+    else:
+        grade = 3
+    return {"grade": grade, **_EVIDENCE_GRADES[grade]}
+
+
 def use_event(*, use_start: str, use_end: str, system_ref: str,
               reference_db: str | None = None,
               input_digest: str | None = None,
@@ -124,6 +166,16 @@ def annexe_iv_2f(events: list[dict], report: dict, public_key: str) -> str:
     for ev in events:
         types[ev["type"]] = types.get(ev["type"], 0) + 1
     hist = "\n".join(f"- `{t}` ×{n}" for t, n in sorted(types.items())) or "- (empty journal)"
+    # Evidence grades (issue #51 — mickyarun): every class present in THIS
+    # journal is labeled with its grade, its proof, and whose obligation
+    # backs it — the disclosure cannot hide a grade behind a sentence.
+    if types:
+        grade_rows = "\n".join(
+            f"| `{t}` ×{n} | {g['grade']} — {g['label']} | {g['proof']} | {g['obligation']} |"
+            for t, n in sorted(types.items())
+            for g in [evidence_grade(t)])
+    else:
+        grade_rows = "| (empty journal) | — | — | — |"
     anchors = [ev for ev in events if ev["type"] == "anchor"]
     tsas = sorted({t.get("tsa", "?")
                    for ev in anchors
@@ -148,6 +200,17 @@ from the journal itself on {datetime.now(timezone.utc).isoformat(timespec="secon
 | Article | Requirement | Event | Fields |
 |---|---|---|---|
 {mapping}
+
+## Evidence grades (ADR 022 — obligation, not immunity)
+
+Every event class states the grade of the proof it carries and WHOSE
+OBLIGATION backs it. The evidence exists to prove an obligation was met —
+never to shield the operator from it. "No one can impose a cost here" means
+the evidence is voluntary.
+
+| Event class | Grade | Proof | Whose obligation backs it |
+|---|---|---|---|
+{grade_rows}
 
 ## Integrity design (why these logs can be trusted)
 

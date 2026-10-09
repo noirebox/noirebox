@@ -6,6 +6,26 @@ versioning according to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **The toolset baseline — the lockfile nobody writes (issue #50 — bloqarl)** —
+  tool descriptions are instructions the MODEL reads, and they ride outside
+  the image pin (runtime-produced; for remote MCP, nothing pinned at all).
+  `noirebox toolset-pin` captures the `listTools` response at registration,
+  hashes it (canonical bytes) and seals it as the REVIEWED baseline —
+  `reviewed_by` required, a name not a role: the baseline is sealed by
+  whoever reviewed it, never by the process that connects (two-writer by
+  construction). Every session start, `--check` diffs the served definitions
+  against the baseline: changed description or schema, added tool, removed
+  tool — each a `toolset_changed` finding naming the tool. Checking against
+  no baseline is refused, never silently clean. `demo_mcp_toolset.py` shows
+  the silent rewrite caught; ADR 025.
+- **Evidence-grade labels in the audit-pack (issue #51 — mickyarun)** — the
+  three-grade taxonomy made explicit and rendered per event class in the
+  authority-facing Annexe IV §2(f): **grade 1 adverse counterparty** (custody),
+  **grade 2 disinterested custodian** (RFC 3161/OTS), **grade 3 anchored self**
+  (operator-held) — each stating whose obligation backs it ("no one can impose
+  a cost here" means the evidence is voluntary). The disclosure cannot hide a
+  grade-2 custodian behind a grade-1 counterparty sentence. ADR 022 amendment;
+  journal-local defaults to grade 3 — the honest default.
 - **Obligation, not immunity (issue #47 — mickyarun)** — the top rung of the
   custody/anchoring ladder is regulatory: every proof grade documents itself
   WITH the obligation it serves (ADR 022 amendment). The evidence exists to

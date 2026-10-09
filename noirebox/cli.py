@@ -41,6 +41,24 @@ def main(argv: list[str] | None = None) -> int:
                     help="seal the report as a crosschain_reconciliation event")
     xc.add_argument("--fail-on-findings", action="store_true",
                     help="exit 2 if any cross-chain finding exists (CI-friendly)")
+    pin = sub.add_parser("toolset-pin",
+                         help="MCP toolset baseline — tool descriptions are "
+                              "instructions, pin them (issue #50)")
+    pin.add_argument("--server", required=True, help="MCP server name as registered")
+    pin.add_argument("--tools", required=True,
+                     help="JSON file: the listTools response (its tools array "
+                          "or the array itself)")
+    pin.add_argument("--reviewed-by", default=None,
+                     help="WHO reviewed this toolset — a name, not a role; "
+                          "required to SEAL the baseline (never the process "
+                          "that connects)")
+    pin.add_argument("--check", action="store_true",
+                     help="diff the served toolset against the latest sealed "
+                          "baseline (the session-start gate)")
+    pin.add_argument("--db", default=None,
+                     help="journal path (default: NOIREBOX_DB, nearest .noirebox/, data/noirebox.db)")
+    pin.add_argument("--fail-on-drift", action="store_true",
+                     help="exit 2 if any drift finding exists (CI/cron-friendly)")
     pack = sub.add_parser("audit-pack",
                           help="auditor pack: export + verifier report + "
                                "Annexe IV §2(f) description (ADR 010)")
@@ -203,6 +221,49 @@ def main(argv: list[str] | None = None) -> int:
             print("[✓] report sealed as a `crosschain_reconciliation` event "
                   "(always sealed — clean pass included)")
         return 2 if args.fail_on_findings and findings else 0
+
+    if args.command == "toolset-pin":
+        import json as _json
+
+        from noirebox import locate
+        from noirebox.chain import load_instance_key
+        from noirebox.store import EventStore
+        from noirebox.toolset import (check_toolset_baseline,
+                                      latest_baseline,
+                                      seal_toolset_baseline)
+
+        with open(args.tools, encoding="utf-8") as f:
+            payload = _json.load(f)
+        tools = payload.get("tools") if isinstance(payload, dict) else payload
+        db = args.db or locate.resolve_existing_journal()
+        store = EventStore(db)
+        key = load_instance_key(db)
+
+        if args.check:
+            baseline = latest_baseline(store.all(), args.server)
+            if baseline is None:
+                raise SystemExit(f"toolset-pin: no baseline sealed for server "
+                                 f"{args.server!r} — seal it first (omit --check, "
+                                 f"pass --reviewed-by). Checking against no "
+                                 f"baseline would silently always be clean.")
+            findings = check_toolset_baseline(baseline, tools)
+            for f in findings:
+                print(f"  [{f.status:<15}] {f.correlation_id}  {f.note}")
+            print(f"[{'✗' if findings else '✓'}] {len(findings)} drift "
+                  f"finding(s) vs baseline reviewed by {baseline['reviewed_by']!r} "
+                  f"({baseline['tools_count']} tools, set hash "
+                  f"{baseline['tools_sha256'][:16]}…)")
+            return 2 if args.fail_on_drift and findings else 0
+
+        event = seal_toolset_baseline(store, key, server=args.server,
+                                      tools=tools,
+                                      reviewed_by=args.reviewed_by)
+        print(f"[✓] baseline sealed: {event.payload['tools_count']} tool(s), "
+              f"set hash {event.payload['tools_sha256'][:16]}…, reviewed by "
+              f"{args.reviewed_by!r} — seq {event.seq}")
+        print("    session starts now diff against this: `noirebox toolset-pin "
+              "--server … --tools … --check --fail-on-drift`")
+        return 0
 
     if args.command == "audit-pack":
         from noirebox import locate
