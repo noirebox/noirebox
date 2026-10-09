@@ -6,6 +6,24 @@ versioning according to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Calibration: an a-priori bound, never observed spread (issue #42 —
+  pm25coder)** — a negative control's known value is a RANGE declared BEFORE
+  the run (`calibration/0.1`: value AND width predate it, `derivation` and
+  `declared_by` required); a range fitted from the enumerated constructions
+  is itself a finding (`calibration_fitted_in_sample` — the first correct
+  construction the checker has never met reads as a failure), and the
+  observed spread travels with the witness as calibration HISTORY
+  (`calibration_observation`), never re-fitting the bound. The run is graded
+  against the bound (`control_out_of_range`); the report carries the
+  calibration results the way it carries probe results.
+- **The channel rung: expectation admissibility upstream of delivery
+  (issue #43 — david_ilands)** — sent/accepted/delivered presuppose a
+  counterparty already reachable in the space where the answer is visible.
+  The expectation MAY declare `channel: {kind, reachability:
+  "demonstrated"|"assumed"}` and every expectation row grades it:
+  demonstrated (silence measures the exchange), assumed (cold — silence
+  measures the SENDER's channel choice, not the recipient), undeclared (no
+  admissibility story on record). Convention, not enforcement.
 - **The AI Act art. 12 position paper** (`docs/ART12-MAPPING.md`) — every
   article 12 requirement mapped to the exact NoireBox mechanism and its
   verification command, plus the five asks for the JTC 21 drafting
