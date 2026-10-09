@@ -28,6 +28,19 @@ def main(argv: list[str] | None = None) -> int:
                      help="seal the report as a reconciliation event")
     rec.add_argument("--fail-on-findings", action="store_true",
                      help="exit 2 if any open_gap/orphan/late finding exists (CI-friendly)")
+    xc = sub.add_parser("crosschain",
+                        help="cross-chain reconciliation — consumption edges "
+                             "across journals (ADR 024, issue #41)")
+    xc.add_argument("--journal", action="append", required=True,
+                    metavar="NAME=PATH",
+                    help="a journal in the graph, repeatable (e.g. fraud=data/fraud.db)")
+    xc.add_argument("--db", default=None,
+                    help="journal to seal the report into (default: NOIREBOX_DB, "
+                         "nearest .noirebox/, data/noirebox.db)")
+    xc.add_argument("--journal-report", action="store_true",
+                    help="seal the report as a crosschain_reconciliation event")
+    xc.add_argument("--fail-on-findings", action="store_true",
+                    help="exit 2 if any cross-chain finding exists (CI-friendly)")
     pack = sub.add_parser("audit-pack",
                           help="auditor pack: export + verifier report + "
                                "Annexe IV §2(f) description (ADR 010)")
@@ -160,6 +173,35 @@ def main(argv: list[str] | None = None) -> int:
                            probes=probe_findings, events=events)
             print("[✓] report sealed as a `reconciliation` event "
                   "(always sealed — clean pass included, ADR 019)")
+        return 2 if args.fail_on_findings and findings else 0
+
+    if args.command == "crosschain":
+        from noirebox import locate
+        from noirebox.chain import load_instance_key
+        from noirebox.crosschain import (crosschain_report,
+                                         reconcile_crosschain)
+        from noirebox.store import EventStore
+
+        journals: dict[str, list[dict]] = {}
+        for spec in args.journal:
+            graph_name, sep, graph_path = spec.partition("=")
+            if not graph_name.strip() or not graph_path.strip():
+                raise SystemExit(f"crosschain: --journal expects NAME=PATH, "
+                                 f"got {spec!r}")
+            journals[graph_name.strip()] = EventStore(graph_path.strip()).all()
+        findings = reconcile_crosschain(journals)
+        for f in findings:
+            print(f"  [{f.status:<20}] {f.correlation_id}  {f.note or ''}")
+        print(f"[✓] {len(findings)} cross-chain finding(s) over "
+              f"{len(journals)} journal(s) — edges are the graph, anchors "
+              f"are the clock (ADR 024)")
+        if args.journal_report:
+            db = args.db or locate.resolve_existing_journal()
+            report_store = EventStore(db)
+            report_key = load_instance_key(db)
+            crosschain_report(report_store, report_key, findings, journals)
+            print("[✓] report sealed as a `crosschain_reconciliation` event "
+                  "(always sealed — clean pass included)")
         return 2 if args.fail_on_findings and findings else 0
 
     if args.command == "audit-pack":

@@ -6,6 +6,20 @@ versioning according to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Cross-chain reconciliation (ADR 024, issue #41 — sinarezaei)** — the
+  fleet's graph gets its edges. Consumption edges seal in BOTH journals
+  (`consumption_edge`: the consumer's `consumed_head` as observed, the
+  producer's "consumed by" half; a missing half is `unrecorded_edge` —
+  silence is the starting fact). Invariants are DERIVED from anchors, never
+  asserted: `stale_consumed_head` (the consumed head is gone from the
+  producer's chain, or superseded), `temporal_inversion` (the consumed
+  event's seal time postdates the anchor covering the consumer's edge —
+  fraud@41 consumed by underwriting@39). A `supersede` event kills a head
+  and drives the fan-in: the blast radius propagates along recorded edges
+  as a precise path set, not "everything downstream, maybe". No epoch
+  field — temporal position stays a relation between two sealed chains
+  (the rejected alternative, §4). CLI: `noirebox crosschain --journal
+  name=path …`; the report seals always, clean pass included.
 - **Calibration: an a-priori bound, never observed spread (issue #42 —
   pm25coder)** — a negative control's known value is a RANGE declared BEFORE
   the run (`calibration/0.1`: value AND width predate it, `derivation` and
