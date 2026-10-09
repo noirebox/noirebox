@@ -98,6 +98,10 @@ class Finding:
         control_out_of_range — a run's value fell outside the control's
                            a-priori range: the checker drifted, or the range
                            was fitted (issue #42)
+        receipt_gap        — the two-sided denominator: fetches served by one
+                           side vs receipts held by the other do not sum to
+                           zero — the omission or the fabricated half
+                           (issue #48, the ADR 020 family)
     """
 
     invariant: str
@@ -561,3 +565,36 @@ def record_observation(store, key, control: str, observed: float,
         "observed": observed,
         "note": note,
     }, key)
+
+
+# --- issue #48 — the two-sided denominator: receipt_gap (mickyarun) ----------
+
+def check_receipt_gap(name: str, fetches_served: int, receipts_held: int) -> Finding:
+    """The two-sided denominator (issue #48 — mickyarun): ADR 020 counted
+    attempts against outcomes in ONE journal; across a trust boundary the
+    denominator needs BOTH journals. The server seals how many fetches it
+    served (`fetches_served`), the consumer seals how many receipts it holds
+    (`receipts_held`) — both counters sealed like everything else — and the
+    gap is the finding:
+
+      receipts_held < fetches_served → fetches went out with no receipt
+          held: the omission, two-party — the consumer's chain intact AND
+          incomplete;
+      receipts_held > fetches_served → receipts for fetches the server
+          never served: the fabricated half, worse — surfaced with the same
+          status, the note naming the direction.
+
+    Zero-sum coverage is the only clean answer."""
+    if fetches_served < 0 or receipts_held < 0:
+        raise ValueError("receipt_gap: counts are counts — negative sealed "
+                         "counters are not a thing")
+    gap = fetches_served - receipts_held
+    if gap > 0:
+        return Finding("denominator", "receipt_gap", name,
+                       note=f"{gap} fetch(es) served with no receipt held — "
+                            f"the omission, two-party")
+    if gap < 0:
+        return Finding("denominator", "receipt_gap", name,
+                       note=f"{-gap} receipt(s) beyond anything the server "
+                            f"served — the fabricated half")
+    return Finding("denominator", "receipt_coverage_ok", name)

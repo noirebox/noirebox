@@ -520,3 +520,38 @@ def test_cold_silence_after_deadline_is_unconfirmed_but_graded(tmp_path):
     findings = reconcile(store.all(), INV, now=NOW)
     assert findings[0].status == "unconfirmed"
     assert "sender" in findings[0].note
+
+
+# --- issue #48 — the two-sided denominator: receipt_gap (mickyarun) ----------
+
+def test_receipt_gap_zero_sum_is_the_only_clean_answer():
+    """The server's sealed counter vs the consumer's sealed counter: equal
+    is the only clean answer (mickyarun)."""
+    from noirebox.reconcile import check_receipt_gap
+
+    ok = check_receipt_gap("vendor-api", fetches_served=12, receipts_held=12)
+    assert ok.status == "receipt_coverage_ok"
+
+
+def test_receipt_gap_flags_the_omission_and_the_fabrication():
+    """Shortfall = fetches went out with no receipt held (the omission,
+    two-party). Surplus = receipts beyond anything served (the fabricated
+    half, worse) — same finding, the note names the direction."""
+    from noirebox.reconcile import check_receipt_gap
+
+    short = check_receipt_gap("vendor-api", fetches_served=12, receipts_held=9)
+    assert short.status == "receipt_gap"
+    assert "3 fetch(es) served with no receipt held" in short.note
+
+    fabricated = check_receipt_gap("vendor-api", fetches_served=5, receipts_held=9)
+    assert fabricated.status == "receipt_gap"
+    assert "fabricated half" in fabricated.note
+    assert "beyond anything the server served" in fabricated.note
+
+
+def test_receipt_gap_refuses_negative_counters():
+    import pytest
+    from noirebox.reconcile import check_receipt_gap
+
+    with pytest.raises(ValueError, match="counts are counts"):
+        check_receipt_gap("vendor-api", fetches_served=-1, receipts_held=0)
