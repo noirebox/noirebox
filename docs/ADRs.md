@@ -376,6 +376,20 @@ sealed convention (`content_transformation/0.1` — before/after sha256,
 transformer identity). A formatter changes the artifact as a witnessed
 transformation, not an attack.
 
+**Amendment (Oct 9, issue #42 — pm25coder, verifier thread round 4)**: a
+negative control's known value is a RANGE, not a point — and the range is an
+**a-priori bound**, derived from what the construction licenses (the bound the
+conditional law sets), never fitted from the enumerated constructions: fitted
+in-sample, the first correct construction the checker has never met reads as a
+failure. Shipped as `calibration/0.1` (`seal_calibration` — value AND width
+predate the run, `derivation` and `declared_by` required; `source` grades the
+derivation and the layer above REFUSES an `observed-spread` range as the
+finding `calibration_fitted_in_sample`, the ADR 019 §3 split). The observed
+spread is not discarded — it travels with the witness as calibration HISTORY
+(`calibration_observation`), never re-fitting the bound. The run itself is
+graded against the bound (`control_out_of_range` — the checker drifted, or the
+range was fitted).
+
 ## ADR 020 — The denominator: attempt-first sealing, outcomes ≤ attempts
 
 **Status**: accepted — the hardest critique of the week (arhancanli, thread james): "every logged number is real and the denominator is missing." James conceded it publicly; whoever solves it scores.
@@ -391,6 +405,19 @@ transformation, not an attack.
 **Consequences**: `reconcile.py` gains `attempt_type` support and the `unlogged_attempt` status; the demo flows seal attempts. The critique's residue is now a named, counted, reconcilable gap instead of a blind spot.
 
 **Amendment (Oct 8, issue #37 — david_ilands, the outbound half)**: a pending expectation is PROVABLE only if it is witnessed — its head anchored (verified against the chain, not claimed) or co-signed by a different known writer (`expectation_ack`). Otherwise the finding is `unwitnessed_expectation`: a wish with a hash. The invariant opts in with `witnessed_expectations: true`.
+
+**Amendment (Oct 9, issue #43 — david_ilands, the channel rung)**: admissibility
+sits UPSTREAM of delivery — sent/accepted/delivered presuppose a counterparty
+already reachable in the space where the answer is visible (same agent, same
+month: 0 replies from 10 cold emails vs 3 from live-thread comments). The
+expectation MAY declare `channel: {kind, reachability: "demonstrated"|
+"assumed"}`; every expectation row grades it: **demonstrated** (admissible —
+silence measures the exchange), **assumed** (cold — silence measures the
+SENDER's channel choice, not the recipient's conduct), **undeclared** (no
+admissibility story on record — the same invisibility the schema refuses
+elsewhere). Convention, not enforcement: the journal records the grade; it
+cannot make the counterparty answer — and the denominator critique (arhancanli)
+applies to the channel too.
 
 ---
 

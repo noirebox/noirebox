@@ -385,3 +385,138 @@ def test_outbound_expectation_without_witness_is_a_wish_with_a_hash(tmp_path):
     signers = [(writer.public_hex(), "agent"), (notary.public_hex(), "notary")]
     findings3 = reconcile(store3.all(), [inv], now=now, signers=signers)
     assert [f.status for f in findings3] == ["pending"]
+
+
+# --- issue #42 — calibration: an a-priori bound, never observed spread -------
+
+def test_calibration_seals_the_a_priori_range(tmp_path):
+    """The control's known value is a RANGE declared BEFORE the run, with its
+    a-priori derivation and a name behind it — value AND width predate the
+    run (pm25coder, verifier thread round 4)."""
+    from noirebox.reconcile import seal_calibration
+
+    store, key = _store(tmp_path)
+    event = seal_calibration(store, key, {
+        "name": "defect-score-control",
+        "known_range": {"low": 0.60, "high": 0.80},
+        "derivation": "the conditional law licenses [0.6, 0.8] for a defective build",
+        "declared_by": "pm25 (checker owner)",
+    })
+    assert event.type == "calibration"
+    assert event.payload["source"] == "a-priori"
+    assert verify_chain(key.public_hex(), store.all())["valid"]
+
+    import pytest
+    with pytest.raises(ValueError, match="range, not a point"):
+        seal_calibration(store, key, {"name": "x", "known_range": {"low": 1},
+                                      "derivation": "d", "declared_by": "j"})
+    with pytest.raises(ValueError, match="low > high"):
+        seal_calibration(store, key, {"name": "x",
+                                      "known_range": {"low": 2, "high": 1},
+                                      "derivation": "d", "declared_by": "j"})
+    with pytest.raises(ValueError, match="derivation is required"):
+        seal_calibration(store, key, {"name": "x",
+                                      "known_range": {"low": 0, "high": 1},
+                                      "declared_by": "j"})
+    with pytest.raises(ValueError, match="a name"):
+        seal_calibration(store, key, {"name": "x",
+                                      "known_range": {"low": 0, "high": 1},
+                                      "derivation": "d"})  # no declared_by
+    with pytest.raises(ValueError, match="source"):
+        seal_calibration(store, key, {"name": "x",
+                                      "known_range": {"low": 0, "high": 1},
+                                      "derivation": "d", "declared_by": "j",
+                                      "source": "vibes"})
+
+
+def test_fitted_in_sample_range_is_itself_a_finding():
+    """The schema labels, the layer above refuses (ADR 019 §3's split): an
+    observed-spread range is `calibration_fitted_in_sample` — in-sample, the
+    first correct construction the checker has never met reads as a failure."""
+    from noirebox.reconcile import check_calibration
+
+    assert check_calibration({"control": "c", "source": "a-priori"}) is None
+    fitted = check_calibration({"control": "c", "source": "observed-spread"})
+    assert fitted is not None and fitted.status == "calibration_fitted_in_sample"
+
+
+def test_control_range_grades_the_run():
+    """The runtime half: inside the a-priori range or the control fails."""
+    from noirebox.reconcile import check_control_range
+
+    ok = check_control_range("defect", {"low": 0.60, "high": 0.80}, 0.71)
+    assert ok.status == "control_in_range"
+    drifted = check_control_range("defect", {"low": 0.60, "high": 0.80}, 0.55)
+    assert drifted.status == "control_out_of_range"
+    assert "outside" in drifted.note
+
+
+def test_observed_spread_travels_as_history_never_refits(tmp_path):
+    """The observed spread is HISTORY, not the bound: it postdates the run
+    and never re-fits what was declared a priori."""
+    from noirebox.reconcile import record_observation, seal_calibration
+
+    store, key = _store(tmp_path)
+    seal_calibration(store, key, {
+        "name": "defect-score-control",
+        "known_range": {"low": 0.60, "high": 0.80},
+        "derivation": "the conditional law, a priori",
+        "declared_by": "pm25 (checker owner)",
+    })
+    record_observation(store, key, "defect-score-control", 0.469, "run 12")
+    record_observation(store, key, "defect-score-control", 0.778, "run 13")
+    events = store.all()
+    assert sum(1 for e in events if e["type"] == "calibration_observation") == 2
+    cal = [e for e in events if e["type"] == "calibration"][0]
+    assert cal["payload"]["known_range"] == {"low": 0.60, "high": 0.80}  # untouched
+    assert verify_chain(key.public_hex(), events)["valid"]
+
+
+def test_report_carries_calibration_results(tmp_path):
+    """The report grades its calibrations the way it grades its probes —
+    even on a clean pass."""
+    from noirebox.reconcile import check_calibration, journal_report
+
+    store, key = _store(tmp_path)
+    findings = reconcile(store.all(), INV, now=NOW)
+    cals = [check_calibration({"control": "c", "source": "observed-spread"})]
+    event = journal_report(store, key, INV, findings, calibrations=cals)
+    assert event.payload["calibrations_ok"] is False
+    assert event.payload["calibrations"][0]["status"] == "calibration_fitted_in_sample"
+
+
+# --- issue #43 — the channel rung: admissibility upstream of delivery --------
+
+def test_expectation_rows_carry_their_channel_grade(tmp_path):
+    """david_ilands (3h0bj): an expectation is only admissible against a
+    counterparty already reachable where the answer will be visible. The
+    grade travels ON the finding row."""
+    store, key = _store(tmp_path)
+    deadline = _iso(NOW + timedelta(minutes=5))
+    store.append("policy_decision",
+                 {"decision_id": "d_cold", "expected_by": deadline,
+                  "channel": {"kind": "email", "reachability": "assumed"}}, key)
+    store.append("policy_decision",
+                 {"decision_id": "d_warm", "expected_by": deadline,
+                  "channel": {"kind": "live-thread", "reachability": "demonstrated"}}, key)
+    store.append("policy_decision",
+                 {"decision_id": "d_dark", "expected_by": deadline}, key)
+    findings = reconcile(store.all(), INV, now=NOW)
+    notes = {f.correlation_id: f.note for f in findings}
+    assert all(f.status == "pending" for f in findings)
+    assert "measures the sender" in notes["d_cold"]
+    assert "measures the exchange" in notes["d_warm"]
+    assert "undeclared" in notes["d_dark"]
+
+
+def test_cold_silence_after_deadline_is_unconfirmed_but_graded(tmp_path):
+    """The status stays `unconfirmed` — the grade says what the silence
+    measures: the sender's channel choice, not the recipient's conduct."""
+    store, key = _store(tmp_path)
+    store.append("policy_decision",
+                 {"decision_id": "d_cold",
+                  "expected_by": _iso(NOW - timedelta(minutes=5)),
+                  "channel": {"kind": "email", "reachability": "assumed"}}, key)
+    findings = reconcile(store.all(), INV, now=NOW)
+    assert findings[0].status == "unconfirmed"
+    assert "sender" in findings[0].note

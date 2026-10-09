@@ -91,6 +91,13 @@ class Finding:
                            outcome yet) that is neither anchored nor
                            co-signed: "a wish with a hash" (ADR 020, the
                            outbound half — david_ilands)
+        calibration_fitted_in_sample — a control's declared range was fitted
+                           from the observed constructions, not derived a
+                           priori: the first correct construction it has
+                           never met reads as a failure (issue #42)
+        control_out_of_range — a run's value fell outside the control's
+                           a-priori range: the checker drifted, or the range
+                           was fitted (issue #42)
     """
 
     invariant: str
@@ -99,6 +106,7 @@ class Finding:
     decision_seq: int | None = None
     outcome_seq: int | None = None
     lag_seconds: float | None = None
+    note: str | None = None
 
 
 def parse_duration(value: int | str | None) -> int | None:
@@ -214,6 +222,31 @@ def _co_signed(events: list[dict], decision: dict, correlation_key: str,
     return False
 
 
+def expectation_channel(decision: dict) -> str:
+    """Grades an outbound expectation's channel admissibility (issue #43 —
+    david_ilands): sent/accepted/delivered sit ON TOP of a reachable space —
+    an expectation is only admissible against a counterparty already present
+    where the answer will be visible. The decision payload MAY declare
+    `channel: {kind, reachability: "demonstrated" | "assumed"}`:
+
+      "demonstrated" — the counterparty answered in this space before: the
+        expectation is admissible, and its silence (deadline passed, no
+        outcome) measures the exchange;
+      "assumed" — cold: the silence will classify `unconfirmed` and measure
+        the SENDER's channel choice, not the recipient's conduct (his own
+        numbers: same agent, same month — 0 replies from 10 cold emails vs 3
+        from live-thread comments);
+      "undeclared" — no channel field: the admissibility story is absent,
+        the same invisibility the schema refuses elsewhere.
+
+    Convention, not enforcement: the journal records the grade — it cannot
+    make the counterparty answer."""
+    ch = decision.get("payload", {}).get("channel")
+    if not isinstance(ch, dict) or not str(ch.get("kind", "")).strip():
+        return "undeclared"
+    return "demonstrated" if ch.get("reachability") == "demonstrated" else "assumed"
+
+
 def reconcile(events: list[dict], invariants: list[Invariant],
               now: datetime | None = None,
               signers: list[tuple[str, str]] | None = None) -> list[Finding]:
@@ -272,15 +305,29 @@ def reconcile(events: list[dict], invariants: list[Invariant],
                                                 decision_seq=decision["seq"]))
                         continue
                 deadline = _deadline(decision, inv)
+                # The channel grade travels ON the finding row (issue #43):
+                # an expectation's admissibility is decided upstream of
+                # delivery, and the report should say which way.
+                grade = expectation_channel(decision)
+                note = {"demonstrated": "channel: demonstrated — silence "
+                                        "measures the exchange",
+                        "assumed": "channel: assumed (cold) — silence "
+                                   "measures the sender's channel choice, "
+                                   "not the recipient",
+                        "undeclared": "channel: undeclared — no admissibility "
+                                      "story on record"}[grade]
                 if deadline is None:
                     findings.append(Finding(inv.name, "open_gap", cid,
-                                            decision_seq=decision["seq"]))
+                                            decision_seq=decision["seq"],
+                                            note=note))
                 elif ref > deadline:
                     findings.append(Finding(inv.name, "unconfirmed", cid,
-                                            decision_seq=decision["seq"]))
+                                            decision_seq=decision["seq"],
+                                            note=note))
                 else:
                     findings.append(Finding(inv.name, "pending", cid,
-                                            decision_seq=decision["seq"]))
+                                            decision_seq=decision["seq"],
+                                            note=note))
                 continue
             if (inv.require_two_key and signers
                     and _signer(decision, signers) != "unknown"
@@ -342,7 +389,8 @@ def run_probes(events: list[dict], invariants: list[Invariant],
 
 def journal_report(store, key, invariants: list[Invariant],
                    findings: list[Finding], probes: list[Finding] | None = None,
-                   events: list[dict] | None = None) -> dict:
+                   events: list[dict] | None = None,
+                   calibrations: list[Finding] | None = None) -> dict:
     """Seals the reconciliation report as a `reconciliation` event.
 
     v0.2 (ADR 019): the report is sealed EVEN WHEN EVERYTHING MATCHED — a
@@ -366,6 +414,10 @@ def journal_report(store, key, invariants: list[Invariant],
         "clean_pass": len(findings) == 0,
         "negative_probes": [f.__dict__ for f in (probes or [])],
         "probes_ok": not any(f.status == "probe_did_not_bite" for f in (probes or [])),
+        "calibrations": [f.__dict__ for f in (calibrations or [])],
+        "calibrations_ok": not any(f.status in ("calibration_fitted_in_sample",
+                                                "control_out_of_range")
+                                   for f in (calibrations or [])),
     }
     # ADR 019 §8 — the report witnesses its own run: byte counts of the
     # sealed payload, normalized (no wall-clock, no content beyond counts).
@@ -415,3 +467,97 @@ def check_lookup_control(name: str, expected_count: int, got_count: int) -> Find
     if got_count != expected_count:
         return Finding("lookup", "lookup_silently_unfiltered", name)
     return Finding("lookup", "lookup_control_ok", name)
+
+
+# --- issue #42 — calibration: an a-priori bound, never observed spread -------
+
+_CALIBRATION_SOURCES = ("a-priori", "observed-spread")
+
+
+def seal_calibration(store, key, control: dict) -> dict:
+    """Seals a negative control's calibration as a `calibration` event
+    (issue #42 — pm25coder, verifier thread round 4).
+
+    The control's known value is a RANGE, not a point — and the range is
+    declared BEFORE the run, derived from what the construction licenses a
+    priori (the bound the conditional law sets), never fitted from the
+    enumerated constructions: a range fitted in-sample fails on the first
+    correct construction it has never met. Value AND width predate the run —
+    sealed first, like every belief (ADR 023's shape).
+
+    `source` grades the derivation, the ADR 019 §3 split — the schema LABELS,
+    the layer above REFUSES (see `check_calibration`):
+      "a-priori"        — the bound the construction licenses; the only kind
+                          a control may bite with;
+      "observed-spread" — a range fitted from the observed runs: a LABELED
+                          weakness, never a hidden one.
+
+    The observed spread is not lost — it travels with the witness as
+    calibration HISTORY (`record_observation`), never as the bound."""
+    name = control.get("name", "")
+    if not name.strip():
+        raise ValueError("calibration: control name is required")
+    rng = control.get("known_range")
+    if (not isinstance(rng, dict) or not isinstance(rng.get("low"), (int, float))
+            or not isinstance(rng.get("high"), (int, float))):
+        raise ValueError("calibration: known_range must be {low, high} numbers — "
+                         "a control's known value is a range, not a point")
+    if rng["low"] > rng["high"]:
+        raise ValueError("calibration: known_range low > high")
+    if not control.get("derivation", "").strip():
+        raise ValueError("calibration: derivation is required — WHERE the bound "
+                         "comes from a priori (the conditional law, the spec)")
+    if not control.get("declared_by", "").strip():
+        raise ValueError("calibration: declared_by is required — a name, not a "
+                         "role (ADR 021); the range predates the run and someone "
+                         "declared it")
+    source = control.get("source", "a-priori")
+    if source not in _CALIBRATION_SOURCES:
+        raise ValueError(f"calibration: source must be one of {_CALIBRATION_SOURCES}")
+    return store.append("calibration", {
+        "schema": "calibration/0.1",
+        "control": name,
+        "known_range": {"low": rng["low"], "high": rng["high"]},
+        "derivation": control["derivation"],
+        "declared_by": control["declared_by"],
+        "source": source,
+    }, key)
+
+
+def check_calibration(decl: dict) -> Finding | None:
+    """The layer above the label REFUSES (ADR 019 §3's split): a range whose
+    source is "observed-spread" is the finding `calibration_fitted_in_sample`
+    — in-sample, the first correct construction the checker has never met
+    reads as a failure. A control may only bite with an a-priori bound.
+    None = clean."""
+    if decl.get("source") == "observed-spread":
+        return Finding("calibration", "calibration_fitted_in_sample",
+                       decl.get("control", "?"),
+                       note="range fitted from the enumerated constructions — "
+                            "re-derive it from what the construction licenses a priori")
+    return None
+
+
+def check_control_range(control: str, known_range: dict, observed: float) -> Finding:
+    """The runtime half of the calibration: the run's value falls INSIDE the
+    a-priori range or the control fails — `control_out_of_range` means the
+    checker drifted, or the range was fitted (the first correct construction
+    it has never met reads as a failure)."""
+    low, high = known_range["low"], known_range["high"]
+    if not low <= observed <= high:
+        return Finding("calibration", "control_out_of_range", control,
+                       note=f"observed {observed} outside [{low}, {high}]")
+    return Finding("calibration", "control_in_range", control)
+
+
+def record_observation(store, key, control: str, observed: float,
+                       note: str = "") -> dict:
+    """Calibration HISTORY — the observed spread travels with the witness as
+    history, postdating the run. It never re-fits the bound: the range was
+    declared a priori (`seal_calibration`) and stays what it was declared."""
+    return store.append("calibration_observation", {
+        "schema": "calibration-observation/0.1",
+        "control": control,
+        "observed": observed,
+        "note": note,
+    }, key)
