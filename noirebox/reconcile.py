@@ -55,7 +55,14 @@ class Invariant:
     `attempt_type` (ADR 020, optional): the type sealing each ATTEMPT before
     its outcome. When set, every outcome must have an attempt with the same
     correlation key sealed EARLIER — an outcome without one is the omission
-    the hash chain cannot see on its own (status `unlogged_attempt`)."""
+    the hash chain cannot see on its own (status `unlogged_attempt`).
+
+    `terminal_type` (SCAR-PROC-110, optional): the type sealing a run's END
+    state for the same correlation key (transcript digest, terminal verdict).
+    When set, an outcome contradicted by a LATER terminal event — different
+    witness digest or different verdict — is the mid-flight forgery, surfaced
+    as `verdict_predates_terminal`. Pairing reads the terminal, not the first
+    response."""
 
     name: str
     decision_type: str
@@ -63,6 +70,7 @@ class Invariant:
     correlation_key: str
     within_seconds: int | None = None
     attempt_type: str | None = None
+    terminal_type: str | None = None
     require_two_key: bool = False
     witnessed_expectations: bool = False
     precedence: str | None = None  # which side wins on disagreement — decided BEFORE (issue #35)
@@ -102,6 +110,12 @@ class Finding:
                            side vs receipts held by the other do not sum to
                            zero — the omission or the fabricated half
                            (issue #48, the ADR 020 family)
+        verdict_predates_terminal — a verdict contradicted by a LATER
+                           terminal event for the same run: different
+                           transcript digest bound as witness, or a
+                           different verdict — the mid-flight forgery
+                           surfaced (SCAR-PROC-110, issue #53; "the scar
+                           becomes the spec")
     """
 
     invariant: str
@@ -272,6 +286,7 @@ def reconcile(events: list[dict], invariants: list[Invariant],
         decisions: dict[str, dict] = {}
         outcomes: dict[str, dict] = {}
         attempts: dict[str, dict] = {}
+        terminals: dict[str, dict] = {}
         for e in events:
             key = e.get("payload", {}).get(inv.correlation_key)
             if key is None:
@@ -283,6 +298,11 @@ def reconcile(events: list[dict], invariants: list[Invariant],
                 outcomes.setdefault(key, e)
             elif inv.attempt_type and e.get("type") == inv.attempt_type:
                 attempts.setdefault(key, e)
+            elif inv.terminal_type and e.get("type") == inv.terminal_type:
+                # a run's terminal state: the LAST sealed terminal event wins —
+                # the end of a run is where the run ended, not where it first
+                # claimed to end.
+                terminals[key] = e
         # ADR 020 — the denominator: an outcome whose attempt was never
         # sealed is the lie by omission, surfaced structurally. The attempt
         # must be sealed EARLIER: an attempt appended after the fact does not
@@ -350,6 +370,36 @@ def reconcile(events: list[dict], invariants: list[Invariant],
                 findings.append(Finding(inv.name, "matched", cid,
                                         decision_seq=decision["seq"],
                                         outcome_seq=outcome["seq"]))
+
+        # SCAR-PROC-110 (issue #53, Randal/gde) — pairing reads the TERMINAL,
+        # not the first response: a verdict sealed BEFORE the run ended, that
+        # the later terminal event CONTRADICTS (different transcript digest
+        # bound as witness, or a different verdict), is the mid-flight
+        # forgery, surfaced as `verdict_predates_terminal`. A terminal sealed
+        # before the outcome, or one that confirms it, is the sound
+        # waitpid()-equivalent order — no finding.
+        if inv.terminal_type:
+            for cid, outcome in outcomes.items():
+                terminal = terminals.get(cid)
+                if terminal is None or terminal["seq"] <= outcome["seq"]:
+                    continue
+                o_payload = outcome.get("payload", {})
+                t_payload = terminal.get("payload", {})
+                bound = (o_payload.get("witness") or {}).get("transcript_sha256")
+                t_digest = t_payload.get("transcript_sha256")
+                o_verdict, t_verdict = o_payload.get("verdict"), t_payload.get("verdict")
+                digest_diverged = bool(bound and t_digest and bound != t_digest)
+                verdict_diverged = bool(o_verdict and t_verdict and o_verdict != t_verdict)
+                if digest_diverged or verdict_diverged:
+                    detail = (f"witness binds {str(bound)[:12]}…, terminal sealed "
+                              f"{str(t_digest)[:12]}…" if digest_diverged else
+                              f"verdict {o_verdict} vs terminal {t_verdict}")
+                    findings.append(Finding(
+                        inv.name, "verdict_predates_terminal", cid,
+                        outcome_seq=outcome["seq"],
+                        note=f"outcome at seq {outcome['seq']} contradicted by a "
+                             f"LATER terminal event (seq {terminal['seq']}) — "
+                             f"{detail}; the race the receipt died in"))
 
         for cid, outcome in outcomes.items():
             if cid in decisions:
