@@ -6,6 +6,24 @@ versioning according to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **The SCAR replay suite (issue #53 — Randal/gde)** — the four gate-attack
+  fixtures from the "200k-token lobotomy" article, replayed AS ATTACKS
+  against the reconciliation layer, each asserting what the layer DOES:
+  **SCAR-43** (in-session rubber stamp) caught TWICE — `unlogged_attempt`
+  (the child invocation never sealed) and `same_key_pairing` (one writer on
+  the verdict and its check, by signature); **SCAR-45** (watered-down
+  prompt) detectable by arithmetic when the spec is committed — two
+  semantics cannot share one `check_id` — with the optional spec-less path
+  ADMITTED as the gap (the schema cannot infer which checks are
+  LLM-judged; closing it is the deployment-layer refusal, the single-key
+  split); **SCAR-89** (covert critic farming) — unjournaled rounds are the
+  omission (`unlogged_attempt`), journaled rounds are AUDITABLE
+  (sum-to-n counts the farming trail); **SCAR-110** (mid-flight forgery) —
+  the forged verdict is PROVABLY pre-terminal from sealed evidence (the
+  witness binds the mid-run digest, the terminal digest differs, the
+  sequence is on the record), auto-surfacing named as the gap (the pairing
+  takes the first outcome), and the waitpid-equivalent order shown
+  sealing the forgery shape out of existence.
 - **The toolset baseline — the lockfile nobody writes (issue #50 — bloqarl)** —
   tool descriptions are instructions the MODEL reads, and they ride outside
   the image pin (runtime-produced; for remote MCP, nothing pinned at all).
