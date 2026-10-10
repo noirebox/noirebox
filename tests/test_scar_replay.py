@@ -9,8 +9,10 @@ writing. No invented SCAR content: every fixture below is the article's own
 
   SCAR-PROC-43  in-session rubber stamp   → caught TWICE (ADR 020 + 019 §7)
   SCAR-PROC-45  watered-down prompt       → detectable when the spec is
-                                            committed; the optional path is
-                                            the admitted gap
+                                            committed; the optional path
+                                            CLOSED at the schema (v0.2.2:
+                                            an llm-judged receipt without
+                                            spec_hash refuses to seal)
   SCAR-PROC-89  covert critic farming     → unjournaled rounds are the
                                             omission; journaled = visible
   SCAR-PROC-110 mid-flight forgery        → caught: `verdict_predates_terminal`
@@ -107,25 +109,37 @@ def test_scar_45_committed_spec_makes_the_paraphrase_detectable():
     assert prompt_actually_sent != _digest(rubric)
 
 
-def test_scar_45_the_optional_path_is_the_admitted_gap():
-    """The honest residue: `spec_hash` is OPTIONAL at the schema level
-    ('required for LLM-judged checks' is a deployment contract, not code
-    enforcement — the schema cannot infer which checks are LLM-judged).
-    Without the commitment, SCAR-45 SUCCEEDS: one id, two semantics,
-    indistinguishable — forever. Outcome: GAP ADMITTED. Closing it means
-    the deployment layer refusing spec-less check_ids for LLM-judged
-    checks, the same split as the single-key refusal (label vs enforce)."""
-    inputs = {"diff_sha256": _digest("the diff")}
-    id_without_spec_a = check_id("adversarial code review", inputs, "v1")
-    id_without_spec_b = check_id("adversarial code review", inputs, "v1")
-    assert id_without_spec_a == id_without_spec_b  # the rubric and the paraphrase collide
+def test_scar_45_the_optional_path_closed_at_the_schema():
+    """The gap SCAR-45 exposed, closed the week it was named (v0.2.2 —
+    Reid + howcani pushed, the schema enforces): an LLM-judged receipt
+    without its committed spec REFUSES to seal. The honest residue, restated:
+    `judged_by` is itself a sealed declaration — a deterministic check may
+    still omit the spec, and the receipt now says so explicitly. Lying
+    about the declaration is visible in the artifact: one step stronger
+    than a label, one step weaker than mind-reading."""
+    import pytest
 
-    # the receipts are byte-valid either way — the schema cannot tell:
-    receipt_a = build_receipt(artifact_sha256=_digest("artifact"),
-                              check_id=id_without_spec_a,
-                              evaluator_sha256=_digest("evaluator"),
-                              run_id="run_1")
-    assert receipt_a["schema"] == "receipt/0.2"  # valid — and semantics-blind
+    inputs = {"diff_sha256": _digest("the diff")}
+    id_without_spec = check_id("adversarial code review", inputs, "v1")
+    assert id_without_spec == check_id("adversarial code review", inputs, "v1")
+    # the rubric and the paraphrase still collide under a spec-less id —
+    # which is exactly why the schema now refuses it for LLM-judged checks:
+
+    with pytest.raises(ValueError, match="requires spec_hash"):
+        build_receipt(artifact_sha256=_digest("artifact"),
+                      check_id=id_without_spec,
+                      evaluator_sha256=_digest("evaluator"),
+                      run_id="run_1",
+                      judged_by="llm")  # SCAR-45's path: refused, not labeled
+
+    # the declared-deterministic path still seals — but the declaration
+    # travels in the payload, where a lie is diffable:
+    receipt = build_receipt(artifact_sha256=_digest("artifact"),
+                            check_id=id_without_spec,
+                            evaluator_sha256=_digest("evaluator"),
+                            run_id="run_1")
+    assert receipt["schema"] == "receipt/0.2.2"
+    assert receipt["judged_by"] == "deterministic"
 
 
 # --- SCAR-PROC-89 — covert critic farming -------------------------------------
