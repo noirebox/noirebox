@@ -84,7 +84,8 @@ def build_receipt(*, artifact_sha256: str, check_id: str, evaluator_sha256: str,
                   run_id: str, base_commit: str | None = None,
                   pairing: str = "single-key", witness: dict | None = None,
                   counts: dict | None = None,
-                  state_binding: dict | None = None) -> dict:
+                  state_binding: dict | None = None,
+                  reason: str | None = None) -> dict:
     """Builds the validated receipt payload (ADR 019 §1-7 + v0.2.1).
 
     `pairing` grades the receipt honestly: "two-key" means the reconciliation
@@ -100,6 +101,15 @@ def build_receipt(*, artifact_sha256: str, check_id: str, evaluator_sha256: str,
     when the state moved (409 conflict — optimistic concurrency). Divergence
     is then a sealed event (`receipt_expired_by_state_change` → new gate
     pass → new receipt), never silent reuse.
+
+    `reason` (issue #55 — the named expectation): the check's purpose in the
+    author's own words ("the 2024 pin is a business rule, not a default").
+    The written reason is the one leg of the invariant that cannot go red —
+    prose in a document nothing executes — unless it travels with the
+    verdict it justifies. Sealed here, its presence, content and removal
+    become diffable events inside the artifact instead of a sentence in a
+    ticket outside it. Optional: a self-evident deterministic check may
+    omit it — labeled, never hidden.
     """
     for name, value in (("artifact_sha256", artifact_sha256),
                         ("check_id", check_id), ("evaluator_sha256", evaluator_sha256)):
@@ -120,6 +130,10 @@ def build_receipt(*, artifact_sha256: str, check_id: str, evaluator_sha256: str,
         if not isinstance(str(state_binding["resource_version"]),
                           str) or not str(state_binding["resource_version"]).strip():
             raise ValueError("receipt: state_binding.resource_version must be a non-empty string")
+    if reason is not None and (not isinstance(reason, str) or not reason.strip()):
+        raise ValueError(
+            "receipt: reason, when present, must be a non-empty string — "
+            "the named expectation the verdict answers for")
 
     payload: dict = {
         "schema": "receipt/0.2",
@@ -136,6 +150,8 @@ def build_receipt(*, artifact_sha256: str, check_id: str, evaluator_sha256: str,
             "resource": state_binding["resource"],
             "resource_version": str(state_binding["resource_version"]),
         }
+    if reason is not None:
+        payload["reason"] = reason.strip()
     if witness is not None:
         if not isinstance(witness, dict):
             raise ValueError("receipt: witness must be a dict carrying its identity")

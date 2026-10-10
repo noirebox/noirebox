@@ -5,6 +5,7 @@ import hashlib
 
 import pytest
 
+from noirebox.chain import canonical
 from noirebox.receipt import build_receipt, check_id
 
 _OK = {
@@ -113,3 +114,34 @@ def test_ensure_witness_distinct_for_the_serving_layer():
     ensure_witness_distinct({"identity": "notary-7"}, "drafter-1")  # fine
     with pytest.raises(RuntimeError, match="skip the slot"):
         ensure_witness_distinct({"identity": "drafter-1"}, "drafter-1")  # failover caught the same model
+
+
+# --- issue #55 — the named expectation: the reason travels with the verdict --
+
+def test_reason_travels_in_the_payload():
+    r = build_receipt(**_OK, reason="the 2024 pin is a business rule, not a default")
+    assert r["reason"] == "the 2024 pin is a business rule, not a default"
+
+
+def test_reason_absent_is_absent_not_empty():
+    r = build_receipt(**_OK)
+    assert "reason" not in r  # labeled absence, never a quiet empty string
+
+
+def test_reason_whitespace_only_is_rejected():
+    with pytest.raises(ValueError, match="non-empty string"):
+        build_receipt(**_OK, reason="   ")
+
+
+def test_reason_change_is_visible_in_the_sealed_payload():
+    # the reason is not part of the check_id (intent, not semantics) — but a
+    # re-worded reason lands in a different sealed payload, so its drift is
+    # a diffable event instead of a quiet one
+    import hashlib
+    r1 = build_receipt(**_OK, reason="the pin is intentional")
+    r2 = build_receipt(**_OK, reason="the pin was a mistake, kept for compat")
+    assert r1["reason"] != r2["reason"]
+    assert r1["check_id"] == r2["check_id"]  # same semantics, different story
+    d1 = hashlib.sha256(canonical(r1)).hexdigest()
+    d2 = hashlib.sha256(canonical(r2)).hexdigest()
+    assert d1 != d2
