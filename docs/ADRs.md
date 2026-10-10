@@ -390,6 +390,16 @@ spread is not discarded — it travels with the witness as calibration HISTORY
 graded against the bound (`control_out_of_range` — the checker drifted, or the
 range was fitted).
 
+**Amendment (Oct 10, issue #53 — SCAR-PROC-110, the scar becomes the spec)**:
+the replay suite surfaced the pairing race as a named gap on its first day;
+it ships as a check the same week. An invariant may declare `terminal_type` —
+the event sealing a run's END state (transcript digest, terminal verdict). An
+outcome contradicted by a LATER terminal event (a witness digest that differs
+from the terminal's, or a different verdict) is the mid-flight forgery:
+`verdict_predates_terminal`. The sound orders stay clean — terminal before
+the verdict (the `waitpid()`-equivalent), or a later terminal that confirms
+it (honest, just slow). Pairing reads the terminal, not the first response.
+
 ## ADR 020 — The denominator: attempt-first sealing, outcomes ≤ attempts
 
 **Status**: accepted — the hardest critique of the week (arhancanli, thread james): "every logged number is real and the denominator is missing." James conceded it publicly; whoever solves it scores.

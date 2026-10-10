@@ -13,9 +13,10 @@ writing. No invented SCAR content: every fixture below is the article's own
                                             the admitted gap
   SCAR-PROC-89  covert critic farming     → unjournaled rounds are the
                                             omission; journaled = visible
-  SCAR-PROC-110 mid-flight forgery        → provably pre-terminal from
-                                            sealed evidence; auto-surfacing
-                                            is the named gap
+  SCAR-PROC-110 mid-flight forgery        → caught: `verdict_predates_terminal`
+                                            ships as a finding — pairing
+                                            reads the terminal, not the
+                                            first response
 """
 from __future__ import annotations
 
@@ -178,18 +179,18 @@ def test_scar_110_forged_verdict_is_provably_pre_terminal(tmp_path):
     is still running, then the terminal lands REJECTED. The journal cannot
     un-happen either event — the forgery is PROVABLE from sealed evidence:
     the verdict's witness binds the mid-run transcript digest, the terminal
-    digest differs, and the sequence is on the record. Outcome: PROVABLE;
-    the auto-surfacing is the named gap — reconcile pairs decision→FIRST
-    outcome, so the forged verdict is the one it pairs. Closing that gap
-    means a `verdict predates terminal` check over the run/transcript
-    events (candidate invariant, noted for the issue)."""
+    digest differs, and the sequence is on the record. Outcome: CAUGHT —
+    `verdict_predates_terminal` shipped the week the catalog named it ("the
+    scar becomes the spec"): pairing reads the terminal, not the first
+    response."""
     store, orchestrator = _journal(tmp_path, "orch110")
     _ , critic = _journal(tmp_path, "critic110")
 
     t_mid = _digest("critic transcript, mid-run: thinking...")
     t_final = _digest("critic transcript, terminal: state=idle verdict=REJECTED")
 
-    inv = Invariant("gate", "critic_dispatch", "critic_verdict", "review_id")
+    inv = Invariant("gate", "critic_dispatch", "critic_verdict", "review_id",
+                    terminal_type="run_transcript")
 
     store.append("critic_dispatch", {"review_id": "rev_110",
                                      "expected_by": "2026-10-10T12:00:00+00:00"},
@@ -217,16 +218,53 @@ def test_scar_110_forged_verdict_is_provably_pre_terminal(tmp_path):
     assert t_mid != t_final                              # the verdict bound a state
     assert forged["seq"] < terminal["seq"]               # ...that did not exist yet
 
-    # the named gap, demonstrated: the pairing takes the FIRST outcome —
-    # the forged APPROVED is what the reconciler surfaces as matched.
+    # the reconciler now reads the terminal: the race is the finding
     findings = reconcile(events, [inv])
-    paired = [f for f in findings if f.status == "matched"]
-    assert paired and paired[0].outcome_seq == forged["seq"]
+    raced = [f for f in findings if f.status == "verdict_predates_terminal"]
+    assert len(raced) == 1
+    assert raced[0].outcome_seq == forged["seq"]
+    assert "LATER terminal event" in raced[0].note
+    assert "contradicted" in raced[0].note
     # two writers on this journal — the multi-writer verifier (ADR 021)
     from noirebox.chain import verify_chain_multi
 
     assert verify_chain_multi([orchestrator.public_hex(), critic.public_hex()],
                               events)["valid"]
+
+
+def test_scar_110_waitpid_order_and_confirming_terminal_stay_clean(tmp_path):
+    """The two sound shapes: terminal sealed BEFORE the verdict (the
+    waitpid-equivalent — nothing to contradict), and a terminal landing
+    AFTER the verdict that CONFIRMS it (same digest, same verdict — a late
+    confirmation is not a race). Neither is a finding."""
+    inv = Invariant("gate", "critic_dispatch", "critic_verdict", "review_id",
+                    terminal_type="run_transcript")
+
+    # the waitpid-equivalent order: terminal first
+    store, orchestrator = _journal(tmp_path, "waitpid")
+    _, critic = _journal(tmp_path, "waitpid_critic")
+    t_final = _digest("terminal transcript: state=idle verdict=APPROVED")
+    store.append("run_transcript", {"review_id": "rev_w", "run_id": "c1",
+                                    "transcript_sha256": t_final, "terminal": True,
+                                    "verdict": "APPROVED"}, critic)
+    store.append("critic_verdict", {"review_id": "rev_w", "verdict": "APPROVED",
+                                    "witness": {"transcript_sha256": t_final}},
+                 orchestrator)
+    assert all(f.status != "verdict_predates_terminal"
+               for f in reconcile(store.all(), [inv]))
+
+    # a LATER terminal that confirms the verdict: honest, just slow
+    store2, orchestrator2 = _journal(tmp_path, "confirming")
+    _, critic2 = _journal(tmp_path, "confirming_critic")
+    t2 = _digest("another terminal transcript, same content")
+    store2.append("critic_verdict", {"review_id": "rev_c", "verdict": "APPROVED",
+                                     "witness": {"transcript_sha256": t2}},
+                  orchestrator2)
+    store2.append("run_transcript", {"review_id": "rev_c", "run_id": "c2",
+                                     "transcript_sha256": t2, "terminal": True,
+                                     "verdict": "APPROVED"}, critic2)
+    assert all(f.status != "verdict_predates_terminal"
+               for f in reconcile(store2.all(), [inv]))
 
 
 def test_scar_110_the_waitpid_equivalent_binds_the_terminal_transcript(tmp_path):

@@ -6,6 +6,15 @@ versioning according to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **verdict_predates_terminal — the scar becomes the spec (issue #53 —
+  SCAR-PROC-110, Randal/gde)** — the race the replay suite surfaced as a
+  named gap on day one ships as a check: an invariant may declare
+  `terminal_type` (the event sealing a run's end state), and an outcome
+  contradicted by a LATER terminal event — a witness digest that differs
+  from the terminal's, or a different verdict — is the mid-flight forgery,
+  surfaced. Pairing reads the terminal, not the first response; the
+  waitpid-equivalent order and a confirming late terminal stay clean.
+  ADR 019 amendment.
 - **The SCAR replay suite (issue #53 — Randal/gde)** — the four gate-attack
   fixtures from the "200k-token lobotomy" article, replayed AS ATTACKS
   against the reconciliation layer, each asserting what the layer DOES:
