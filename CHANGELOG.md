@@ -6,6 +6,15 @@ versioning according to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Receipt v0.2.2 — the seam SCAR-45 exposed, closed at the schema (Reid +
+  howcani)** — `build_receipt` gains `judged_by` ("deterministic" | "llm")
+  and the schema enforces the declaration's consequence: an **LLM-judged
+  receipt without `spec_hash` refuses to seal** (for an LLM-judged check the
+  prompt IS the predicate — the optional path is gone, not labeled). The
+  `spec_hash` travels IN the payload, and `requirement_ref` cites the
+  obligation the verdict serves ("art. 12(1)", a SOP clause) — the #47 tie:
+  obligation, not immunity. Stated residue: `judged_by` is itself a sealed
+  declaration — lying about it is visible in the artifact.
 - **verdict_predates_terminal — the scar becomes the spec (issue #53 —
   SCAR-PROC-110, Randal/gde)** — the race the replay suite surfaced as a
   named gap on day one ships as a check: an invariant may declare

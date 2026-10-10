@@ -390,6 +390,20 @@ spread is not discarded — it travels with the witness as calibration HISTORY
 graded against the bound (`control_out_of_range` — the checker drifted, or the
 range was fitted).
 
+**Amendment (Oct 10, v0.2.2 — Reid + howcani: two commentators, one evening;
+the seam SCAR-45 exposed, closed at the schema)**: `build_receipt` gains
+`judged_by` ("deterministic" | "llm") and the schema enforces the
+declaration's consequence — **`judged_by="llm"` without `spec_hash` REFUSES
+to seal**: for an LLM-judged check the prompt IS the predicate, and the
+optional path the replay suite walked through no longer exists. `spec_hash`
+travels IN the payload — the artifact carries the commitment it was judged
+against, not just an id that may or may not embed it — alongside
+`requirement_ref`: the obligation the verdict serves, cited ("art. 12(1)", a
+SOP clause), the #47 tie — obligation, not immunity. The honest residue,
+stated in the builder's own docstring: `judged_by` is itself a sealed
+declaration; lying about it is visible in the artifact — one step stronger
+than a label, one step weaker than mind-reading.
+
 **Amendment (Oct 10, issue #53 — SCAR-PROC-110, the scar becomes the spec)**:
 the replay suite surfaced the pairing race as a named gap on its first day;
 it ships as a check the same week. An invariant may declare `terminal_type` —

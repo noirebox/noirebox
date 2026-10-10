@@ -85,8 +85,11 @@ def build_receipt(*, artifact_sha256: str, check_id: str, evaluator_sha256: str,
                   pairing: str = "single-key", witness: dict | None = None,
                   counts: dict | None = None,
                   state_binding: dict | None = None,
-                  reason: str | None = None) -> dict:
-    """Builds the validated receipt payload (ADR 019 §1-7 + v0.2.1).
+                  reason: str | None = None,
+                  judged_by: str = "deterministic",
+                  spec_hash: str | None = None,
+                  requirement_ref: str | None = None) -> dict:
+    """Builds the validated receipt payload (ADR 019 §1-7 + v0.2.2).
 
     `pairing` grades the receipt honestly: "two-key" means the reconciliation
     layer ENFORCED that the check-name and the receipt travel under different
@@ -110,6 +113,22 @@ def build_receipt(*, artifact_sha256: str, check_id: str, evaluator_sha256: str,
     become diffable events inside the artifact instead of a sentence in a
     ticket outside it. Optional: a self-evident deterministic check may
     omit it — labeled, never hidden.
+
+    v0.2.2 (Reid + howcani, one evening, two commentators — the seam
+    SCAR-45 exposed, closed at the schema): `judged_by` declares what kind
+    of check produced the verdict, and the schema enforces the declaration's
+    consequence — **`judged_by="llm"` without `spec_hash` REFUSES to seal.**
+    For an LLM-judged check the prompt IS the predicate; a spec-less receipt
+    there was the optional path SCAR-45 walked through. `spec_hash` (present
+    or required) travels IN the payload: the artifact carries the commitment
+    it was judged against, not just an id that may or may not embed it. The
+    honest residue, stated: `judged_by` is itself a sealed declaration —
+    lying about it is visible in the artifact, which is one step stronger
+    than a label and one step weaker than mind-reading.
+
+    `requirement_ref` (the #47 tie): the obligation this verdict serves,
+    cited — "art. 12(1)" a SOP number, a PSD2 clause. Evidence exists to
+    prove an obligation was met; the receipt now names WHICH.
     """
     for name, value in (("artifact_sha256", artifact_sha256),
                         ("check_id", check_id), ("evaluator_sha256", evaluator_sha256)):
@@ -134,9 +153,28 @@ def build_receipt(*, artifact_sha256: str, check_id: str, evaluator_sha256: str,
         raise ValueError(
             "receipt: reason, when present, must be a non-empty string — "
             "the named expectation the verdict answers for")
+    if judged_by not in ("deterministic", "llm"):
+        raise ValueError(
+            f"receipt: judged_by must be 'deterministic' or 'llm', got {judged_by!r}")
+    if spec_hash is not None and not _is_sha256(spec_hash):
+        raise ValueError("receipt: spec_hash must be a 64-char sha256 hex digest")
+    if judged_by == "llm" and spec_hash is None:
+        # v0.2.2 — the schema REFUSES, it no longer labels: for an LLM-judged
+        # check the prompt IS the predicate. SCAR-45 walked through this
+        # optional path; it is closed.
+        raise ValueError(
+            "receipt: judged_by='llm' requires spec_hash — an LLM-judged "
+            "verdict without its committed spec does not seal (SCAR-45, "
+            "closed at the schema)")
+    if requirement_ref is not None and \
+            (not isinstance(requirement_ref, str) or not requirement_ref.strip()):
+        raise ValueError(
+            "receipt: requirement_ref, when present, must be a non-empty "
+            "string — WHICH obligation this verdict serves")
 
     payload: dict = {
-        "schema": "receipt/0.2",
+        "schema": "receipt/0.2.2",
+        "judged_by": judged_by,
         "artifact_sha256": artifact_sha256,
         "check_id": check_id,
         "evaluator_sha256": evaluator_sha256,
@@ -152,6 +190,10 @@ def build_receipt(*, artifact_sha256: str, check_id: str, evaluator_sha256: str,
         }
     if reason is not None:
         payload["reason"] = reason.strip()
+    if spec_hash is not None:
+        payload["spec_hash"] = spec_hash
+    if requirement_ref is not None:
+        payload["requirement_ref"] = requirement_ref.strip()
     if witness is not None:
         if not isinstance(witness, dict):
             raise ValueError("receipt: witness must be a dict carrying its identity")

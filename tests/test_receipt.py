@@ -18,7 +18,7 @@ _OK = {
 
 def test_build_receipt_minimal_is_valid_and_labeled():
     r = build_receipt(**_OK)
-    assert r["schema"] == "receipt/0.2"
+    assert r["schema"] == "receipt/0.2.2"
     assert r["pairing"] == "single-key"  # the default is the LABELED weakness
 
 
@@ -145,3 +145,50 @@ def test_reason_change_is_visible_in_the_sealed_payload():
     d1 = hashlib.sha256(canonical(r1)).hexdigest()
     d2 = hashlib.sha256(canonical(r2)).hexdigest()
     assert d1 != d2
+
+
+# --- v0.2.2 — spec_hash required for llm-judged checks (Reid + howcani) ------
+
+def test_llm_judged_without_spec_hash_refuses_to_seal():
+    """The schema REFUSES, it no longer labels: for an LLM-judged check the
+    prompt IS the predicate — SCAR-45's optional path is closed."""
+    import pytest
+
+    with pytest.raises(ValueError, match="requires spec_hash"):
+        build_receipt(**_OK, judged_by="llm")
+
+
+def test_llm_judged_with_spec_travels_the_commitment():
+    """The commitment rides IN the payload, not just inside the opaque id:
+    the artifact carries what it was judged against."""
+    spec = _sha("Load the rubric from disk; cite file:line for every gate.")
+    r = build_receipt(**_OK, judged_by="llm", spec_hash=spec)
+    assert r["judged_by"] == "llm"
+    assert r["spec_hash"] == spec
+    assert r["schema"] == "receipt/0.2.2"
+
+
+def test_judged_by_is_an_enum_and_deterministic_is_the_default():
+    import pytest
+
+    r = build_receipt(**_OK)
+    assert r["judged_by"] == "deterministic"
+    with pytest.raises(ValueError, match="judged_by"):
+        build_receipt(**_OK, judged_by="vibes")
+
+
+def test_requirement_ref_names_the_obligation():
+    """The #47 tie: evidence proves an obligation was met — the receipt
+    names WHICH."""
+    import pytest
+
+    r = build_receipt(**_OK, requirement_ref="AI-Act art. 12(1); SOP-114 §3")
+    assert r["requirement_ref"] == "AI-Act art. 12(1); SOP-114 §3"
+    with pytest.raises(ValueError, match="non-empty"):
+        build_receipt(**_OK, requirement_ref="   ")
+
+
+def _sha(value: str) -> str:
+    import hashlib
+
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
