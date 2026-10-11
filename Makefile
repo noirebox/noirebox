@@ -17,6 +17,12 @@ bench:
 differential:
 	.venv/bin/pytest tests/test_scar_replay.py -v
 
+# The open-weights canary experiment (SCAR-BENCH-114, docs/SCAR-BENCH.md):
+# Randal's prediction, falsifiable — primitives hold, canaries trip harder
+# on smaller priors. Local Ollama required; results land in bench/.
+scar-bench:
+	.venv/bin/python bench/scar114_canary.py
+
 serve:
 	.venv/bin/uvicorn noirebox.main:app --host 127.0.0.1 --port 8768
 

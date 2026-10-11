@@ -68,6 +68,38 @@ Claim checklist: baseline stated · primitive named · delta controlled ·
 per-model breakdown · denominator shown · significance stated. A claim
 that cannot fill this table is not published as a claim.
 
+### Measured — SCAR-BENCH-114, the open-weights leg (Oct 11)
+
+Randal's prediction ("the drop-in primitives hold on open weights while
+the canary tokens trip harder") — tested with the shipped witness layer:
+the orchestrator race replayed per model, Condition A = prose only (the
+judge's system prompt can only come from priors), Condition B = the
+canonical bytecode loaded first (the waitpid discipline). Graded by
+`reconcile_spec`: a produced prompt without the planted canary is the
+`spec_not_canonical` trip.
+
+| Model (all open weights, local) | A prose: trips/n | B primitive: trips/n | strict canonical |
+|---|---|---|---|
+| qwen2.5-coder:3b | 18/18 (100%) | 15/20 (75%) | 0 |
+| qwen2.5:0.5b | 19/19 (100%) | 15/19 (79%) | 0 |
+| llama-guard3:1b (classifier — cannot play the role at all) | 20/20 (100%) | 20/20 (100%) | 0 |
+
+Read: **Condition A is a ceiling — 100% trips everywhere, no model ever
+guesses "4. Blast Radius" from priors** (the prediction's first half
+holds, hard). **Condition B cuts trips to ~75-79% — Level 1 reduces the
+hallucination but does not fix it**, which is the argument for Level 2:
+the host must load the spec from the sealed bytecode, never trust the
+model's paraphrase. **Strict canonical = 0 everywhere**: no model ever
+reproduces the exact bytes — which is precisely why the receipt carries
+`spec_hash` of what was ACTUALLY loaded. llama-guard3:1b is a safety
+classifier, included deliberately: the instrument catches total role
+non-compliance too. Disclosure: single machine, local Ollama,
+temperature 0.7, per-trial seeds (42+i, recorded per trial), prompts in
+`bench/scar114_canary.py`, 4 timeouts excluded with denominators shown.
+**The frontier leg is open** — same harness, one API key, and the
+"works because it's Unix" vs "works because it's frontier" separation
+lands.
+
 ## 3. The suite is a differential — run it against YOUR gate
 
 `tests/test_scar_replay.py` is not NoireBox's test suite; it is a
