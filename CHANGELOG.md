@@ -5,6 +5,8 @@ versioning according to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-10-11
+
 ### Added
 - **Receipt v0.2.4 — the ceiling of the join, closed (howcani's audit)** —
   the v0.2.3 label-vs-journal join shared a structural blind spot with the
