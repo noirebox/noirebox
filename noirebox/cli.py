@@ -41,7 +41,7 @@ def main(argv: list[str] | None = None) -> int:
                     help="seal the report as a crosschain_reconciliation event")
     xc.add_argument("--fail-on-findings", action="store_true",
                     help="exit 2 if any cross-chain finding exists (CI-friendly)")
-    wis = sub.add_parser("wisdom", help=argparse.SUPPRESS)  # easter egg — not advertised
+    sub.add_parser("wisdom", help=argparse.SUPPRESS)  # easter egg — not advertised
     pin = sub.add_parser("toolset-pin",
                          help="MCP toolset baseline — tool descriptions are "
                               "instructions, pin them (issue #50)")
