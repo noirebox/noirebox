@@ -123,6 +123,13 @@ class Finding:
         dangling_requirement_ref — a receipt citing requirement_ref that no
                            sealed requirement carries: decoration until it
                            resolves (v0.2.3, howcani)
+        judge_defined_before_spec_read — a judge defined with no sealed read
+                           of its bytecode BEFORE the definition: the
+                           parallel-call race, the prompt hallucinated from
+                           priors (SCAR-PROC-114, Randal/gde)
+        spec_not_canonical — a receipt's spec_hash matching no sealed spec:
+                           the canary witness says the judge read bytes
+                           nobody committed (SCAR-PROC-114)
     """
 
     invariant: str
@@ -467,6 +474,104 @@ def seal_requirement(store, key, *, ref: str, obligation: str) -> dict:
         "ref": ref.strip(),
         "obligation": obligation.strip(),
     }, key)
+
+
+def seal_spec(store, key, *, spec_id: str, text: str, canary: str,
+              source_ref: str = "") -> dict:
+    """Seals the CANONICAL judge bytecode as a `spec` event (v0.2.3 —
+    SCAR-PROC-114's canary witness, Randal/gde): the reference manual the
+    judge is supposed to load, committed to the journal with its CANARY
+    TOKEN planted inside. The canary is a phrase cut from private history —
+    never in any pre-training prior — so its presence in a loaded prompt
+    proves WHICH bytes the judge actually read; a judge that hallucinated
+    the bytecode from priors invents generic headings ("Security",
+    "Performance") and trips it immediately.
+
+    The canary is PLANTED, not declared: a seal whose text does not contain
+    it is refused at build time. The reconciliation (`reconcile_spec`) then
+    checks every receipt's spec_hash against this registry."""
+    if not str(spec_id or "").strip():
+        raise ValueError("spec: spec_id is required — receipts and reads resolve to it")
+    if not str(text or "").strip():
+        raise ValueError("spec: text is required — the canonical bytecode itself")
+    if not str(canary or "").strip():
+        raise ValueError("spec: canary is required — a key cut from private "
+                         "history, never from a textbook template")
+    if canary not in text:
+        raise ValueError("spec: the canary must be PLANTED in the text — a "
+                         "canary declared outside the bytecode proves nothing")
+    import hashlib
+
+    return store.append("spec", {
+        "schema": "spec/0.1",
+        "spec_id": spec_id.strip(),
+        "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+        "canary": canary.strip(),
+        "source_ref": source_ref.strip(),
+    }, key)
+
+
+def reconcile_spec(events: list[dict], *, spec_id: str) -> list[Finding]:
+    """The SCAR-PROC-114 joins (v0.2.3 — Randal's live race, slabb's
+    translation): the judge's definition must postdate its bytecode's read,
+    and the bytes it judged must be the sealed canonical ones.
+
+    1. **The race** — a `judge_define` event for this spec with NO
+       `spec_read` sealed EARLIER is the finding
+       `judge_defined_before_spec_read`: the judge was defined in the same
+       turn its bytecode was (or before it returned), so its system prompt
+       was necessarily hallucinated from priors — t_return(view_file) <
+       t_call(define_subagent), the waitpid discipline applied to prompt
+       loading.
+    2. **The canary** — a receipt carrying a `spec_hash` that matches NO
+       sealed spec event is the finding `spec_not_canonical`: the bytes the
+       judge read were never committed to the journal. The hallucinated
+       bytecode hashes differently than the canonical one — the drift
+       surfaces as a registry miss instead of a soft reviewer."""
+    specs: dict[str, dict] = {}
+    for e in events:
+        if e.get("type") == "spec":
+            sid = str(e.get("payload", {}).get("spec_id", "")).strip()
+            if sid:
+                specs.setdefault(sid, e)
+    canonical = specs.get(spec_id)
+    reads: list[dict] = []
+    defines: list[dict] = []
+    for e in events:
+        payload = e.get("payload", {})
+        if e.get("type") == "spec_read" and str(payload.get("spec_id", "")) == spec_id:
+            reads.append(e)
+        elif e.get("type") == "judge_define" and str(payload.get("spec_id", "")) == spec_id:
+            defines.append(e)
+    if canonical is None:
+        raise ValueError(f"spec: no sealed spec {spec_id!r} — reconcile the "
+                         f"canonical bytecode or none of it")
+
+    findings: list[Finding] = []
+    for define in defines:
+        earlier_read = any(r["seq"] < define["seq"] for r in reads)
+        if not earlier_read:
+            findings.append(Finding(
+                "spec", "judge_defined_before_spec_read", spec_id,
+                decision_seq=define["seq"],
+                note="the judge was defined with no sealed read of its "
+                     "bytecode BEFORE the definition — the system prompt was "
+                     "necessarily hallucinated from priors (the parallel-call "
+                     "race: never define the judge in the same turn you read "
+                     "its bytecode)"))
+    for e in events:
+        payload = e.get("payload", {})
+        if e.get("type") == "receipt" and payload.get("spec_hash"):
+            bound = str(payload["spec_hash"])
+            if bound != canonical["payload"]["sha256"]:
+                findings.append(Finding(
+                    "spec", "spec_not_canonical", spec_id,
+                    decision_seq=e["seq"],
+                    note="the judged spec hash matches no sealed canonical "
+                         "bytecode — the canary witness says the judge read "
+                         "bytes nobody committed (hallucinated headings hash "
+                         "differently than the planted canary)"))
+    return findings
 
 
 def reconcile_receipts(events: list[dict], *,

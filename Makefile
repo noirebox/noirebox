@@ -12,6 +12,11 @@ test:
 bench:
 	.venv/bin/python demo/bench.py
 
+# The SCAR catalog, replayed against THIS tree (docs/SCAR-BENCH.md §3):
+# a negative-control set any gate builder can run against their own layer.
+differential:
+	.venv/bin/pytest tests/test_scar_replay.py -v
+
 serve:
 	.venv/bin/uvicorn noirebox.main:app --host 127.0.0.1 --port 8768
 

@@ -372,6 +372,8 @@ local TSA (incl. the insider chain-regeneration attack)**, and the full
 third-party verifier contract. Everything replays locally: `make test`
 re-trains both language models and runs the full suite.
 
+**The SCAR replay suite is a differential, not just a test suite** — the four attack fixtures from Randal L. Schwartz's gate-attack catalog (plus the canary-witness race, SCAR-PROC-114) replayed against this reconciliation layer, each asserting what it does: catches the attack, or confesses the gap in writing. Run it against YOUR gate: `make differential`. Grading, claims format and the Level 0/1/2 enforcement taxonomy: [docs/SCAR-BENCH.md](docs/SCAR-BENCH.md).
+
 **Static security scanning** runs in CI ([Bandit](https://bandit.readthedocs.io/),
 fails on MEDIUM and above); every recurring LOW finding is baselined with its
 justification in [docs/SECURITY-BASELINE.md](docs/SECURITY-BASELINE.md) — no

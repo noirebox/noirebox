@@ -313,3 +313,100 @@ def test_scar_110_the_waitpid_equivalent_binds_the_terminal_transcript(tmp_path)
     assert events[1]["payload"]["witness"]["transcript_sha256"] == \
         events[0]["payload"]["transcript_sha256"]
     assert canonical(events[1]["payload"])  # the receipt seals, bytes deterministic
+
+
+# --- SCAR-PROC-114 — the parallel-call race + the canary witness -------------
+# Fixture (Randal, 3h8ep): "When an orchestrator is in a hurry to reach
+# Target 4a, it tries to call view_file('04_six_pillars_adversarial_review.md')
+# and define_subagent('adversarial_critic', system_prompt: ...) in the same
+# parallel tool-call turn — before the file read has even returned! Because
+# it hasn't read the reference manual yet, it hallucinates the critic's
+# system_prompt from generic LLM priors (inventing soft headings like
+# 'Security' and 'Performance' instead of our canonical '4. Blast Radius')."
+# Runtime fix: t_return(view_file) < t_call(define_subagent) — and the
+# canary token, planted in the bytecode, proves which bytes were read.
+
+from noirebox.reconcile import seal_spec  # noqa: E402
+
+
+def test_scar_114_hallucinated_bytecode_trips_the_canary(tmp_path):
+    """The race + the canary: the judge defined with no sealed read before
+    it, and a receipt whose spec_hash matches no sealed canonical bytecode.
+    Both findings fire — the drift surfaces as a registry miss instead of a
+    soft reviewer. Outcome: CAUGHT."""
+    import hashlib
+
+    from noirebox.reconcile import reconcile_spec as _reconcile_spec
+
+    store, orchestrator = _journal(tmp_path, "orch114")
+    _, critic = _journal(tmp_path, "critic114")
+
+    canonical = ("04. Six-Pillar Adversarial Review\n"
+                 "1. Intent  2. Verification  3. Architecture\n"
+                 "4. Blast Radius\n5. Reviewer Defense\n6. Immune Defenses")
+    seal_spec(store, orchestrator, spec_id="six-pillars",
+              text=canonical, canary="4. Blast Radius",
+              source_ref="04_six_pillars_adversarial_review.md")
+
+    # the race: define_subagent dispatched, no sealed read BEFORE it
+    store.append("judge_define", {"spec_id": "six-pillars",
+                                  "judge": "adversarial_critic"}, orchestrator)
+
+    # the hallucinated bytecode: generic headings, no canary — it hashes
+    # differently than the canonical bytes
+    hallucinated = ("You are a helpful code reviewer. Check Security and "
+                    "Performance. The code looks clean and well-structured!")
+    store.append("receipt", {
+        "schema": "receipt/0.2.2", "run_id": "run_114",
+        "judged_by": "llm",
+        "spec_hash": hashlib.sha256(hallucinated.encode()).hexdigest(),
+    }, critic)
+
+    findings = _reconcile_spec(store.all(), spec_id="six-pillars")
+    statuses = sorted(f.status for f in findings)
+    assert statuses == ["judge_defined_before_spec_read", "spec_not_canonical"]
+    race = [f for f in findings if f.status == "judge_defined_before_spec_read"][0]
+    assert "hallucinated from priors" in race.note
+    canary = [f for f in findings if f.status == "spec_not_canonical"][0]
+    assert "canary witness" in canary.note
+
+
+def test_scar_114_read_before_define_and_canonical_bytes_are_clean(tmp_path):
+    """The waitpid discipline, applied to prompt loading: the read returns
+    and is sealed BEFORE the judge is defined, and the receipt's spec_hash
+    is the canonical digest — the canary proves which bytes were read.
+    Outcome: CLEAN."""
+    import hashlib
+
+    from noirebox.reconcile import reconcile_spec as _reconcile_spec
+
+    store, orchestrator = _journal(tmp_path, "orch114b")
+    _, critic = _journal(tmp_path, "critic114b")
+
+    canonical = ("04. Six-Pillar Adversarial Review\n"
+                 "4. Blast Radius\n5. Reviewer Defense")
+    seal_spec(store, orchestrator, spec_id="six-pillars",
+              text=canonical, canary="4. Blast Radius")
+    digest = hashlib.sha256(canonical.encode()).hexdigest()
+    # t_return(view_file) sealed BEFORE t_call(define_subagent)
+    store.append("spec_read", {"spec_id": "six-pillars",
+                               "sha256": digest}, critic)
+    store.append("judge_define", {"spec_id": "six-pillars",
+                                  "judge": "adversarial_critic"}, orchestrator)
+    store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "run_115",
+                             "judged_by": "llm", "spec_hash": digest}, critic)
+    assert _reconcile_spec(store.all(), spec_id="six-pillars") == []
+
+
+def test_seal_spec_refuses_a_canary_not_planted(tmp_path):
+    """The canary is PLANTED, not declared: a seal whose text does not
+    contain it is refused at build time — a canary declared outside the
+    bytecode proves nothing."""
+    import pytest
+
+    store, key = _journal(tmp_path, "spec114")
+    with pytest.raises(ValueError, match="PLANTED"):
+        seal_spec(store, key, spec_id="s", text="a bland prompt, no marker",
+                  canary="4. Blast Radius")
+    with pytest.raises(ValueError, match="spec_id is required"):
+        seal_spec(store, key, spec_id="", text="x", canary="c")
