@@ -565,11 +565,16 @@ def test_label_llm_call_mismatch_the_label_vs_the_journal(tmp_path):
     observation the labelled party did not author. No llm_call → clean."""
     from noirebox.reconcile import reconcile_receipts
 
+    from noirebox.chain import KeyPair
+
     store, key = _store(tmp_path)
+    transport = KeyPair.generate()  # the hook process, a writer the agent is not
     store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "run_1",
                              "judged_by": "deterministic"}, key)
+    store.append("agent_tool_use", {"run_id": "run_1", "tool": "view_file"},
+                 transport)  # v0.2.4: the label needs its transport witness
     events = store.all()
-    assert reconcile_receipts(events) == []            # no judge observed
+    assert reconcile_receipts(events) == []            # no judge; transport witnessed
 
     store.append("llm_call", {"run_id": "run_1", "model": "qwen2.5:3b"}, key)
     findings = reconcile_receipts(store.all())
@@ -605,7 +610,7 @@ def test_seal_requirement_validates(tmp_path):
     event = seal_requirement(store, key, ref="SOP-114 §3",
                              obligation="no destructive gesture without a witness")
     assert event.type == "requirement"
-    assert event.payload["schema"] == "requirement/0.1"
+    assert event.payload["schema"] == "requirement/0.2"
     with pytest.raises(ValueError, match="ref is required"):
         seal_requirement(store, key, ref=" ", obligation="x")
     with pytest.raises(ValueError, match="obligation is required"):
@@ -651,3 +656,88 @@ def test_coverage_requires_the_write_type():
 
     with pytest.raises(ValueError, match="write_type is required"):
         check_coverage([], write_type=" ")
+
+
+# --- v0.2.4 — the transport-writer invariant + the load-bearing citation ------
+
+def test_deterministic_label_without_transport_attempt_is_a_finding(tmp_path):
+    """howcani's ceiling, closed by inversion: a 'deterministic' label with
+    no transport attempt on the key is UNVERIFIED — the failure mode is
+    absence, and absence becomes a missing event."""
+    from noirebox.reconcile import reconcile_receipts
+
+    store, key = _store(tmp_path)
+    store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "run_1",
+                             "judged_by": "deterministic"}, key)
+    findings = reconcile_receipts(store.all())
+    assert [f.status for f in findings] == ["unverified_label"]
+    assert "no transport attempt on this key" in findings[0].note
+
+
+def test_transport_attempt_by_the_agents_own_writer_stays_unverified(tmp_path):
+    """The transport sealed by the receipt's own writer is the
+    shared-dependency test one layer down (ADR 021): same trust domain,
+    same finding."""
+    from noirebox.reconcile import reconcile_receipts
+
+    store, key = _store(tmp_path)  # the agent seals BOTH sides
+    store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "run_1",
+                             "judged_by": "deterministic"}, key)
+    store.append("agent_tool_use", {"run_id": "run_1", "tool": "view_file"}, key)
+    signers = [(key.public_hex(), "agent")]
+    findings = reconcile_receipts(store.all(), signers=signers)
+    assert [f.status for f in findings] == ["unverified_label"]
+    assert "same trust domain" in findings[0].note
+
+
+def test_transport_attempt_by_another_writer_verifies_the_label(tmp_path):
+    """The one clean shape: the hook process (a key the agent does not
+    control) sealed the attempt — the label is witnessed."""
+    from noirebox.reconcile import reconcile_receipts
+
+    store, agent = _store(tmp_path)
+    hook = KeyPair.generate()
+    store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "run_1",
+                             "judged_by": "deterministic"}, agent)
+    store.append("agent_tool_use", {"run_id": "run_1", "tool": "view_file"}, hook)
+    signers = [(agent.public_hex(), "agent"), (hook.public_hex(), "hook")]
+    assert reconcile_receipts(store.all(), signers=signers) == []
+
+
+def test_requirement_out_of_scope_fires_when_the_diff_touches_nothing(tmp_path):
+    """The citation goes load-bearing: the requirement names its scope at
+    seal time, the touched set comes from git (the first observation the
+    citing agent does not author), and a scope touching nothing in the
+    diff is the finding."""
+    from noirebox.reconcile import reconcile_receipts, seal_requirement
+
+    store, key = _store(tmp_path)
+    seal_requirement(store, key, ref="SOP-114 §3",
+                     obligation="no destructive gesture without a witness",
+                     scope=["src/payments/*"])
+    store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "run_1",
+                             "judged_by": "llm", "spec_hash": "ab" * 32,
+                             "requirement_ref": "SOP-114 §3"}, key)
+
+    findings = reconcile_receipts(store.all(),
+                                  touched_paths=["src/ui/widget.py"])
+    assert [f.status for f in findings] == ["requirement_out_of_scope"]
+    assert "does not govern this work" in findings[0].note
+
+    # the diff touches the scope: the citation governs this work — clean
+    assert reconcile_receipts(store.all(),
+                              touched_paths=["src/payments/settle.py"]) == []
+    # no touched set provided: the scope check is skipped, only the
+    # dangling check runs — clean here
+    assert reconcile_receipts(store.all()) == []
+
+
+def test_seal_requirement_validates_the_scope(tmp_path):
+    import pytest
+    from noirebox.reconcile import seal_requirement
+
+    store, key = _store(tmp_path)
+    with pytest.raises(ValueError, match="scope must be a non-empty list"):
+        seal_requirement(store, key, ref="r", obligation="o", scope=["  "])
+    with pytest.raises(ValueError, match="scope must be a non-empty list"):
+        seal_requirement(store, key, ref="r", obligation="o", scope="src/*")

@@ -424,6 +424,40 @@ resolves against the sealed obligations registry (`seal_requirement` →
 Provable becomes surfaced: the same promotion `verdict_predates_terminal`
 got.
 
+**Amendment (Oct 11 evening, v0.2.4 — howcani pulled the tarball, re-ran
+the three receipt paths, then named the CEILING)**: everything above
+holds — and the v0.2.3 join has a structural blind spot both sides of it
+share: the label AND the observation come from the same store, the same
+key, the same writer as the receipt. The join catches the INCONSISTENT
+agent; it is structurally blind to the CONSISTENT agent that never
+journals an llm_call. *The failure mode is absence — the one thing a
+chain cannot see.* Three closures:
+
+1. **The transport-writer invariant** (the burden inverts, one layer
+   down): a receipt declaring `judged_by="deterministic"` is verified
+   only by a TRANSPORT attempt on the same key (the hook process's
+   `agent_tool_use` — sealed by a writer the agent does not control),
+   sealed by a key other than the receipt's own. No transport attempt,
+   or only same-writer attempts: the finding `unverified_label`. No
+   longer "prove no model was called" (unverifiable from inside) — "a
+   deterministic label without a transport witness is the finding."
+   Absence becomes a missing event, not a missing negative; the
+   attempt-first move (ADR 020) applied to the transport layer.
+2. **`requirement_ref` goes load-bearing** — the citation is confronted
+   with its SCOPE: the sealed requirement names the paths it governs AT
+   SEAL TIME (`requirement/0.2`), and the diff's touched set — from git,
+   the first observation the citing agent does not author — must
+   intersect that scope, or the finding `requirement_out_of_scope`: the
+   obligation cited does not govern this work.
+3. **The lineage, corrected (this supersedes the `alg: none` mapping
+   above)**: howcani's note — same FAMILY (the seal verifies but proves
+   nothing), DIFFERENT repairs. `alg: none` closes by refusing the
+   ALGORITHM; the wrong-issuer shape closes by NAMING the issuer. v0.2.3
+   was the wrong-issuer repair done right: `judged_by` required makes
+   every receipt NAME who judged, and v0.2.4's transport join then
+   CHECKS the named issuer against an observation the issuer does not
+   control. The next schema reader starts here, not at JWTs.
+
 **Amendment (Oct 10, issue #53 — SCAR-PROC-110, the scar becomes the spec)**:
 the replay suite surfaced the pairing race as a named gap on its first day;
 it ships as a check the same week. An invariant may declare `terminal_type` —
