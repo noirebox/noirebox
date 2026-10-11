@@ -123,6 +123,13 @@ class Finding:
         dangling_requirement_ref — a receipt citing requirement_ref that no
                            sealed requirement carries: decoration until it
                            resolves (v0.2.3, howcani)
+        judge_defined_before_bytecode — a judge subagent defined with no read
+                           of the canonical spec EARLIER: the parallel-call
+                           race — never define the judge in the same turn
+                           you read its bytecode (SCAR-PROC-114, Randal)
+        canary_absent       — the defined prompt lacks the declared canary
+                           token: the bytecode was hallucinated from
+                           pre-training priors, not loaded (SCAR-PROC-114)
     """
 
     invariant: str
@@ -530,6 +537,59 @@ def reconcile_receipts(events: list[dict], *,
                      f"the citation is decoration until it resolves"))
     return findings
 
+
+
+
+# --- SCAR-PROC-114 — the judge defined from hallucinated bytecode ------------
+
+def judge_provenance(events: list[dict], *, canary: str,
+                     define_type: str = "define_subagent",
+                     read_type: str = "read_reference",
+                     prompt_field: str = "system_prompt",
+                     correlation_key: str = "ticket_id") -> list[Finding]:
+    """The read-before-define barrier + the canary token (SCAR-PROC-114,
+    Randal's Part 3.8 — issue #53, fixture 5).
+
+    The fixture: an orchestrator in a hurry calls the judge-definition and
+    the manual read in the SAME parallel tool-call turn — before the read
+    has returned — and defines the critic's system_prompt from pre-training
+    priors (soft headings like "Security" and "Performance" where the
+    canonical bytecode says "4. Blast Radius"). Two checks with failure
+    modes, per correlation key:
+
+      judge_defined_before_bytecode — the define sealed with no read of the
+                           canonical source EARLIER: never define the judge
+                           in the same turn you read its bytecode
+                           (t_return < t_call, the waitpid discipline at
+                           tool-call granularity);
+      canary_absent       — the defined prompt lacks the declared canary
+                           token: a heading forged from private history
+                           that no vanilla prior guesses, so its presence
+                           proves which bytes the judge actually read
+                           (the negative witness planted in the bytecode).
+    """
+    findings: list[Finding] = []
+    defines = [e for e in events if e.get("type") == define_type]
+    reads = [e for e in events if e.get("type") == read_type]
+    for d in defines:
+        payload = d.get("payload", {}) or {}
+        key = str(payload.get(correlation_key) or "")
+        cid = key or f"seq-{d['seq']}"
+        prompt = str(payload.get(prompt_field) or "")
+        prior_reads = [r for r in reads
+                       if str((r.get("payload", {}) or {}).get(correlation_key) or "") == key
+                       and r["seq"] < d["seq"]]
+        if not prior_reads:
+            findings.append(Finding("judge_provenance", "judge_defined_before_bytecode",
+                                    cid, decision_seq=d["seq"],
+                                    note="the judge was defined with no earlier read "
+                                         "of the canonical bytecode (SCAR-114)"))
+        if canary and canary not in prompt:
+            findings.append(Finding("judge_provenance", "canary_absent",
+                                    cid, decision_seq=d["seq"],
+                                    note="the defined prompt lacks the declared canary — "
+                                         "hallucinated from priors (SCAR-114)"))
+    return findings
 
 def journal_report(store, key, invariants: list[Invariant],
                    findings: list[Finding], probes: list[Finding] | None = None,

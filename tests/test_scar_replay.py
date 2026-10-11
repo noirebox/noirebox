@@ -19,13 +19,17 @@ writing. No invented SCAR content: every fixture below is the article's own
                                             ships as a finding — pairing
                                             reads the terminal, not the
                                             first response
+  SCAR-PROC-114 judge from hallucinated   → caught twice: the parallel-call
+                 bytecode (Part 3.8)        race (`judge_defined_before_bytecode`)
+                                            and the canary token
+                                            (`canary_absent`) — fixture 5
 """
 from __future__ import annotations
 
 import hashlib
 
 from noirebox.chain import KeyPair, canonical, verify_chain
-from noirebox.reconcile import Invariant, journal_report, reconcile
+from noirebox.reconcile import Invariant, judge_provenance, journal_report, reconcile
 from noirebox.receipt import build_receipt, check_id
 from noirebox.store import EventStore
 
@@ -313,3 +317,61 @@ def test_scar_110_the_waitpid_equivalent_binds_the_terminal_transcript(tmp_path)
     assert events[1]["payload"]["witness"]["transcript_sha256"] == \
         events[0]["payload"]["transcript_sha256"]
     assert canonical(events[1]["payload"])  # the receipt seals, bytes deterministic
+
+
+# --- SCAR-PROC-114 — the judge defined from hallucinated bytecode ------------
+# Fixture (Part 3.8): "an orchestrator in a hurry calls view_file(...) and
+# define_subagent(...) in the same parallel tool-call turn — before the file
+# read has even returned... it hallucinates the critic's system_prompt from
+# generic LLM priors (inventing soft headings like 'Security' and
+# 'Performance' instead of our canonical '4. Blast Radius')."
+
+CANARY = "4. Blast Radius"
+
+
+def _ev(seq, type_, payload):
+    return {"seq": seq, "ts": f"2026-10-11T00:00:0{seq}+00:00",
+            "type": type_, "payload": payload}
+
+
+def test_scar_114_parallel_call_race_is_caught():
+    """The orchestrator defines the critic BEFORE the manual read returns —
+    the ordering race. Outcome: CAUGHT (`judge_defined_before_bytecode`)."""
+    events = [
+        _ev(1, "define_subagent", {"ticket_id": "t1",
+            "system_prompt": "You are a critic. Check 4. Blast Radius; cite lines."}),
+        _ev(2, "read_reference", {"ticket_id": "t1",
+            "file": "04_six_pillars_adversarial_review.md"}),
+    ]
+    findings = judge_provenance(events, canary=CANARY)
+    statuses = {f.status for f in findings}
+    assert "judge_defined_before_bytecode" in statuses
+    assert "canary_absent" not in statuses  # the bytes were right; the ORDER was not
+
+
+def test_scar_114_hallucinated_prompt_trips_the_canary():
+    """Read ran first — but the defined prompt carries the priors' soft
+    headings, not the canonical canary. Outcome: CAUGHT (`canary_absent`)."""
+    events = [
+        _ev(1, "read_reference", {"ticket_id": "t1",
+            "file": "04_six_pillars_adversarial_review.md"}),
+        _ev(2, "define_subagent", {"ticket_id": "t1",
+            "system_prompt": "Review the diff for Security and Performance issues."}),
+    ]
+    findings = judge_provenance(events, canary=CANARY)
+    statuses = {f.status for f in findings}
+    assert "canary_absent" in statuses
+    assert "judge_defined_before_bytecode" not in statuses  # the ORDER was right
+
+
+def test_scar_114_canonical_load_passes_clean():
+    """Read first, canary present — the judge provably loaded the canonical
+    bytecode. Outcome: CLEAN."""
+    events = [
+        _ev(1, "read_reference", {"ticket_id": "t1",
+            "file": "04_six_pillars_adversarial_review.md"}),
+        _ev(2, "define_subagent", {"ticket_id": "t1",
+            "system_prompt": "Adversarial review per the six pillars. 4. Blast Radius "
+                             "must be addressed; cite line numbers per pillar."}),
+    ]
+    assert judge_provenance(events, canary=CANARY) == []
