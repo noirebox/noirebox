@@ -404,6 +404,26 @@ stated in the builder's own docstring: `judged_by` is itself a sealed
 declaration; lying about it is visible in the artifact — one step stronger
 than a label, one step weaker than mind-reading.
 
+**Amendment (Oct 11, v0.2.3 — howcani's audit ran the validator, not the
+diff; Randal mapped the seams to the classics)**: `judged_by` becomes
+REQUIRED with no default. v0.2.2's optional field defaulted to the tier
+that requires nothing — an LLM-judged check that said nothing sealed
+exactly the receipt SCAR-45 walked through, with "deterministic" written
+in it: omission and honesty produced the same bytes. A two-valued security
+enum defaulting to the unverified tier on omission is the classic
+default-to-permissive downgrade (the `alg: none` structural twin); the
+fix is fail-closed — an honest caller pays one keyword, the laundering
+path ceases to exist. The receipt's declarations also stop being
+unverified claims: `reconcile_receipts` joins the label against
+**out-of-band telemetry** — a receipt declaring "deterministic" while the
+journal contains an `llm_call` for the same key is the finding
+`label_llm_call_mismatch` (a self-reported label checked against an
+observation the labelled party did not author), and `requirement_ref`
+resolves against the sealed obligations registry (`seal_requirement` →
+`requirement/0.1`) — a dangling citation is `dangling_requirement_ref`.
+Provable becomes surfaced: the same promotion `verdict_predates_terminal`
+got.
+
 **Amendment (Oct 10, issue #53 — SCAR-PROC-110, the scar becomes the spec)**:
 the replay suite surfaced the pairing race as a named gap on its first day;
 it ships as a check the same week. An invariant may declare `terminal_type` —

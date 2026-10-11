@@ -132,12 +132,23 @@ def test_scar_45_the_optional_path_closed_at_the_schema():
                       run_id="run_1",
                       judged_by="llm")  # SCAR-45's path: refused, not labeled
 
+    # fifth assertion (v0.2.3, the promised one): the OMISSION path refuses
+    # too, where it used to seal as a quiet "deterministic" — howcani's
+    # seam B: omission and honesty no longer produce the same bytes, they
+    # now produce nothing at all.
+    with pytest.raises(TypeError):
+        build_receipt(artifact_sha256=_digest("artifact"),
+                      check_id=id_without_spec,
+                      evaluator_sha256=_digest("evaluator"),
+                      run_id="run_1")
+
     # the declared-deterministic path still seals — but the declaration
     # travels in the payload, where a lie is diffable:
     receipt = build_receipt(artifact_sha256=_digest("artifact"),
                             check_id=id_without_spec,
                             evaluator_sha256=_digest("evaluator"),
-                            run_id="run_1")
+                            run_id="run_1",
+                            judged_by="deterministic")  # the caller says it
     assert receipt["schema"] == "receipt/0.2.2"
     assert receipt["judged_by"] == "deterministic"
 
