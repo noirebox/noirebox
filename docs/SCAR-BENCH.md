@@ -134,7 +134,42 @@ tamper-evident WITHOUT signatures or external anchoring; ours anchors
 externally (RFC 3161/OTS). A fleet running both inherits both failure
 modes — which is what a differential is for.
 
-## 5. The open-weights axis (next)
+## 5. The frontier leg — LANDING PAD (open)
+
+Randal L. Schwartz is running the frontier leg (Gemini 2.5 Flash-Lite /
+Flash / Pro, N=20 per cell) and PRing the rows straight into this file.
+The merge contract, so the PR lands clean:
+
+- the **open-weights table stays intact** — frontier rows are ADDED
+  below it, same columns: `Model | A prose: trips/n | B primitive:
+  trips/n | strict canonical`;
+- every run carries its **disclosure block** (machine, endpoint,
+  temperature, per-trial seeds, timeouts excluded with denominators);
+- grading stays the shipped instrument: `seal_spec` + `reconcile_spec` —
+  a produced prompt without the planted canary is the trip, no
+  judgment calls.
+
+**Two formulations, engraved (Randal, Part 3.8 + the frontier thread):**
+
+1. **Benchmark vs differential** — "a benchmark measures how high a
+   model jumps on a sunny day; a differential tests whether the boundary
+   holds when the model tries to take a shortcut." SCAR-BENCH is the
+   benchmark; the replay suite is the differential. Both live here, and
+   they answer different questions.
+2. **The telephone-game law** — *never relay a canonical spec through an
+   LLM's output tokens; the host injects from disk.* The empirical
+   justification: in the audited run, **0 of 57 responses reproduced the
+   canonical bytecode byte-for-byte** — every relayed spec was a
+   paraphrase. That 0 is why `spec_hash` is Level 2: the receipt carries
+   what was ACTUALLY loaded, because what was loaded is never what comes
+   back out of the model.
+3. **The two axes are orthogonal** — Freq ≈ 0 (canary retention,
+   SCAR-BENCH-114) tests whether the model invents what it was never
+   shown; Freq > 10⁶ (structural syntax, SCAR-BENCH-04) tests whether
+   the primitive unlocks what its weights already encode. Run both on the same
+   models; they fail differently and neither substitutes for the other.
+
+## 6. The open-weights axis (next)
 
 humam_moin's question on Part 3.8: if gravity is pre-training-derived, the
 Level 1 primitives should hold on open weights while **the canary tokens
