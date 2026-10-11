@@ -610,3 +610,44 @@ def test_seal_requirement_validates(tmp_path):
         seal_requirement(store, key, ref=" ", obligation="x")
     with pytest.raises(ValueError, match="obligation is required"):
         seal_requirement(store, key, ref="r", obligation="")
+
+
+# --- issue #44 — coverage vs binding (sinarezaei) ----------------------------
+
+def test_uncovered_write_is_the_finding(tmp_path):
+    """§5's invariant as a ready-made check: every write event reconciles
+    against a gate receipt on the same key — an exec the gate never vouched
+    for is surfaced, K8s-shaped."""
+    from noirebox.reconcile import check_coverage
+
+    store, key = _store(tmp_path)
+    store.append("pod_delete", {"run_id": "run_1", "pod": "payments-7"}, key)
+    findings = check_coverage(store.all(), write_type="pod_delete")
+    assert [f.status for f in findings] == ["uncovered_write"]
+    assert "never vouched for" in findings[0].note
+
+    # the gate's receipt arrives for the same key: coverage, clean
+    store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "run_1",
+                             "judged_by": "deterministic"}, key)
+    assert check_coverage(store.all(), write_type="pod_delete") == []
+
+
+def test_coverage_joins_on_the_key_not_the_order(tmp_path):
+    """Two writes, one receipt: the keyed write is covered, the other is
+    the finding — correlation strictness is the whole check."""
+    from noirebox.reconcile import check_coverage
+
+    store, key = _store(tmp_path)
+    store.append("orders.capture", {"run_id": "run_a"}, key)
+    store.append("orders.capture", {"run_id": "run_b"}, key)
+    store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "run_a"}, key)
+    findings = check_coverage(store.all(), write_type="orders.capture")
+    assert [f.correlation_id for f in findings] == ["run_b"]
+
+
+def test_coverage_requires_the_write_type():
+    import pytest
+    from noirebox.reconcile import check_coverage
+
+    with pytest.raises(ValueError, match="write_type is required"):
+        check_coverage([], write_type=" ")
