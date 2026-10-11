@@ -133,6 +133,15 @@ class Finding:
         uncovered_write    — a write/exec event that reconciles against no
                            gate receipt on the same key: the gate never
                            vouched for it (issue #44, sinarezaei)
+        unverified_label   — a receipt declaring judged_by="deterministic"
+                           with no transport attempt on the same key, or
+                           only attempts sealed by its own writer: the
+                           label nobody else witnessed (v0.2.4, howcani —
+                           the absence a chain cannot see)
+        requirement_out_of_scope — a receipt citing a scoped requirement
+                           while the diff touches nothing in the scope:
+                           the obligation cited does not govern this work
+                           (v0.2.4)
     """
 
     invariant: str
@@ -501,23 +510,33 @@ def check_coverage(events: list[dict], *, write_type: str,
 
 # --- v0.2.3 — the receipt joins (howcani's audit; Randal: Bell's theorem) ----
 
-def seal_requirement(store, key, *, ref: str, obligation: str) -> dict:
+def seal_requirement(store, key, *, ref: str, obligation: str,
+                     scope: list[str] | None = None) -> dict:
     """Seals one entry of the OBLIGATIONS REGISTRY as a `requirement` event
-    (v0.2.3): the registry `requirement_ref` citations resolve against at
-    reconcile time. `ref` is the citation the receipts carry ("AI-Act art.
-    12(1)", "SOP-114 §3"); `obligation` is what that requirement demands, in
-    prose. Without a sealed registry, a citation is decoration; with one,
-    a dangling reference is a finding."""
+    (v0.2.3; v0.2.4 makes citations load-bearing). `ref` is the citation the
+    receipts carry ("AI-Act art. 12(1)", "SOP-114 §3"); `obligation` is what
+    the requirement demands, in prose. `scope` (v0.2.4) names the paths the
+    requirement GOVERNS, declared at seal time — so the reconcile join can
+    confront the citation with the diff's touched set, the first observation
+    the citing agent does not author. A scope-less requirement is global and
+    never scope-checked."""
     if not str(ref or "").strip():
         raise ValueError("requirement: ref is required — the citation receipts carry")
     if not str(obligation or "").strip():
         raise ValueError("requirement: obligation is required — WHAT the "
                          "requirement demands, in prose")
-    return store.append("requirement", {
-        "schema": "requirement/0.1",
+    payload: dict = {
+        "schema": "requirement/0.2",
         "ref": ref.strip(),
         "obligation": obligation.strip(),
-    }, key)
+    }
+    if scope is not None:
+        if not isinstance(scope, list) or not scope or \
+                any(not isinstance(p, str) or not p.strip() for p in scope):
+            raise ValueError("requirement: scope must be a non-empty list of "
+                             "non-empty paths — WHAT the requirement governs")
+        payload["scope"] = [p.strip() for p in scope]
+    return store.append("requirement", payload, key)
 
 
 def seal_spec(store, key, *, spec_id: str, text: str, canary: str,
@@ -621,23 +640,40 @@ def reconcile_spec(events: list[dict], *, spec_id: str) -> list[Finding]:
 def reconcile_receipts(events: list[dict], *,
                        judge_call_type: str = "llm_call",
                        requirement_type: str = "requirement",
-                       correlation_key: str = "run_id") -> list[Finding]:
-    """The receipt joins (v0.2.3 — howcani's audit, Randal's framing): a
-    receipt's sealed declarations are checked against OBSERVATIONS the
-    declaring party did not author.
+                       correlation_key: str = "run_id",
+                       transport_attempt_type: str = "agent_tool_use",
+                       signers: list[tuple[str, str]] | None = None,
+                       touched_paths: list[str] | None = None) -> list[Finding]:
+    """The receipt joins (v0.2.3 — howcani's audit; v0.2.4 — the ceiling,
+    closed): a receipt's sealed declarations are checked against
+    OBSERVATIONS the declaring party did not author.
 
-    1. **Label vs journal** — a receipt declaring `judged_by="deterministic"`
-       while the journal contains a `{judge_call_type}` event sharing the
-       correlation key is the finding `label_llm_call_mismatch`: a judge WAS
-       invoked; you cannot read the judge's intent, but you can read whether
-       a judge was called.
-    2. **Citation resolution** — a receipt carrying `requirement_ref` that no
-       sealed `requirement` entry carries is the finding
-       `dangling_requirement_ref`: the citation stops being decoration.
+    1. **Label vs journal** — a receipt declaring `judged_by="llm"` is not
+       checked here (the judge's own call event is the observation); a
+       receipt declaring `judged_by="deterministic"` while the journal
+       contains a `{judge_call_type}` event on the same correlation key is
+       `label_llm_call_mismatch`: a judge WAS invoked.
+    2. **The transport-writer invariant (v0.2.4 — the absence a chain
+       cannot see)**: a receipt declaring `judged_by="deterministic"` with
+       NO `{transport_attempt_type}` attempt on the same key — or only
+       attempts sealed by the receipt's OWN writer — is
+       `unverified_label`. The join v0.2.3 was structurally blind to the
+       CONSISTENT agent that never journals an llm_call; the burden
+       inverts: the label is verified only by an attempt from the
+       transport (the hook process), sealed by a writer the agent does
+       not control. Absence becomes a missing event, not a missing
+       negative.
+    3. **Citation resolution + scope (v0.2.4 — load-bearing)**: a receipt
+       citing `requirement_ref` that no sealed requirement carries is
+       `dangling_requirement_ref`. When the resolved requirement declares
+       a SCOPE (paths it governs, sealed at requirement time) and
+       `touched_paths` is provided (the diff's touched set, from git —
+       the first observation the agent does not author), a citation whose
+       scope intersects NOTHING in the touched set is
+       `requirement_out_of_scope`: the obligation cited does not govern
+       this work.
 
-    Receipts are events of type `receipt` (payload schema `receipt/0.2.*`);
-    the join runs on `correlation_key` (default `run_id` — the journal's
-    correlation convention applies: the same key everything else joins on).
+    Receipts are events of type `receipt` (payload schema `receipt/0.2.*`).
     Clean joins return an empty list; seal the findings like any report."""
     receipts = [e for e in events
                 if e.get("type") == "receipt"
@@ -648,12 +684,18 @@ def reconcile_receipts(events: list[dict], *,
             value = e.get("payload", {}).get(correlation_key)
             if value is not None:
                 judge_calls.setdefault(str(value), e)
-    requirements: set[str] = set()
+    requirements: dict[str, dict] = {}
     for e in events:
         if e.get("type") == requirement_type:
             ref = e.get("payload", {}).get("ref")
             if ref:
-                requirements.add(str(ref))
+                requirements.setdefault(str(ref), e.get("payload", {}))
+    transports: dict[str, list[dict]] = {}
+    for e in events:
+        if e.get("type") == transport_attempt_type:
+            value = e.get("payload", {}).get(correlation_key)
+            if value is not None:
+                transports.setdefault(str(value), []).append(e)
 
     findings: list[Finding] = []
     for e in receipts:
@@ -670,13 +712,51 @@ def reconcile_receipts(events: list[dict], *,
                      f"contains a {judge_call_type} event for the same key — "
                      "the label checked against an observation the labelled "
                      "party did not author"))
+        if payload.get("judged_by") == "deterministic" and \
+                join_value not in judge_calls:
+            attempts = transports.get(join_value, [])
+            verified = False
+            if attempts:
+                receipt_signer = _signer(e, signers)
+                if signers and receipt_signer != "unknown":
+                    verified = any(_signer(a, signers) not in
+                                   ("unknown", receipt_signer) for a in attempts)
+                else:
+                    # no known-writer set: presence is judged, cross-writer is not
+                    verified = True
+            if not verified:
+                reason = ("no transport attempt on this key" if not attempts else
+                          "the only transport attempts on this key carry the "
+                          "receipt's own writer — same trust domain (ADR 021, "
+                          "one layer down)")
+                findings.append(Finding(
+                    "receipts", "unverified_label", join_value,
+                    decision_seq=e["seq"],
+                    note=f"receipt declares 'deterministic' and {reason} — "
+                         "the label is a claim the agent authored; the "
+                         "transport is the observation it did not"))
         cited = payload.get("requirement_ref")
-        if cited and str(cited) not in requirements:
-            findings.append(Finding(
-                "receipts", "dangling_requirement_ref", str(cited),
-                decision_seq=e["seq"],
-                note=f"requirement_ref {cited!r} resolves to nothing sealed — "
-                     f"the citation is decoration until it resolves"))
+        if cited:
+            req = requirements.get(str(cited))
+            if req is None:
+                findings.append(Finding(
+                    "receipts", "dangling_requirement_ref", str(cited),
+                    decision_seq=e["seq"],
+                    note=f"requirement_ref {cited!r} resolves to nothing sealed — "
+                         f"the citation is decoration until it resolves"))
+            elif touched_paths is not None:
+                scope = req.get("scope")
+                if isinstance(scope, list) and scope and \
+                        not any(str(p).rstrip("*") and
+                                any(str(t).startswith(str(p).rstrip("*"))
+                                    for t in touched_paths)
+                                for p in scope):
+                    findings.append(Finding(
+                        "receipts", "requirement_out_of_scope", str(cited),
+                        decision_seq=e["seq"],
+                        note=f"requirement_ref {cited!r} governs "
+                             f"{scope}, and the diff touches none of it — "
+                             f"the obligation cited does not govern this work"))
     return findings
 
 

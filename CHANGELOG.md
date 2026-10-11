@@ -5,6 +5,24 @@ versioning according to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Receipt v0.2.4 — the ceiling of the join, closed (howcani's audit)** —
+  the v0.2.3 label-vs-journal join shared a structural blind spot with the
+  receipt: both sides came from the same store, the same key, the same
+  writer — it caught the INCONSISTENT agent and was blind to the
+  CONSISTENT one that never journals an llm_call ("the failure mode is
+  absence — the one thing a chain cannot see"). Closed by inversion:
+  `judged_by="deterministic"` is verified only by a TRANSPORT attempt on
+  the same key (the hook process's `agent_tool_use`), sealed by a writer
+  the agent does not control — absence or same-writer-only is the finding
+  `unverified_label`. And `requirement_ref` goes load-bearing: the sealed
+  requirement names its SCOPE (`requirement/0.2`), the diff's touched set
+  comes from git (the first observation the citing agent does not author),
+  and a citation whose scope touches nothing is
+  `requirement_out_of_scope`. ADR 019 gains the corrected lineage:
+  `alg: none` closes by refusing the algorithm; the wrong-issuer shape
+  closes by NAMING the issuer.
+
 ## [0.11.0] — 2026-10-11
 
 ### Added
