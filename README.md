@@ -387,7 +387,7 @@ the integrity of the journal — the verifier ships as a GitHub Action
 - uses: noirebox/noirebox-verify@v1
   with:
     export-path: export.json
-    noirebox-ref: v0.6.0   # pin the verifier ref — reproducible audits
+    noirebox-ref: v0.12.0  # pin the verifier ref — reproducible audits
 ```
 
 ## Roadmap
