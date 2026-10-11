@@ -130,6 +130,9 @@ class Finding:
         spec_not_canonical — a receipt's spec_hash matching no sealed spec:
                            the canary witness says the judge read bytes
                            nobody committed (SCAR-PROC-114)
+        uncovered_write    — a write/exec event that reconciles against no
+                           gate receipt on the same key: the gate never
+                           vouched for it (issue #44, sinarezaei)
     """
 
     invariant: str
@@ -452,6 +455,47 @@ def run_probes(events: list[dict], invariants: list[Invariant],
         got = {f.correlation_id: f.status for f in results if f.correlation_id == cid}
         if got.get(cid) != probe["expect"]:
             findings.append(Finding("probe", "probe_did_not_bite", probe["name"]))
+    return findings
+
+
+# --- issue #44 — coverage vs binding (sinarezaei) ----------------------------
+
+def check_coverage(events: list[dict], *, write_type: str,
+                   receipt_type: str = "receipt",
+                   correlation_key: str = "run_id") -> list[Finding]:
+    """Coverage vs binding (issue #44 — sinarezaei): every WRITE event must
+    reconcile against a gate receipt — an exec with no matching receipt is
+    the finding `uncovered_write`. Pitched at K8s/platform teams: the
+    mutating calls are `write_type` ("pod_delete", "orders.capture"…), the
+    gate's verdicts are `receipt_type`, and the join runs on
+    `correlation_key` — the journal's correlation convention applies.
+
+    A write covered by a receipt is clean; a write whose key no receipt
+    carries is the omission, surfaced. (The reverse — a receipt with no
+    write — is the orphan half, `orphan_outcome`, elsewhere.) Clean
+    coverage returns an empty list; seal the findings like any report."""
+    if not str(write_type or "").strip():
+        raise ValueError("coverage: write_type is required — which event type "
+                         "is the mutating call?")
+    writes: dict[str, dict] = {}
+    receipts: set[str] = set()
+    for e in events:
+        value = e.get("payload", {}).get(correlation_key)
+        if value is None:
+            continue
+        value = str(value)
+        if e.get("type") == write_type:
+            writes.setdefault(value, e)
+        elif e.get("type") == receipt_type:
+            receipts.add(value)
+    findings: list[Finding] = []
+    for value, e in writes.items():
+        if value not in receipts:
+            findings.append(Finding(
+                "coverage", "uncovered_write", value,
+                decision_seq=e["seq"],
+                note=f"the {write_type} at seq {e['seq']} reconciles against "
+                     f"no gate receipt — an exec the gate never vouched for"))
     return findings
 
 

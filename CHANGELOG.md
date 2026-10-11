@@ -6,6 +6,13 @@ versioning according to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **coverage_check — every write reconciles against a gate receipt (issue
+  #44 — sinarezaei)** — the §5 invariant shipped as a ready-made check:
+  mutating calls (`write_type` — a `pod_delete`, an `orders.capture`) are
+  joined against the gate's receipts on the correlation key, and an exec
+  with no receipt is `uncovered_write` — an exec the gate never vouched
+  for. Pitched at K8s/platform teams; clean coverage returns an empty
+  list, and the findings seal like any report.
 - **SCAR-PROC-114 — the parallel-call race + the canary witness (Randal/gde,
   Fixture 5)** — the runtime race from the live tickets: an orchestrator
   defines the judge in the same parallel turn it reads the judge's bytecode,
