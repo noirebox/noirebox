@@ -1,7 +1,5 @@
 """The wall — one easter egg, one invariant: it prints what was promised,
 dedicated to the reviewer who asked for a frame (SCAR-BENCH-114)."""
-import pytest
-
 from noirebox.wisdom import FRAME
 
 
