@@ -6,6 +6,28 @@ versioning according to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **SCAR-PROC-114 — the parallel-call race + the canary witness (Randal/gde,
+  Fixture 5)** — the runtime race from the live tickets: an orchestrator
+  defines the judge in the same parallel turn it reads the judge's bytecode,
+  so the system prompt is hallucinated from pre-training priors (generic
+  "Security"/"Performance" headings instead of the canonical planted canary,
+  "4. Blast Radius" — a key cut from private history, never in a prior).
+  Shipped: `seal_spec` → `spec/0.1` (the canonical bytecode sealed with its
+  canary PLANTED — a seal whose text lacks the canary is refused at build
+  time) and `reconcile_spec`: a judge defined with no sealed read of its
+  bytecode BEFORE the definition is `judge_defined_before_spec_read`; a
+  receipt whose spec_hash matches no sealed canonical bytecode is
+  `spec_not_canonical` — the drift surfaces as a registry miss instead of a
+  soft reviewer.
+- **SCAR-BENCH — the claims format, the enforcement taxonomy, the
+  differential (`docs/SCAR-BENCH.md` + `make differential`)** — every
+  control graded Level 0/1/2 by WHAT ENFORCES IT (prose / primitive in
+  context / host-enforced); the numerical-claims format taken from the
+  catalog's published matrix (baseline → primitive → controlled delta, per
+  model, denominator and significance); the replay suite positioned as a
+  shared negative-control set ("run it against YOUR gate"); the W231 bridge
+  to Mike Mol's mtools (mechanical/arithmetical/behavioral ↔ the digest, the
+  denominator, the confronted label).
 - **Receipt v0.2.3 — the alg:none door, closed (howcani's audit + Randal's
   lineage)** — `judged_by` becomes **required with no default**: v0.2.2's
   optional field defaulted to the tier that requires nothing, so an
