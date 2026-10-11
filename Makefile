@@ -1,5 +1,5 @@
 # NoireBox — shortcuts (make test, make demo, make serve…)
-.PHONY: install test bench sync-count serve demo demo-mcp demo-llm demo-judge demo-fleet demo-payout demo-install-gate ollama-pull judge-pull fleet-anchor tsa dataset train train-en train-es docker clean
+.PHONY: install test bench sync-count serve demo demo-mcp demo-llm demo-judge demo-fleet demo-payout demo-install-gate ollama-pull judge-pull fleet-anchor tsa dataset train train-en train-es docker wisdom clean
 
 install:
 	python3 -m venv .venv
@@ -22,6 +22,11 @@ differential:
 # on smaller priors. Local Ollama required; results land in bench/.
 scar-bench:
 	.venv/bin/python bench/scar114_canary.py
+
+# The wall Randal asked for ("deserves to be framed on a wall").
+# Not in `make help` — easter eggs don't advertise, they wait.
+wisdom:
+	.venv/bin/python -m noirebox.wisdom
 
 serve:
 	.venv/bin/uvicorn noirebox.main:app --host 127.0.0.1 --port 8768

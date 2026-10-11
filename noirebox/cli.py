@@ -41,6 +41,7 @@ def main(argv: list[str] | None = None) -> int:
                     help="seal the report as a crosschain_reconciliation event")
     xc.add_argument("--fail-on-findings", action="store_true",
                     help="exit 2 if any cross-chain finding exists (CI-friendly)")
+    wis = sub.add_parser("wisdom", help=argparse.SUPPRESS)  # easter egg — not advertised
     pin = sub.add_parser("toolset-pin",
                          help="MCP toolset baseline — tool descriptions are "
                               "instructions, pin them (issue #50)")
@@ -497,6 +498,12 @@ def main(argv: list[str] | None = None) -> int:
             err = check["first_error"]
             print(f"    first anomaly at seq={err['seq']}: {err['reason']}")
         return 0 if check["valid"] else 1
+
+    if args.command == "wisdom":
+        from noirebox.wisdom import print_wisdom
+
+        print_wisdom()
+        return 0
 
     if args.command == "locate":
         from noirebox import locate
