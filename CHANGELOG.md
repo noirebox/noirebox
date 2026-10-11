@@ -5,6 +5,8 @@ versioning according to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-10-11
+
 ### Added
 - **coverage_check — every write reconciles against a gate receipt (issue
   #44 — sinarezaei)** — the §5 invariant shipped as a ready-made check:
