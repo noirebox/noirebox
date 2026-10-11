@@ -13,6 +13,7 @@ _OK = {
     "check_id": check_id("tests pass", {}, "1.0"),
     "evaluator_sha256": hashlib.sha256(b"evaluator script bytes").hexdigest(),
     "run_id": "run-42",
+    "judged_by": "deterministic",  # v0.2.3: required, no default — say it or don't seal
 }
 
 
@@ -20,6 +21,15 @@ def test_build_receipt_minimal_is_valid_and_labeled():
     r = build_receipt(**_OK)
     assert r["schema"] == "receipt/0.2.2"
     assert r["pairing"] == "single-key"  # the default is the LABELED weakness
+
+
+def test_judged_by_omitted_refuses_to_seal():
+    """v0.2.3 — the alg:none door (howcani's seam B): omission and honesty
+    used to produce the same bytes. They no longer produce ANY bytes: the
+    omission path is a TypeError, not a quiet 'deterministic'."""
+    ok_without = {k: v for k, v in _OK.items() if k != "judged_by"}
+    with pytest.raises(TypeError):
+        build_receipt(**ok_without)
 
 
 def test_two_key_pairing_is_explicit_not_default():
@@ -155,26 +165,26 @@ def test_llm_judged_without_spec_hash_refuses_to_seal():
     import pytest
 
     with pytest.raises(ValueError, match="requires spec_hash"):
-        build_receipt(**_OK, judged_by="llm")
+        build_receipt(**{**_OK, "judged_by": "llm"})
 
 
 def test_llm_judged_with_spec_travels_the_commitment():
     """The commitment rides IN the payload, not just inside the opaque id:
     the artifact carries what it was judged against."""
     spec = _sha("Load the rubric from disk; cite file:line for every gate.")
-    r = build_receipt(**_OK, judged_by="llm", spec_hash=spec)
+    r = build_receipt(**{**_OK, "judged_by": "llm"}, spec_hash=spec)
     assert r["judged_by"] == "llm"
     assert r["spec_hash"] == spec
     assert r["schema"] == "receipt/0.2.2"
 
 
-def test_judged_by_is_an_enum_and_deterministic_is_the_default():
+def test_judged_by_is_an_enum_with_no_quiet_tier():
     import pytest
 
     r = build_receipt(**_OK)
-    assert r["judged_by"] == "deterministic"
+    assert r["judged_by"] == "deterministic"  # because the CALLER said it
     with pytest.raises(ValueError, match="judged_by"):
-        build_receipt(**_OK, judged_by="vibes")
+        build_receipt(**{**_OK, "judged_by": "vibes"})
 
 
 def test_requirement_ref_names_the_obligation():

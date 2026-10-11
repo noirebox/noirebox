@@ -555,3 +555,58 @@ def test_receipt_gap_refuses_negative_counters():
 
     with pytest.raises(ValueError, match="counts are counts"):
         check_receipt_gap("vendor-api", fetches_served=-1, receipts_held=0)
+
+
+# --- v0.2.3 — the receipt joins (howcani's audit; Randal's Bell's theorem) ---
+
+def test_label_llm_call_mismatch_the_label_vs_the_journal(tmp_path):
+    """A receipt declaring 'deterministic' while the journal contains an
+    llm_call for the same key is a finding: the label checked against an
+    observation the labelled party did not author. No llm_call → clean."""
+    from noirebox.reconcile import reconcile_receipts
+
+    store, key = _store(tmp_path)
+    store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "run_1",
+                             "judged_by": "deterministic"}, key)
+    events = store.all()
+    assert reconcile_receipts(events) == []            # no judge observed
+
+    store.append("llm_call", {"run_id": "run_1", "model": "qwen2.5:3b"}, key)
+    findings = reconcile_receipts(store.all())
+    assert [f.status for f in findings] == ["label_llm_call_mismatch"]
+    assert findings[0].correlation_id == "run_1"
+    assert "observation the labelled party did not author" in findings[0].note
+
+
+def test_dangling_requirement_ref_is_a_finding_until_it_resolves(tmp_path):
+    """A citation nothing checks is decoration. Unsealed ref → finding;
+    once the obligation is in the registry → clean."""
+    from noirebox.reconcile import reconcile_receipts, seal_requirement
+
+    store, key = _store(tmp_path)
+    store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "run_2",
+                             "judged_by": "llm", "spec_hash": "ab" * 32,
+                             "requirement_ref": "AI-Act art. 12(1)"}, key)
+    findings = reconcile_receipts(store.all())
+    assert [f.status for f in findings] == ["dangling_requirement_ref"]
+    assert "decoration until it resolves" in findings[0].note
+
+    seal_requirement(store, key, ref="AI-Act art. 12(1)",
+                     obligation="record each period of use automatically")
+    assert reconcile_receipts(store.all()) == []
+    assert verify_chain(key.public_hex(), store.all())["valid"]
+
+
+def test_seal_requirement_validates(tmp_path):
+    import pytest
+    from noirebox.reconcile import seal_requirement
+
+    store, key = _store(tmp_path)
+    event = seal_requirement(store, key, ref="SOP-114 §3",
+                             obligation="no destructive gesture without a witness")
+    assert event.type == "requirement"
+    assert event.payload["schema"] == "requirement/0.1"
+    with pytest.raises(ValueError, match="ref is required"):
+        seal_requirement(store, key, ref=" ", obligation="x")
+    with pytest.raises(ValueError, match="obligation is required"):
+        seal_requirement(store, key, ref="r", obligation="")

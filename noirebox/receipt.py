@@ -81,12 +81,11 @@ def evaluator_sha256(path: str) -> str:
 
 
 def build_receipt(*, artifact_sha256: str, check_id: str, evaluator_sha256: str,
-                  run_id: str, base_commit: str | None = None,
+                  run_id: str, judged_by: str, base_commit: str | None = None,
                   pairing: str = "single-key", witness: dict | None = None,
                   counts: dict | None = None,
                   state_binding: dict | None = None,
                   reason: str | None = None,
-                  judged_by: str = "deterministic",
                   spec_hash: str | None = None,
                   requirement_ref: str | None = None) -> dict:
     """Builds the validated receipt payload (ADR 019 §1-7 + v0.2.2).
@@ -117,14 +116,21 @@ def build_receipt(*, artifact_sha256: str, check_id: str, evaluator_sha256: str,
     v0.2.2 (Reid + howcani, one evening, two commentators — the seam
     SCAR-45 exposed, closed at the schema): `judged_by` declares what kind
     of check produced the verdict, and the schema enforces the declaration's
-    consequence — **`judged_by="llm"` without `spec_hash` REFUSES to seal.**
-    For an LLM-judged check the prompt IS the predicate; a spec-less receipt
-    there was the optional path SCAR-45 walked through. `spec_hash` (present
-    or required) travels IN the payload: the artifact carries the commitment
-    it was judged against, not just an id that may or may not embed it. The
-    honest residue, stated: `judged_by` is itself a sealed declaration —
-    lying about it is visible in the artifact, which is one step stronger
-    than a label and one step weaker than mind-reading.
+    consequence — `judged_by="llm"` without `spec_hash` REFUSES to seal.
+    `spec_hash` (present or required) travels IN the payload: the artifact
+    carries the commitment it was judged against. `requirement_ref` cites
+    the obligation the verdict serves ("art. 12(1)", a SOP clause) — the
+    #47 tie: obligation, not immunity.
+
+    v0.2.3 (the alg:none door, closed — howcani's audit + Randal's lineage):
+    `judged_by` is REQUIRED with no default. v0.2.2 left it optional with
+    "deterministic" as the default — which meant an LLM-judged check that
+    said nothing about how it was judged sealed exactly the receipt SCAR-45
+    walked through, with `judged_by: "deterministic"` written in it: nobody
+    had to lie, omission and honesty produced the same bytes. A two-valued
+    security enum that defaults to the unverified tier on omission IS the
+    classic default-to-permissive downgrade; fail-closed on it costs an
+    honest caller one keyword and costs the laundering path its existence.
 
     `requirement_ref` (the #47 tie): the obligation this verdict serves,
     cited — "art. 12(1)" a SOP number, a PSD2 clause. Evidence exists to

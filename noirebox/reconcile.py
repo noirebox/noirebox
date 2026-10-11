@@ -116,6 +116,13 @@ class Finding:
                            different verdict — the mid-flight forgery
                            surfaced (SCAR-PROC-110, issue #53; "the scar
                            becomes the spec")
+        label_llm_call_mismatch — a receipt declaring judged_by=
+                           "deterministic" while the journal contains an
+                           llm_call for the same key: the label vs the
+                           out-of-band observation (v0.2.3, howcani)
+        dangling_requirement_ref — a receipt citing requirement_ref that no
+                           sealed requirement carries: decoration until it
+                           resolves (v0.2.3, howcani)
     """
 
     invariant: str
@@ -438,6 +445,89 @@ def run_probes(events: list[dict], invariants: list[Invariant],
         got = {f.correlation_id: f.status for f in results if f.correlation_id == cid}
         if got.get(cid) != probe["expect"]:
             findings.append(Finding("probe", "probe_did_not_bite", probe["name"]))
+    return findings
+
+
+# --- v0.2.3 — the receipt joins (howcani's audit; Randal: Bell's theorem) ----
+
+def seal_requirement(store, key, *, ref: str, obligation: str) -> dict:
+    """Seals one entry of the OBLIGATIONS REGISTRY as a `requirement` event
+    (v0.2.3): the registry `requirement_ref` citations resolve against at
+    reconcile time. `ref` is the citation the receipts carry ("AI-Act art.
+    12(1)", "SOP-114 §3"); `obligation` is what that requirement demands, in
+    prose. Without a sealed registry, a citation is decoration; with one,
+    a dangling reference is a finding."""
+    if not str(ref or "").strip():
+        raise ValueError("requirement: ref is required — the citation receipts carry")
+    if not str(obligation or "").strip():
+        raise ValueError("requirement: obligation is required — WHAT the "
+                         "requirement demands, in prose")
+    return store.append("requirement", {
+        "schema": "requirement/0.1",
+        "ref": ref.strip(),
+        "obligation": obligation.strip(),
+    }, key)
+
+
+def reconcile_receipts(events: list[dict], *,
+                       judge_call_type: str = "llm_call",
+                       requirement_type: str = "requirement",
+                       correlation_key: str = "run_id") -> list[Finding]:
+    """The receipt joins (v0.2.3 — howcani's audit, Randal's framing): a
+    receipt's sealed declarations are checked against OBSERVATIONS the
+    declaring party did not author.
+
+    1. **Label vs journal** — a receipt declaring `judged_by="deterministic"`
+       while the journal contains a `{judge_call_type}` event sharing the
+       correlation key is the finding `label_llm_call_mismatch`: a judge WAS
+       invoked; you cannot read the judge's intent, but you can read whether
+       a judge was called.
+    2. **Citation resolution** — a receipt carrying `requirement_ref` that no
+       sealed `requirement` entry carries is the finding
+       `dangling_requirement_ref`: the citation stops being decoration.
+
+    Receipts are events of type `receipt` (payload schema `receipt/0.2.*`);
+    the join runs on `correlation_key` (default `run_id` — the journal's
+    correlation convention applies: the same key everything else joins on).
+    Clean joins return an empty list; seal the findings like any report."""
+    receipts = [e for e in events
+                if e.get("type") == "receipt"
+                and str(e.get("payload", {}).get("schema", "")).startswith("receipt/")]
+    judge_calls: dict[str, dict] = {}
+    for e in events:
+        if e.get("type") == judge_call_type:
+            value = e.get("payload", {}).get(correlation_key)
+            if value is not None:
+                judge_calls.setdefault(str(value), e)
+    requirements: set[str] = set()
+    for e in events:
+        if e.get("type") == requirement_type:
+            ref = e.get("payload", {}).get("ref")
+            if ref:
+                requirements.add(str(ref))
+
+    findings: list[Finding] = []
+    for e in receipts:
+        payload = e.get("payload", {})
+        join_value = payload.get(correlation_key)
+        if join_value is None:
+            continue
+        join_value = str(join_value)
+        if payload.get("judged_by") == "deterministic" and join_value in judge_calls:
+            findings.append(Finding(
+                "receipts", "label_llm_call_mismatch", join_value,
+                decision_seq=e["seq"],
+                note="receipt declares 'deterministic' while the journal "
+                     f"contains a {judge_call_type} event for the same key — "
+                     "the label checked against an observation the labelled "
+                     "party did not author"))
+        cited = payload.get("requirement_ref")
+        if cited and str(cited) not in requirements:
+            findings.append(Finding(
+                "receipts", "dangling_requirement_ref", str(cited),
+                decision_seq=e["seq"],
+                note=f"requirement_ref {cited!r} resolves to nothing sealed — "
+                     f"the citation is decoration until it resolves"))
     return findings
 
 

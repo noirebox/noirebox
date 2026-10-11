@@ -6,6 +6,19 @@ versioning according to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Receipt v0.2.3 — the alg:none door, closed (howcani's audit + Randal's
+  lineage)** — `judged_by` becomes **required with no default**: v0.2.2's
+  optional field defaulted to the tier that requires nothing, so an
+  LLM-judged check that said nothing sealed the exact SCAR-45 receipt with
+  "deterministic" written in it — omission and honesty produced the same
+  bytes. Fail-closed costs an honest caller one keyword and ends the
+  laundering path. The declarations stop being unverified claims:
+  `reconcile_receipts` joins the label against the journal (a receipt
+  declaring "deterministic" with an `llm_call` on the same key =
+  `label_llm_call_mismatch`) and resolves `requirement_ref` against the
+  sealed obligations registry (`seal_requirement` → `requirement/0.1`;
+  a dangling citation = `dangling_requirement_ref`). Provable becomes
+  surfaced — the same promotion `verdict_predates_terminal` got.
 - **Receipt v0.2.2 — the seam SCAR-45 exposed, closed at the schema (Reid +
   howcani)** — `build_receipt` gains `judged_by` ("deterministic" | "llm")
   and the schema enforces the declaration's consequence: an **LLM-judged
