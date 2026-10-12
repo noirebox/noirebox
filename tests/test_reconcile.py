@@ -569,15 +569,18 @@ def test_label_llm_call_mismatch_the_label_vs_the_journal(tmp_path):
 
     store, key = _store(tmp_path)
     transport = KeyPair.generate()  # the hook process, a writer the agent is not
+    signers = [(key.public_hex(), "agent"), (transport.public_hex(), "hook")]
     store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "run_1",
                              "judged_by": "deterministic"}, key)
     store.append("agent_tool_use", {"run_id": "run_1", "tool": "view_file"},
                  transport)  # v0.2.4: the label needs its transport witness
     events = store.all()
-    assert reconcile_receipts(events) == []            # no judge; transport witnessed
+    # v0.2.5: signers supplied — the cross-writer check resolves by KEY
+    # material (the hook's key is not the receipt's), so the label verifies
+    assert reconcile_receipts(events, signers=signers) == []   # no judge
 
     store.append("llm_call", {"run_id": "run_1", "model": "qwen2.5:3b"}, key)
-    findings = reconcile_receipts(store.all())
+    findings = reconcile_receipts(store.all(), signers=signers)
     assert [f.status for f in findings] == ["label_llm_call_mismatch"]
     assert findings[0].correlation_id == "run_1"
     assert "observation the labelled party did not author" in findings[0].note
@@ -741,3 +744,58 @@ def test_seal_requirement_validates_the_scope(tmp_path):
         seal_requirement(store, key, ref="r", obligation="o", scope=["  "])
     with pytest.raises(ValueError, match="scope must be a non-empty list"):
         seal_requirement(store, key, ref="r", obligation="o", scope="src/*")
+
+
+# --- v0.2.5 — howcani's probe (3hebj): the verdict reads keys, not labels ----
+
+def test_v025_the_verdict_reads_keys_not_labels(tmp_path):
+    """Probe row pair: the SAME two keys, relabelled. v0.2.4 flipped the
+    verdict on the label string ('hook' vs 'agent' — one word, same owner).
+    v0.2.5 compares key material: both relabellings read identically."""
+    from noirebox.chain import KeyPair
+    from noirebox.reconcile import reconcile_receipts
+
+    store, agent = _store(tmp_path)
+    hook = KeyPair.generate()
+    store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "run_1",
+                             "judged_by": "deterministic"}, agent)
+    store.append("agent_tool_use", {"run_id": "run_1", "tool": "view_file"}, hook)
+    events = store.all()
+    relabel_honest = [(agent.public_hex(), "agent"), (hook.public_hex(), "hook")]
+    relabel_laundered = [(agent.public_hex(), "agent"), (hook.public_hex(), "agent")]
+    assert reconcile_receipts(events, signers=relabel_honest) == []
+    assert reconcile_receipts(events, signers=relabel_laundered) == []
+
+
+def test_v025_unresolved_receipt_signer_is_undecidable_not_clean(tmp_path):
+    """Probe BUG B: the receipt's writer not resolving against the
+    known-writer set made 'not the receipt's' undecidable — and the v0.2.4
+    branch answered undecidable as clean. Now it carries its own state."""
+    from noirebox.chain import KeyPair
+    from noirebox.reconcile import reconcile_receipts
+
+    store, agent = _store(tmp_path)
+    notary = KeyPair.generate()
+    store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "run_1",
+                             "judged_by": "deterministic"}, agent)
+    store.append("agent_tool_use", {"run_id": "run_1", "tool": "view_file"}, agent)
+    signers = [(notary.public_hex(), "notary")]  # the receipt's key is NOT here
+    findings = reconcile_receipts(store.all(), signers=signers)
+    statuses = {f.status for f in findings}
+    assert "independence_undecidable" in statuses
+    assert "unverified_label" not in statuses  # undecidable is not clean
+
+
+def test_v025_no_signer_set_is_unassessed_not_clean(tmp_path):
+    """Probe: the natural call shape (no signers) was the permissive branch.
+    Now: independence unassessed is its own note on the finding — the
+    absence half still fires, and the writer half stops flattering."""
+    from noirebox.reconcile import reconcile_receipts
+
+    store, agent = _store(tmp_path)
+    store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "run_1",
+                             "judged_by": "deterministic"}, agent)
+    store.append("agent_tool_use", {"run_id": "run_1", "tool": "view_file"}, agent)
+    findings = reconcile_receipts(store.all())
+    assert [f.status for f in findings] == ["unverified_label"]
+    assert "independence cannot be established" in findings[0].note

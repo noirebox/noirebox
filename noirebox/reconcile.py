@@ -123,6 +123,11 @@ class Finding:
         dangling_requirement_ref — a receipt citing requirement_ref that no
                            sealed requirement carries: decoration until it
                            resolves (v0.2.3, howcani)
+        independence_undecidable — the receipt's writer does not resolve
+                           against the known-writer set: cross-writer
+                           independence is undecidable, and undecidable is
+                           never clean (v0.2.5, howcani's probe — the
+                           third input the v0.2.4 branch answered as clean)
         judge_defined_before_spec_read — a judge defined with no sealed read
                            of its bytecode BEFORE the definition: the
                            parallel-call race, the prompt hallucinated from
@@ -228,6 +233,27 @@ def _signer(event: dict, signers: list[tuple[str, str]] | None) -> str:
         if ed25519_verify(public_hex, sig.hex(), digest):
             return label
     return "unknown"
+
+
+def _signer_key(event: dict, signers: list[tuple[str, str]]) -> str | None:
+    """Resolves the public hex of the known key whose signature seals this
+    event. None when no known key matches — and unresolved is its own
+    state, never folded into clean (v0.2.5, howcani's probe: a verdict
+    taken on a label string flips when a second agent-controlled key
+    carries a different label)."""
+    if not signers:
+        return None
+    try:
+        sig = bytes.fromhex(event["signature"])
+        digest = bytes.fromhex(event["event_hash"])
+    except (KeyError, ValueError):
+        return None
+    from .chain import ed25519_verify
+
+    for public_hex, _label in signers:
+        if ed25519_verify(public_hex, sig.hex(), digest):
+            return public_hex
+    return None
 
 
 def _anchored_upto(events: list[dict], seq: int) -> bool:
@@ -716,19 +742,46 @@ def reconcile_receipts(events: list[dict], *,
                 join_value not in judge_calls:
             attempts = transports.get(join_value, [])
             verified = False
+            undecidable = False
+            receipt_key = None
             if attempts:
-                receipt_signer = _signer(e, signers)
-                if signers and receipt_signer != "unknown":
-                    verified = any(_signer(a, signers) not in
-                                   ("unknown", receipt_signer) for a in attempts)
+                # v0.2.5 (howcani's probe, BUG A): the cross-writer check
+                # compares KEY MATERIAL, never labels — two agent-controlled
+                # keys with different labels are one trust domain
+                receipt_key = _signer_key(e, signers)
+                if signers and receipt_key is not None:
+                    attempt_keys = {_signer_key(a, signers)
+                                    for a in attempts} - {None}
+                    verified = any(k != receipt_key for k in attempt_keys)
+                elif signers:
+                    # BUG B: the receipt's writer does not resolve against
+                    # the known-writer set — "not the receipt's" is
+                    # undecidable, and undecidable is never clean
+                    undecidable = True
+                # signers not supplied at all: independence is unassessed —
+                # the writer-half falls to the finding with its own note
+            if undecidable:
+                findings.append(Finding(
+                    "receipts", "independence_undecidable", join_value,
+                    decision_seq=e["seq"],
+                    note="the receipt's writer does not resolve against the "
+                         "known-writer set — cross-writer independence is "
+                         "undecidable, and undecidable is never clean "
+                         "(v0.2.5, howcani's probe)"))
+            elif not verified:
+                if not attempts:
+                    reason = "no transport attempt on this key"
+                elif not signers:
+                    reason = ("no known-writer set supplied — independence "
+                              "cannot be established from an unresolved "
+                              "journal (v0.2.5, howcani's probe)")
+                elif receipt_key is None:
+                    reason = ("the receipt's writer does not resolve against "
+                              "the known-writer set")
                 else:
-                    # no known-writer set: presence is judged, cross-writer is not
-                    verified = True
-            if not verified:
-                reason = ("no transport attempt on this key" if not attempts else
-                          "the only transport attempts on this key carry the "
-                          "receipt's own writer — same trust domain (ADR 021, "
-                          "one layer down)")
+                    reason = ("the only transport attempts on this key carry "
+                              "the receipt's own key — same trust domain "
+                              "(ADR 021, one layer down)")
                 findings.append(Finding(
                     "receipts", "unverified_label", join_value,
                     decision_seq=e["seq"],
