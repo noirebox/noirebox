@@ -730,9 +730,10 @@ def test_requirement_out_of_scope_fires_when_the_diff_touches_nothing(tmp_path):
     # the diff touches the scope: the citation governs this work — clean
     assert reconcile_receipts(store.all(),
                               touched_paths=["src/payments/settle.py"]) == []
-    # no touched set provided: the scope check is skipped, only the
-    # dangling check runs — clean here
-    assert reconcile_receipts(store.all()) == []
+    # no touched set provided: the scope check is NOT RUN — reported,
+    # never silently folded into clean (v0.2.6)
+    findings_skip = reconcile_receipts(store.all())
+    assert [f.status for f in findings_skip] == ["scope_check_not_run"]
 
 
 def test_seal_requirement_validates_the_scope(tmp_path):
@@ -798,4 +799,120 @@ def test_v025_no_signer_set_is_unassessed_not_clean(tmp_path):
     store.append("agent_tool_use", {"run_id": "run_1", "tool": "view_file"}, agent)
     findings = reconcile_receipts(store.all())
     assert [f.status for f in findings] == ["unverified_label"]
-    assert "independence cannot be established" in findings[0].note
+    assert "independence NOT RUN" in findings[0].note  # v0.2.6: the skip is named
+    assert "re-probe" in findings[0].note
+
+
+# --- §15 — the attacker row + the writer registry (v0.2.6) --------------------
+
+def test_attacker_row_labels_never_move_the_verdict(tmp_path):
+    """§15 item 1 — the pre-registered line, howcani's prediction run to
+    failure: identical key material, only the label varies ('attacker' /
+    'hook' / 'agent' / 'transport') — the verdict does not move. The
+    caller's vocabulary certifies nothing."""
+    from noirebox.reconcile import reconcile_receipts
+
+    store, key = _store(tmp_path)
+    store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "run_1",
+                             "judged_by": "deterministic"}, key)
+    store.append("agent_tool_use", {"run_id": "run_1"}, key)
+    verdicts = set()
+    for label in ("attacker", "hook", "agent", "transport"):
+        f = reconcile_receipts(store.all(),
+                               signers=[(key.public_hex(), "agent"),
+                                        (key.public_hex(), label)])
+        verdicts.add(tuple((x.status, x.correlation_id) for x in f))
+    assert len(verdicts) == 1  # relabelling identical key material moves nothing
+
+
+def test_signers_empty_vs_none_are_distinct(tmp_path):
+    """§14 contract: an EMPTY known-writer set (we KNOW nobody else sealed)
+    and NO set at all (independence NOT RUN) are different statements —
+    and each note says which one it was."""
+    from noirebox.reconcile import reconcile_receipts
+
+    store, key = _store(tmp_path)
+    store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "run_1",
+                             "judged_by": "deterministic"}, key)
+    store.append("agent_tool_use", {"run_id": "run_1"}, key)
+    f_empty = reconcile_receipts(store.all(), signers=[])
+    f_none = reconcile_receipts(store.all())  # no set supplied
+    assert f_empty[0].status == f_none[0].status == "unverified_label"
+    assert "known-writer set is EMPTY" in f_empty[0].note
+    assert "NOT RUN" in f_none[0].note
+
+
+def test_writer_registry_overrides_the_callers_labels(tmp_path):
+    """§15 item 2 — the sealed registry is the authority: the caller's
+    labels are demoted to decoration, and the REGISTERED domain decides.
+    The registration itself is sealed by the operator (a key distinct from
+    the agent) — that is what makes it attestation and not claim."""
+    from noirebox.chain import KeyPair
+    from noirebox.reconcile import reconcile_receipts, seal_writer
+
+    store = _store(tmp_path)[0]
+    ops = KeyPair.generate()           # the operator seals the registry
+    agent = KeyPair.generate()         # the agent's key (domain: agent)
+    hook_real = KeyPair.generate()     # a genuinely distinct writer
+
+    seal_writer(store, ops, public_hex=agent.public_hex(), domain="agent",
+                declared_by="ops (registration)")
+    seal_writer(store, ops, public_hex=hook_real.public_hex(),
+                domain="hook-transport", declared_by="ops (registration)")
+
+    store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "run_1",
+                             "judged_by": "deterministic"}, agent)
+    store.append("agent_tool_use", {"run_id": "run_1"}, hook_real)
+    # the caller labels the hook key 'agent' — the registry says
+    # 'hook-transport': the REGISTERED domain decides, the labels are
+    # decoration
+    findings = reconcile_receipts(
+        store.all(),
+        signers=[(agent.public_hex(), "agent"),
+                 (hook_real.public_hex(), "agent")])
+    assert not any(f.status == "unverified_label" for f in findings)
+
+    # the attack line, isolated: a receipt whose ONLY transport attempt is
+    # the unregistered rogue — nobody attested its domain, so it does not
+    # count, and the label stays unverified
+    rogue = KeyPair.generate()
+    store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "run_2",
+                             "judged_by": "deterministic"}, agent)
+    store.append("agent_tool_use", {"run_id": "run_2"}, rogue)
+    findings = reconcile_receipts(store.all(),
+                                  signers=[(agent.public_hex(), "agent"),
+                                           (rogue.public_hex(), "hook")])
+    run_2 = [f for f in findings if f.correlation_id == "run_2"]
+    assert [f.status for f in run_2] == ["unverified_label"]
+    assert "no registered writer with a domain distinct" in run_2[0].note
+
+
+def test_unregistered_writers_and_receipts_are_undecidable(tmp_path):
+    """Registry mode: an attempt by a key NOBODY registered does not
+    witness (unattested), and a receipt whose own key is unregistered is
+    `independence_undecidable` — the registry is the authority or nothing
+    is."""
+    from noirebox.chain import KeyPair
+    from noirebox.reconcile import reconcile_receipts, seal_writer
+
+    store, agent = _store(tmp_path)
+    rogue = KeyPair.generate()
+    seal_writer(store, agent, public_hex=agent.public_hex(), domain="agent",
+                declared_by="ops")
+    store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "run_1",
+                             "judged_by": "deterministic"}, agent)
+    store.append("agent_tool_use", {"run_id": "run_1"}, rogue)  # unregistered
+    findings = reconcile_receipts(store.all(),
+                                  signers=[(agent.public_hex(), "agent")])
+    assert [f.status for f in findings] == ["unverified_label"]
+
+    # a receipt by an unregistered key, WITH a transport attempt: the
+    # receipt's own domain is unattested — undecidable, never clean
+    store2 = EventStore(str(tmp_path / "recon2.db"))
+    outsider = KeyPair.generate()
+    store2.append("receipt", {"schema": "receipt/0.2.2", "run_id": "run_2",
+                              "judged_by": "llm", "spec_hash": "ab" * 32}, outsider)
+    store2.append("agent_tool_use", {"run_id": "run_2"}, outsider)
+    findings2 = reconcile_receipts(store2.all(),
+                                   signers=[(agent.public_hex(), "agent")])
+    assert [f.status for f in findings2] == ["independence_undecidable"]
