@@ -663,6 +663,49 @@ def reconcile_spec(events: list[dict], *, spec_id: str) -> list[Finding]:
     return findings
 
 
+def seal_writer(store, key, *, public_hex: str, domain: str,
+                declared_by: str) -> dict:
+    """Seals one entry of the KNOWN-WRITERS REGISTRY as a `writer` event
+    (v0.2.6 — the §15 structural design, ADR 021's "a name, not a role"
+    applied to domains): `public_hex` → declared domain, attested at
+    REGISTRATION by `declared_by` — before any run the writer could
+    influence. The caller of `reconcile_receipts` stops supplying the
+    domain: the verifier's sealed registry holds it, derived from the
+    signature. Pattern: `seal_requirement`, extended to writers."""
+    ph = str(public_hex or "")
+    if len(ph) != 64 or any(c not in "0123456789abcdef" for c in ph):
+        raise ValueError("writer: public_hex must be a 64-char sha256 hex digest")
+    if not str(domain or "").strip():
+        raise ValueError("writer: domain is required — what this key is, "
+                         "declared before it acts")
+    if not str(declared_by or "").strip():
+        raise ValueError("writer: declared_by is required — a name, not a "
+                         "role (ADR 021)")
+    return store.append("writer", {
+        "schema": "writer/0.1",
+        "public_hex": ph,
+        "domain": domain.strip(),
+        "declared_by": declared_by.strip(),
+    }, key)
+
+
+def _resolve_key(event: dict, hexes: list[str]) -> str | None:
+    """Resolves WHICH registered key sealed this event — by signature, never
+    by label. None when none matches: the writer is outside the sealed
+    registry, and outside is unattested."""
+    try:
+        sig = bytes.fromhex(event["signature"])
+        digest = bytes.fromhex(event["event_hash"])
+    except (KeyError, ValueError):
+        return None
+    from .chain import ed25519_verify
+
+    for ph in hexes:
+        if ed25519_verify(ph, sig.hex(), digest):
+            return ph
+    return None
+
+
 def reconcile_receipts(events: list[dict], *,
                        judge_call_type: str = "llm_call",
                        requirement_type: str = "requirement",
@@ -670,6 +713,10 @@ def reconcile_receipts(events: list[dict], *,
                        transport_attempt_type: str = "agent_tool_use",
                        signers: list[tuple[str, str]] | None = None,
                        touched_paths: list[str] | None = None) -> list[Finding]:
+    """(v0.2.6 adds the writer registry — `seal_writer` — and the explicit
+    check states: a skipped check is reported, never clean;
+    `signers=None` (no set supplied) and `signers=[]` (known-empty) are
+    distinct, and each note says which one it was."""
     """The receipt joins (v0.2.3 — howcani's audit; v0.2.4 — the ceiling,
     closed): a receipt's sealed declarations are checked against
     OBSERVATIONS the declaring party did not author.
@@ -730,64 +777,105 @@ def reconcile_receipts(events: list[dict], *,
         if join_value is None:
             continue
         join_value = str(join_value)
-        if payload.get("judged_by") == "deterministic" and join_value in judge_calls:
+        judged_by = payload.get("judged_by")
+
+        # v0.2.6 (§15) — REGISTRY MODE: when a sealed known-writers registry
+        # exists, it is the authority. Key resolution, domains and
+        # independence all come from it; the caller supplies nothing.
+        registry: dict[str, dict] = {}
+        for w in events:
+            if w.get("type") == "writer":
+                ph = w.get("payload", {}).get("public_hex")
+                if ph:
+                    registry.setdefault(str(ph), w.get("payload", {}))
+        attempts = transports.get(join_value, [])
+        row_undecidable = False
+        witnessed = False
+
+        if attempts and registry:
+            # REGISTRY MODE: resolution by signature against the sealed
+            # public hexes; a witness is a REGISTERED writer whose domain
+            # differs from the receipt's own.
+            hexes = list(registry.keys())
+            receipt_key = _resolve_key(e, hexes)
+            if receipt_key is None:
+                row_undecidable = True
+                findings.append(Finding(
+                    "receipts", "independence_undecidable", join_value,
+                    decision_seq=e["seq"],
+                    note="the receipt's writer does not resolve against the "
+                         "sealed known-writers registry — the receipt's own "
+                         "domain is unattested, and undecidable is never "
+                         "clean (v0.2.6)"))
+            else:
+                r_dom = registry[receipt_key].get("domain", "")
+                witnessed = any(
+                    (wk := _resolve_key(a, hexes)) is not None
+                    and registry[wk].get("domain", "") != r_dom
+                    for a in attempts)
+        elif attempts and signers:
+            # SIGNERS MODE (v0.2.5, the probe's BUG A fix): the cross-writer
+            # check compares KEY MATERIAL, never labels — two
+            # agent-controlled keys with different labels are one trust
+            # domain; an unresolved receipt writer is undecidable, never
+            # clean (BUG B).
+            receipt_key = _signer_key(e, signers)
+            if receipt_key is not None:
+                witnessed = any(
+                    k != receipt_key
+                    for k in ({_signer_key(a, signers)
+                               for a in attempts} - {None}))
+            else:
+                row_undecidable = True
+                findings.append(Finding(
+                    "receipts", "independence_undecidable", join_value,
+                    decision_seq=e["seq"],
+                    note="the receipt's writer does not resolve against the "
+                         "known-writer set — undecidable is never clean "
+                         "(v0.2.5, BUG B)"))
+
+        # the deterministic label vs the journal (v0.2.3): a judge WAS
+        # invoked — re-probe invited
+        if judged_by == "deterministic" and join_value in judge_calls:
             findings.append(Finding(
                 "receipts", "label_llm_call_mismatch", join_value,
                 decision_seq=e["seq"],
                 note="receipt declares 'deterministic' while the journal "
                      f"contains a {judge_call_type} event for the same key — "
                      "the label checked against an observation the labelled "
-                     "party did not author"))
-        if payload.get("judged_by") == "deterministic" and \
-                join_value not in judge_calls:
-            attempts = transports.get(join_value, [])
-            verified = False
-            undecidable = False
-            receipt_key = None
-            if attempts:
-                # v0.2.5 (howcani's probe, BUG A): the cross-writer check
-                # compares KEY MATERIAL, never labels — two agent-controlled
-                # keys with different labels are one trust domain
-                receipt_key = _signer_key(e, signers)
-                if signers and receipt_key is not None:
-                    attempt_keys = {_signer_key(a, signers)
-                                    for a in attempts} - {None}
-                    verified = any(k != receipt_key for k in attempt_keys)
-                elif signers:
-                    # BUG B: the receipt's writer does not resolve against
-                    # the known-writer set — "not the receipt's" is
-                    # undecidable, and undecidable is never clean
-                    undecidable = True
-                # signers not supplied at all: independence is unassessed —
-                # the writer-half falls to the finding with its own note
-            if undecidable:
-                findings.append(Finding(
-                    "receipts", "independence_undecidable", join_value,
-                    decision_seq=e["seq"],
-                    note="the receipt's writer does not resolve against the "
-                         "known-writer set — cross-writer independence is "
-                         "undecidable, and undecidable is never clean "
-                         "(v0.2.5, howcani's probe)"))
-            elif not verified:
-                if not attempts:
-                    reason = "no transport attempt on this key"
-                elif not signers:
-                    reason = ("no known-writer set supplied — independence "
-                              "cannot be established from an unresolved "
-                              "journal (v0.2.5, howcani's probe)")
-                elif receipt_key is None:
-                    reason = ("the receipt's writer does not resolve against "
-                              "the known-writer set")
-                else:
-                    reason = ("the only transport attempts on this key carry "
-                              "the receipt's own key — same trust domain "
-                              "(ADR 021, one layer down)")
-                findings.append(Finding(
-                    "receipts", "unverified_label", join_value,
-                    decision_seq=e["seq"],
-                    note=f"receipt declares 'deterministic' and {reason} — "
-                         "the label is a claim the agent authored; the "
-                         "transport is the observation it did not"))
+                     "party did not author; re-probe invited"))
+
+        # the transport-writer invariant (v0.2.4; registry-aware v0.2.6):
+        # a deterministic label is verified only by a transport attempt
+        # sealed by a writer the agent does not control
+        if judged_by == "deterministic" and join_value not in judge_calls \
+                and not witnessed and not row_undecidable:
+            if not attempts:
+                reason = "no transport attempt on this key"
+            elif registry and not witnessed:
+                reason = ("no registered writer with a domain distinct from "
+                          "the receipt's own witnessed the attempt — same "
+                          "trust domain (ADR 021, one layer down)")
+            elif signers is not None and len(signers) == 0:
+                reason = ("the known-writer set is EMPTY — nobody else could "
+                          "have sealed the attempt, so the label cannot "
+                          "verify")
+            elif signers is None:
+                reason = ("independence NOT RUN — no known-writer set "
+                          "supplied, so the transport writer cannot be "
+                          "resolved; re-probe with the signers set")
+            else:
+                reason = ("the only transport attempts on this key carry the "
+                          "receipt's own key — same trust domain (ADR 021, "
+                          "one layer down)")
+            findings.append(Finding(
+                "receipts", "unverified_label", join_value,
+                decision_seq=e["seq"],
+                note=f"receipt declares 'deterministic' and {reason} — the "
+                     f"label is a claim the agent authored; the transport is "
+                     f"the observation it did not; re-probe invited"))
+
+        # the citation (v0.2.4 load-bearing; v0.2.6 names its skips)
         cited = payload.get("requirement_ref")
         if cited:
             req = requirements.get(str(cited))
@@ -796,7 +884,8 @@ def reconcile_receipts(events: list[dict], *,
                     "receipts", "dangling_requirement_ref", str(cited),
                     decision_seq=e["seq"],
                     note=f"requirement_ref {cited!r} resolves to nothing sealed — "
-                         f"the citation is decoration until it resolves"))
+                         f"the citation is decoration until it resolves; "
+                         f"re-probe invited"))
             elif touched_paths is not None:
                 scope = req.get("scope")
                 if isinstance(scope, list) and scope and \
@@ -807,9 +896,16 @@ def reconcile_receipts(events: list[dict], *,
                     findings.append(Finding(
                         "receipts", "requirement_out_of_scope", str(cited),
                         decision_seq=e["seq"],
-                        note=f"requirement_ref {cited!r} governs "
-                             f"{scope}, and the diff touches none of it — "
-                             f"the obligation cited does not govern this work"))
+                        note=f"requirement_ref {cited!r} governs {scope}, and "
+                             f"the diff touches none of it — the obligation "
+                             f"cited does not govern this work; re-probe "
+                             f"invited"))
+            elif isinstance(req.get("scope"), list) and req.get("scope"):
+                findings.append(Finding(
+                    "receipts", "scope_check_not_run", str(cited),
+                    decision_seq=e["seq"],
+                    note="the scope check did not run — touched_paths not "
+                         "supplied; never confused with clean (v0.2.6)"))
     return findings
 
 

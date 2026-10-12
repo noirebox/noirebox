@@ -525,6 +525,20 @@ is the only clean answer.
 
 ---
 
+**Amendment (Oct 12, v0.2.6 — the §15 structural design, howcani's registry)**:
+the known-writer set becomes a SEALED REGISTRY. The v0.2.5 key-material
+verdict still could not see that two DISTINCT agent-controlled keys share
+one owner — key material alone never will. The closure is structural: the
+domain of every writer is declared at REGISTRATION and sealed by the
+verifier (`seal_writer` → `writer/0.1` — public_hex → domain, attested
+before any run the writer could influence), and `reconcile_receipts` in
+registry mode resolves keys and domains from the sealed registry — **the
+caller supplies nothing**. A witness is a registered writer whose domain
+differs from the receipt's own; an unregistered transport writer witnesses
+nothing; a receipt whose own writer is unregistered is
+`independence_undecidable` — never clean. Pattern: `seal_requirement`,
+extended to writers.
+
 ## ADR 022 — Custody vs anchoring: map the trust boundary, disclose the proof grade
 
 **Status**: accepted — the best framing received this week (mickyarun, PSD2); ops cadence from the reid thread (30/09) + mickyarun.
