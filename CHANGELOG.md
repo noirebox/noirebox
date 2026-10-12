@@ -5,6 +5,23 @@ versioning according to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.13.0] — 2026-10-12
+
+### Fixed
+- **Receipt v0.2.5 — the verdict reads keys, not labels (howcani's probe,
+  the acceptance test)** — two broken lines in the v0.2.3/v0.2.4 schema,
+  found by running the probe instead of reading the diff:
+  - **the label flip**: the cross-writer verdict compared LABEL strings
+    ("agent" vs "hook") — two agent-controlled keys with different labels
+    flipped it. The comparison now resolves KEY MATERIAL (`_signer_key`);
+    labels are presentation, keys are identity.
+  - **the third undecidable input**: a receipt whose writer does not
+    resolve against the known-writer set was CLEAN — it now seals as
+    `independence_undecidable`, beside NOT RUN: undecidable is never
+    clean.
+  Acceptance: the probe's four-row matrix (same-writer / omitted / empty
+  set / unresolved) all fire as named — run, not asserted.
+
 ## [0.12.0] — 2026-10-11
 
 ### Added
