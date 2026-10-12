@@ -147,6 +147,12 @@ class Finding:
                            while the diff touches nothing in the scope:
                            the obligation cited does not govern this work
                            (v0.2.4)
+        gui_served_unobserved — a served action with no OS-level
+                           observation on the same key: the app passed the
+                           test by doing nothing (§16 — reid, SoftwareGym)
+        gui_observation_unserved — OS state moved with no served action on
+                           the same key: something happened nobody served
+                           (§16)
     """
 
     invariant: str
@@ -490,6 +496,55 @@ def run_probes(events: list[dict], invariants: list[Invariant],
         got = {f.correlation_id: f.status for f in results if f.correlation_id == cid}
         if got.get(cid) != probe["expect"]:
             findings.append(Finding("probe", "probe_did_not_bite", probe["name"]))
+    return findings
+
+
+# --- §16 — the GUI lane: served vs observed (reid, SoftwareGym) --------------
+
+def check_gui_gap(events: list[dict], *, served_type: str = "click_served",
+                  observed_type: str = "os_state_touched",
+                  correlation_key: str = "session_id") -> list[Finding]:
+    """The receipt_gap invariant at the GUI layer (§16 — reid, SoftwareGym):
+    clicks (or actions) SERVED by the app vs OS state OBSERVED by the
+    system — the gap is the finding.
+
+    - a served action with no OS observation on the same key is
+      `gui_served_unobserved`: the app passed the test by doing nothing —
+      "an app that survives twenty clicks without touching OS state
+      passed the test by doing nothing";
+    - an OS observation with no served action is
+      `gui_observation_unserved`: something moved that nobody served.
+
+    Domain-blind as always: the runner counts the served side, the OS
+    counts the observed side — the harness is the runner's, the
+    denominator is ours."""
+    if not str(served_type or "").strip() or not str(observed_type or "").strip():
+        raise ValueError("gui_gap: served_type and observed_type are required")
+    served: dict[str, dict] = {}
+    observed: set[str] = set()
+    for e in events:
+        value = e.get("payload", {}).get(correlation_key)
+        if value is None:
+            continue
+        value = str(value)
+        if e.get("type") == served_type:
+            served.setdefault(value, e)
+        elif e.get("type") == observed_type:
+            observed.add(value)
+    findings: list[Finding] = []
+    for value, e in served.items():
+        if value not in observed:
+            findings.append(Finding(
+                "gui", "gui_served_unobserved", value,
+                decision_seq=e["seq"],
+                note=f"the {served_type} at seq {e['seq']} reconciles against "
+                     f"no {observed_type} — the app passed the test by doing "
+                     f"nothing"))
+    for value in sorted(observed - set(served)):
+        findings.append(Finding(
+            "gui", "gui_observation_unserved", value,
+            note="OS state moved with no served action — something happened "
+                 "nobody served"))
     return findings
 
 

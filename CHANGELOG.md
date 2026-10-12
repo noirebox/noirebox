@@ -6,6 +6,15 @@ versioning according to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **`check_gui_gap` — the receipt_gap invariant at the GUI layer (§16 —
+  reid, SoftwareGym)** — actions served by the app vs OS state observed
+  by the system, on the same key: the gap is the finding. A served
+  action with no observation is `gui_served_unobserved` ("an app that
+  survives twenty clicks without touching OS state passed the test by
+  doing nothing"); OS state moved with no served action is
+  `gui_observation_unserved`. Domain-blind as always: the runner counts
+  the served side, the OS counts the observed side — the harness is the
+  runner's, the denominator is ours.
 - **The known-writers registry (v0.2.6 — the §15 structural design,
   howcani's registry)** — the residue of the probe fixes, closed
   structurally: the domain of every writer is declared at REGISTRATION

@@ -916,3 +916,43 @@ def test_unregistered_writers_and_receipts_are_undecidable(tmp_path):
     findings2 = reconcile_receipts(store2.all(),
                                    signers=[(agent.public_hex(), "agent")])
     assert [f.status for f in findings2] == ["independence_undecidable"]
+
+
+# --- §16 — the GUI lane: served vs observed (reid, SoftwareGym) ---------------
+
+def test_gui_gap_the_empty_handler_is_caught(tmp_path):
+    """§16 — reid's missing piece: 'an app that survives twenty clicks
+    without touching OS state passed the test by doing nothing.' The click
+    is served, the OS saw nothing: the gap is the finding."""
+    from noirebox.reconcile import check_gui_gap
+
+    store, key = _store(tmp_path)
+    store.append("click_served", {"session_id": "sess_1"}, key)
+    findings = check_gui_gap(store.all())
+    assert [f.status for f in findings] == ["gui_served_unobserved"]
+    assert "doing nothing" in findings[0].note
+
+
+def test_gui_gap_honest_app_and_unserved_state(tmp_path):
+    """The honest shape: every served click has its OS observation — clean.
+    And the reverse: OS state moved with NO served action — something
+    happened nobody served, surfaced."""
+    from noirebox.reconcile import check_gui_gap
+
+    store, key = _store(tmp_path)
+    store.append("click_served", {"session_id": "s1"}, key)
+    store.append("os_state_touched", {"session_id": "s1"}, key)
+    assert check_gui_gap(store.all()) == []  # served ↔ observed, clean
+
+    store.append("os_state_touched", {"session_id": "s2"}, key)  # ghost state
+    findings = check_gui_gap(store.all())
+    assert [f.correlation_id for f in findings] == ["s2"]
+    assert findings[0].status == "gui_observation_unserved"
+
+
+def test_gui_gap_validates_the_types():
+    import pytest
+    from noirebox.reconcile import check_gui_gap
+
+    with pytest.raises(ValueError, match="served_type and observed_type"):
+        check_gui_gap([], served_type=" ", observed_type="os")
