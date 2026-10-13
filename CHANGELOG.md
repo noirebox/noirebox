@@ -3,7 +3,7 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versioning according to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.15.0] — 2026-10-13
 
 ### Added
 - **The keyholder — the operator's key lives in a process the agent is not
