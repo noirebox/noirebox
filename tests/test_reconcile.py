@@ -956,3 +956,218 @@ def test_gui_gap_validates_the_types():
 
     with pytest.raises(ValueError, match="served_type and observed_type"):
         check_gui_gap([], served_type=" ", observed_type="os")
+
+
+# --- §17 — the pin (v0.2.7): the registrar out-of-band, the write race closed
+
+def _pinned_world(tmp_path):
+    """howcani's 3hj95 fixture: one operator (the registrar), one receipt
+    key k1, one attempt key k2 — BOTH agent-held, so honest registration
+    puts both in the domain `agent` and the attempt is no witness."""
+    from noirebox.reconcile import seal_writer
+
+    store = EventStore(str(tmp_path / "pinned.db"))
+    ops = KeyPair.generate()      # the registrar — the key the pin names
+    k1 = KeyPair.generate()       # the receipt's key (agent-held)
+    k2 = KeyPair.generate()       # the attempt's key (agent-held)
+    seal_writer(store, ops, public_hex=k1.public_hex(), domain="agent",
+                declared_by="ops (registration)")
+    return store, ops, k1, k2
+
+
+def test_v027_control_operator_attests_both_keys_unverified_label(tmp_path):
+    """3hj95 control row: the operator attests k1 AND k2, both as agent —
+    the attempt carries the agent's own key and witnesses nothing."""
+    from noirebox.reconcile import reconcile_receipts, seal_writer
+
+    store, ops, k1, k2 = _pinned_world(tmp_path)
+    seal_writer(store, ops, public_hex=k2.public_hex(), domain="agent",
+                declared_by="ops (registration)")
+    store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "run_1",
+                             "judged_by": "deterministic"}, k1)
+    store.append("agent_tool_use", {"run_id": "run_1"}, k2)
+    findings = reconcile_receipts(store.all(),
+                                  registrar_public_hex=ops.public_hex())
+    assert [f.status for f in findings] == ["unverified_label"]
+    assert "no writer the pinned registrar registered" in findings[0].note
+
+
+def test_v027_write_race_agent_first_operator_second_reads_unverified(tmp_path):
+    """howcani's REGISTERED PREDICTION (3hj95), run at the pinned head:
+    the agent writes its own entry for k2 (domain hook-transport) FIRST,
+    the operator's attestation of k2 (domain agent) arrives second. At
+    v0.2.6 the setdefault let the agent's entry win — the fixture read
+    clean. With the pin the agent's self-registration is filtered AT
+    ASSEMBLY: k2 resolves to the operator's domain, the attempt witnesses
+    nothing, and the fixture reads unverified_label. Prediction holds."""
+    from noirebox.reconcile import reconcile_receipts, seal_writer
+
+    store, ops, k1, k2 = _pinned_world(tmp_path)
+    # the race: the agent self-registers FIRST ...
+    seal_writer(store, k2, public_hex=k2.public_hex(),
+                domain="hook-transport",
+                declared_by="agent (self-registration)")
+    store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "run_1",
+                             "judged_by": "deterministic"}, k1)
+    store.append("agent_tool_use", {"run_id": "run_1"}, k2)
+    # ... and the operator's honest attestation lands SECOND
+    seal_writer(store, ops, public_hex=k2.public_hex(), domain="agent",
+                declared_by="ops (registration)")
+    findings = reconcile_receipts(store.all(),
+                                  registrar_public_hex=ops.public_hex())
+    assert [f.status for f in findings] == ["unverified_label"]
+    assert not any(f.status == "clean" or f.status == "" for f in findings)
+
+
+def test_v027_unpinned_the_race_stands_disclosed_not_denied(tmp_path):
+    """The same store WITHOUT the pin keeps the v0.2.6 store-derived
+    semantics — first-write-wins, the agent's self-registration votes.
+    That is the honest boundary of the weaker mode: the pin is what
+    closes it, and registry_disclosure() says so instead of hiding it."""
+    from noirebox.reconcile import reconcile_receipts, seal_writer
+
+    store, ops, k1, k2 = _pinned_world(tmp_path)
+    seal_writer(store, k2, public_hex=k2.public_hex(),
+                domain="hook-transport",
+                declared_by="agent (self-registration)")
+    store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "run_1",
+                             "judged_by": "deterministic"}, k1)
+    store.append("agent_tool_use", {"run_id": "run_1"}, k2)
+    seal_writer(store, ops, public_hex=k2.public_hex(), domain="agent",
+                declared_by="ops (registration)")
+    # no pin supplied: the registry is store-derived, k2 reads
+    # hook-transport (the agent's entry won the race) — clean
+    assert reconcile_receipts(store.all()) == []
+
+
+def test_v027_registrar_duplicate_is_undecidable_not_first_wins(tmp_path):
+    """The registrar attesting ONE key under TWO domains is the operator
+    contradicting itself: the duplicate surfaces at ASSEMBLY
+    (registry_duplicate_undecidable), any row depending on the contested
+    key is independence_undecidable — never clean, never first-wins."""
+    from noirebox.reconcile import reconcile_receipts, seal_writer
+
+    store, ops, k1, k2 = _pinned_world(tmp_path)
+    seal_writer(store, ops, public_hex=k2.public_hex(), domain="agent",
+                declared_by="ops (registration)")
+    seal_writer(store, ops, public_hex=k2.public_hex(),
+                domain="hook-transport",
+                declared_by="ops (registration)")  # contradiction
+    store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "run_1",
+                             "judged_by": "deterministic"}, k1)
+    store.append("agent_tool_use", {"run_id": "run_1"}, k2)
+    findings = reconcile_receipts(store.all(),
+                                  registrar_public_hex=ops.public_hex())
+    statuses = [f.status for f in findings]
+    # emit at assembly: the duplicate is its own finding, keyed by the hex
+    assert statuses[0] == "registry_duplicate_undecidable"
+    assert findings[0].correlation_id == k2.public_hex()
+    assert "the operator contradicts itself" in findings[0].note
+    # the row that needs the contested key: undecidable, never clean
+    assert "independence_undecidable" in statuses
+    # and the receipt sealed BY the contested key reads undecidable too
+    store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "run_2",
+                             "judged_by": "llm", "spec_hash": "ab" * 32}, k2)
+    store.append("agent_tool_use", {"run_id": "run_2"}, k1)
+    findings2 = reconcile_receipts(store.all(),
+                                   registrar_public_hex=ops.public_hex())
+    run_2 = [f for f in findings2 if f.correlation_id == "run_2"]
+    assert [f.status for f in run_2] == ["independence_undecidable"]
+    assert "never first-wins" in run_2[0].note
+
+
+def test_v027_pinned_registry_admits_nothing_outside_the_registrar(tmp_path):
+    """A writer event NOBODY pinned sealed (another operator's attestation
+    of the same keys) does not enter the registry: unattested is
+    unattested, whoever wrote it."""
+    from noirebox.chain import KeyPair
+    from noirebox.reconcile import reconcile_receipts, seal_writer
+
+    store, ops, k1, k2 = _pinned_world(tmp_path)
+    other = KeyPair.generate()  # a DIFFERENT would-be registrar
+    seal_writer(store, other, public_hex=k2.public_hex(),
+                domain="hook-transport", declared_by="other ops")
+    store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "run_1",
+                             "judged_by": "deterministic"}, k1)
+    store.append("agent_tool_use", {"run_id": "run_1"}, k2)
+    findings = reconcile_receipts(store.all(),
+                                  registrar_public_hex=ops.public_hex())
+    # k2 is not in the pinned registry at all — the attempt is unattested
+    # noise, and the label stays unverified, not witnessed
+    assert [f.status for f in findings] == ["unverified_label"]
+    assert "no writer the pinned registrar registered" in findings[0].note
+
+
+def test_v027_registry_disclosure_states_registrant_and_grade(tmp_path):
+    """3hif9's disclosure row: the verdict states the registrant and the
+    grade. Pinned — the registrar's key and the count of what it sealed
+    vs what it filtered. Unpinned — the mode line says first-write-wins:
+    'operator' is a word with no referent until the pin exists. Sealed
+    into the report, it never touches clean_pass (disclosure, not
+    violation)."""
+    from noirebox.reconcile import (Invariant, journal_report,
+                                    reconcile_receipts, registry_disclosure,
+                                    seal_writer)
+
+    store, ops, k1, k2 = _pinned_world(tmp_path)
+    seal_writer(store, ops, public_hex=k2.public_hex(), domain="agent",
+                declared_by="ops (registration)")
+    events = store.all()
+
+    d = registry_disclosure(events, registrar_public_hex=ops.public_hex())
+    assert d["registrar"] == f"pinned {ops.public_hex()}"
+    assert d["mode"] == "pinned"
+    assert d["grade"] == 3 and d["grade_label"] == "anchored self"
+    assert "VOLUNTARY" in d["obligation"]
+    assert d["registered_keys"] == 2
+    assert d["registrar_sealed_events"] == 2
+    assert d["filtered_writer_events"] == 0
+
+    d_unpinned = registry_disclosure(events)
+    assert d_unpinned["registrar"] is None
+    assert "first-write-wins" in d_unpinned["mode"]
+
+    # the agent's self-registration shows up as filtered when it exists
+    seal_writer(store, k1, public_hex=k1.public_hex(),
+                domain="hook-transport",
+                declared_by="agent (self-registration)")
+    d_filtered = registry_disclosure(store.all(),
+                                     registrar_public_hex=ops.public_hex())
+    assert d_filtered["filtered_writer_events"] == 1
+    assert d_filtered["registered_keys"] == 2  # the vote count did not move
+
+    # the disclosure rides the sealed report without touching clean_pass:
+    # the honest shape — a transport writer the registrar put in a DISTINCT
+    # domain — reads clean, and the report still states who registered
+    from noirebox.reconcile import seal_writer as _sw
+    hook = KeyPair.generate()
+    _sw(store, ops, public_hex=hook.public_hex(), domain="hook-transport",
+        declared_by="ops (registration)")
+    store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "run_1",
+                             "judged_by": "deterministic"}, k1)
+    store.append("agent_tool_use", {"run_id": "run_1"}, hook)
+    findings = reconcile_receipts(store.all(),
+                                  registrar_public_hex=ops.public_hex())
+    assert findings == []
+    event = journal_report(
+        store, ops, [Invariant("i", "receipt", "agent_tool_use", "run_id")],
+        findings, events=store.all(),
+        registry_disclosure=registry_disclosure(store.all(),
+                                                registrar_public_hex=ops.public_hex()))
+    assert event.payload["registry_disclosure"]["registrar"] == \
+        f"pinned {ops.public_hex()}"
+    assert event.payload["clean_pass"] is True  # disclosure is not a violation
+    from noirebox.chain import verify_chain_multi
+    assert verify_chain_multi([ops.public_hex(), k1.public_hex(),
+                               k2.public_hex(), hook.public_hex()],
+                              store.all())["valid"]
+
+
+def test_v027_validates_the_pin():
+    import pytest
+    from noirebox.reconcile import reconcile_receipts, registry_disclosure
+
+    with pytest.raises(ValueError, match="64-char"):
+        reconcile_receipts([], registrar_public_hex="nothex")
+    with pytest.raises(ValueError, match="64-char"):
+        registry_disclosure([], registrar_public_hex="ab" * 31 + "zz")

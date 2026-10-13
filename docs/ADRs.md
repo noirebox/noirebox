@@ -539,6 +539,31 @@ nothing; a receipt whose own writer is unregistered is
 `independence_undecidable` — never clean. Pattern: `seal_requirement`,
 extended to writers.
 
+**Amendment (Oct 13, v0.2.7 — the §17 pin, howcani's write race)**:
+the registry's own authority was the residue. In v0.2.6 the registry is
+store-derived: "operator" is a word with no referent in the predicate, the
+agent can seal its own `writer` entry, and `setdefault` made FIRST-WRITE-WINS
+the registrar — howcani's fixture (receipt by k1, attempt by k2, both keys
+agent-held; the agent self-registers k2 as `hook-transport` before the
+operator's honest attestation lands) read clean, and the operator's entry
+sat in the store inert. The closure is the pin, ADR 008's TSA-root pattern
+applied one layer down: **the registrar's key is supplied to the verifier
+OUT-OF-BAND** (`registrar_public_hex` — never read from the artifact under
+audit). At assembly, only registrar-SEALED entries are admitted — a write
+the registrar did not seal cannot vote in either order; a key the registrar
+attested under TWO domains is the operator contradicting itself —
+`registry_duplicate_undecidable`, emitted AT ASSEMBLY, never resolved
+first-write-wins. The verdict reads the registry the operator sealed, not
+the registry that arrived first. The howcani prediction is a test and
+holds: at the pinned head the fixture reads `unverified_label`. And the
+descent's floor gets its disclosure row (`registry_disclosure`, sealed into
+the report): the verdict states the registrant and the grade — at the last
+layer the artifact stops being evidence about the agent and becomes a
+statement of trust in the operator, grade 3, "anchored self", VOLUNTARY
+unless a regime imposes it (ADR 022). Disclosure is not violation: it never
+touches `clean_pass`, it only stops a clean verdict from pretending to rest
+on more than the operator's own custody.
+
 ## ADR 022 — Custody vs anchoring: map the trust boundary, disclose the proof grade
 
 **Status**: accepted — the best framing received this week (mickyarun, PSD2); ops cadence from the reid thread (30/09) + mickyarun.
