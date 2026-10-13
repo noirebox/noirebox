@@ -134,6 +134,24 @@ stated, not hidden
 `test_the_material_never_crosses_the_socket`,
 `test_uid_gate_enforces`).
 
+**The platform boundary, measured by the 3hkpp probe**: on darwin there
+is no peer check at all — `SO_PEERCRED` is Linux-only — so the gate is
+**unusable rather than unsafe** (it refuses, fail-closed) and the
+premise is carried entirely by the socket's `0600`, **which separates
+users, not processes**: row 1 was reachable from another process of the
+same uid. Rung 4's residue is rung 3's sentence with one noun changed —
+the assertion is no longer "the agent cannot read the key material"
+(that half is genuinely closed: no export op, the material never
+crosses) but **"the agent does not run as the operator's uid"** — a
+deployment property, checkable only where the platform lets you ask.
+Which is why the custody mode is a DISCLOSURE field, not something the
+artifact can prove: `registry_disclosure(signer_mode=..., uid_gate=...)`
+— "checked" or "unavailable(<platform>)", null when the caller states
+nothing (`SocketSigner.describe()` reports `peer_uid_checked` so the
+caller derives it from the daemon instead of asserting it). The token
+PIN rides `NOIREBOX_HSM_PIN`, not argv — a CLI-argument PIN sits in the
+process table, readable via `ps`.
+
 **Still open**: hardware custody — HSM/PKCS#11 rides the same signer
 interface; the key never leaving hardware is the same move one rung
 further down.
@@ -158,9 +176,10 @@ assertions and the honesty rules that make them auditable:
 | # | premise | what it narrows to | named in |
 |---|---|---|---|
 | 1 | the registrar pin is supplied out-of-band, by the deployment | the deployment's word on ONE key | ADR 021, §17 amendment |
-| 2 | the keyholder's socket is reachable only to those the filesystem + uid gate allow | one path, gated where the platform can check | ADR 020 amendment |
+| 2 | the keyholder's socket is reachable only to those the filesystem + uid gate allow | one path; the gate is platform-bound — Linux checks the peer, darwin has no check at all, so there the 0600 separates USERS, not processes | ADR 020 amendment; 3hkpp |
 | 3 | agent and operator do not share uid AND socket | a container/mount assertion — reachability, not readability | ADR 020 amendment |
-| 4 | no hardware root under the signing key | HSM/PKCS#11, same signer interface — open | README roadmap |
+| 4 | no hardware root under the signing key | HSM/PKCS#11, same signer interface — interface shipped, the silicon still owes the closure | README roadmap |
+| 5 | the custody MODE is a disclosure field, not a proof — the journal cannot tell in-process from socket from token | `signer_mode` + `uid_gate` in the disclosure, null when unstated | 3hkpp, v0.2.8 |
 
 ## The receipts
 

@@ -1171,3 +1171,30 @@ def test_v027_validates_the_pin():
         reconcile_receipts([], registrar_public_hex="nothex")
     with pytest.raises(ValueError, match="64-char"):
         registry_disclosure([], registrar_public_hex="ab" * 31 + "zz")
+
+
+# --- §18 — v0.2.8: the disclosure states what the signature rests on (3hkpp)
+
+def test_v028_disclosure_states_the_custody_mode(tmp_path):
+    """3hkpp row 3: the drop-in property makes the journal blind to
+    custody — so the custody mode is a DISCLOSURE field. signer_mode and
+    uid_gate serialize as stated, and as NULL when the caller did not
+    state them — null visibly says nothing, it never implies the peer was
+    checked. Schema bumps to registry-disclosure/0.2."""
+    from noirebox.reconcile import seal_writer, registry_disclosure
+
+    store, key = _store(tmp_path)
+    seal_writer(store, key, public_hex=key.public_hex(), domain="agent",
+                declared_by="ops (registration)")
+    events = store.all()
+
+    stated = registry_disclosure(events, registrar_public_hex=key.public_hex(),
+                                 signer_mode="socket",
+                                 uid_gate="unavailable(darwin)")
+    assert stated["schema"] == "registry-disclosure/0.2"
+    assert stated["signer_mode"] == "socket"
+    assert stated["uid_gate"] == "unavailable(darwin)"
+
+    unstated = registry_disclosure(events, registrar_public_hex=key.public_hex())
+    assert unstated["signer_mode"] is None  # null: stated-nothing, implied-nothing
+    assert unstated["uid_gate"] is None

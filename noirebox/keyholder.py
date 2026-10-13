@@ -189,6 +189,7 @@ class SocketSigner:
         self.socket_path = str(socket_path)
         self.timeout = timeout
         self._public_hex: str | None = None
+        self._describe: dict | None = None
 
     def _request(self, payload: dict) -> dict:
         try:
@@ -222,6 +223,19 @@ class SocketSigner:
         resp = self._request({"protocol": PROTOCOL, "op": "sign",
                               "data": data.hex()})
         return str(resp["signature"])
+
+    def describe(self) -> dict:
+        """The daemon's own account of itself — identity AND whether the
+        uid check ran (`peer_uid_checked`). The caller derives the
+        disclosure's uid_gate from THIS, not from an assertion: on Linux
+        a gated daemon reports the check ran; on platforms without
+        SO_PEERCRED it reports False — 'unavailable(<platform>)', never a
+        silent pass (3hkpp, row 3: the disclosure must say what the
+        signature rests on)."""
+        if self._describe is None:
+            self._describe = self._request({"protocol": PROTOCOL,
+                                            "op": "describe"})
+        return self._describe
 
     def public_hex(self) -> str:
         """The SIGNER's identity, learned from the daemon — the out-of-band

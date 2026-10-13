@@ -185,3 +185,34 @@ def test_uid_gate_on_a_deaf_platform_fails_closed(tmp_path):
             (None, False))
         assert "error" in resp
         assert "fail closed" in resp["error"]
+
+
+def test_v028_the_disclosure_names_the_gate_the_daemon_ran(tmp_path):
+    """3hkpp's REGISTERED PREDICTION, e2e: a journal sealed through the
+    keyholder reads exactly as one signed in-process — so the custody
+    field must come from the DAEMON's own account, not from an assertion.
+    describe() reports peer_uid_checked; the disclosure carries it:
+    'checked' where the platform can ask (Linux CI), 'unavailable' where
+    it cannot (darwin) — never a silent pass."""
+    import sys
+
+    with _Daemon(allow_uid=os.getuid() if sys.platform == "linux" else None) as daemon:
+        signer = SocketSigner(daemon.socket_path)
+        described = signer.describe()
+        gate = ("checked" if described["peer_uid_checked"]
+                else f"unavailable({sys.platform})")
+
+        store = EventStore(str(tmp_path / "j.db"))
+        store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "r1",
+                                 "judged_by": "deterministic"}, signer)
+        from noirebox.reconcile import registry_disclosure
+        d = registry_disclosure(store.all(),
+                                registrar_public_hex=signer.public_hex(),
+                                signer_mode="socket", uid_gate=gate)
+        assert d["signer_mode"] == "socket"
+        if sys.platform == "linux":
+            assert d["uid_gate"] == "checked"
+            assert described["peer_uid"] == os.getuid()
+        else:
+            assert d["uid_gate"] == "unavailable(darwin)"
+            assert described["peer_uid"] is None

@@ -817,14 +817,22 @@ def _assemble_registry(events: list[dict],
 
 
 def registry_disclosure(events: list[dict],
-                        registrar_public_hex: str | None = None) -> dict:
-    """The DISCLOSURE ROW (v0.2.7 — §17, howcani's descent floor): the
-    verdict states WHO registered the writers and at what evidence grade.
-    At the last layer of the descent the artifact stops being evidence
-    about the agent and becomes a statement of trust in the operator —
-    grade 3, "anchored self", VOLUNTARY unless a regime imposes it
-    (ADR 022). Pretending to a stronger verdict is the one thing the
-    taxonomy exists to prevent.
+                        registrar_public_hex: str | None = None, *,
+                        signer_mode: str | None = None,
+                        uid_gate: str | None = None) -> dict:
+    """The DISCLOSURE ROW (v0.2.7 — §17, howcani's descent floor; v0.2.8
+    — 3hkpp, the custody mode): the verdict states WHO registered the
+    writers, at what evidence grade, and WHAT THE SIGNATURE RESTS ON.
+    The drop-in property makes the journal blind to custody — a writer
+    event sealed through the keyholder reads exactly as one signed
+    in-process — so the custody mode is a disclosure field, not something
+    the artifact can prove: `signer_mode` ("in-process" | "socket" |
+    "pkcs11" | the deployment's own word) and `uid_gate` ("checked" |
+    "unavailable(<platform>)" | "off"). Both default to None — serialized
+    as null, meaning the caller did NOT state it: the same honesty as the
+    unpinned mode line. `SocketSigner.describe()` reports
+    `peer_uid_checked` so the caller can derive uid_gate from the daemon
+    instead of asserting it.
 
     Pinned: the registrant is the pinned registrar key and the counts are
     the registrar-sealed assembly. Unpinned: the mode line says
@@ -844,7 +852,9 @@ def registry_disclosure(events: list[dict],
     else:
         registrar_sealed = len(writer_events)
     return {
-        "schema": "registry-disclosure/0.1",
+        "schema": "registry-disclosure/0.2",
+        "signer_mode": signer_mode,
+        "uid_gate": uid_gate,
         "mode": "pinned" if pinned else
                 "store-derived (first-write-wins — no registrar pinned)",
         "registrar": (f"pinned {registrar_public_hex}" if pinned else None),
