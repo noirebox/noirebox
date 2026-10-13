@@ -554,6 +554,24 @@ label true. The attribute is a claim; the hardware is the predicate.
 
 ---
 
+**Amendment (Oct 13, v0.2.8 — 3hkpp: the custody mode is disclosed)**:
+the probe confirmed the drop-in holds byte-identically from another
+process, then measured its consequence: the journal CANNOT tell custody
+modes apart — by design. So the mode becomes a disclosure field:
+`registry_disclosure(signer_mode=..., uid_gate=...)` (schema
+`registry-disclosure/0.2`, fields null when the caller states nothing —
+null visibly says nothing, it never implies the peer was checked), and
+`SocketSigner.describe()` reports `peer_uid_checked` so the caller
+derives the gate status from the daemon instead of asserting it. The
+platform boundary is now in the ladder: on darwin there is no peer check
+at all — the gate is unusable rather than unsafe (it refuses,
+fail-closed) and the 0600 separates USERS, not processes; rung 4's
+residue is rung 3's sentence with one noun changed. And the token PIN
+left argv: `NOIREBOX_HSM_PIN` carries it (an argv PIN sits in the process
+table, readable via `ps`; the daemon warns when it sees one).
+
+---
+
 ## ADR 021 — Flow independence is a testable invariant, not a claim
 
 **Status**: accepted — shared-dependency attack (glenallen, picked up by james as "the attack that would actually hurt"); clock/key independence (indiainfranotes); sealer identity (naveen thread, 27/09 + james: "a name, not a role").

@@ -177,8 +177,9 @@ def main(argv: list[str] | None = None) -> int:
     kh.add_argument("--pkcs11-token", default=None,
                     help="token label (with --pkcs11-module)")
     kh.add_argument("--pkcs11-pin", default=None,
-                    help="token user PIN (with --pkcs11-module; inject via "
-                         "secret manager, not shell history)")
+                    help="token user PIN (with --pkcs11-module); falls back "
+                         "to NOIREBOX_HSM_PIN — prefer the env var: an argv "
+                         "PIN sits in the process table, readable via ps")
     kh.add_argument("--pkcs11-key-label", default=None,
                     help="key label inside the token (with --pkcs11-module)")
     kh.add_argument("--ensure-key", action="store_true",
@@ -542,11 +543,17 @@ def main(argv: list[str] | None = None) -> int:
         if args.pkcs11_module:
             from noirebox.hsm import P11Signer, ensure_hsm_key
 
-            if not args.pkcs11_token or args.pkcs11_pin is None \
+            pin = args.pkcs11_pin or os.environ.get("NOIREBOX_HSM_PIN")
+            if not args.pkcs11_token or pin is None \
                     or not args.pkcs11_key_label:
-                print("[✗] --pkcs11-module needs --pkcs11-token, "
-                      "--pkcs11-pin and --pkcs11-key-label")
+                print("[✗] --pkcs11-module needs --pkcs11-token, a PIN "
+                      "(--pkcs11-pin or NOIREBOX_HSM_PIN) and "
+                      "--pkcs11-key-label")
                 return 1
+            if args.pkcs11_pin:
+                print("[keyholder] WARNING: the token PIN arrived as a CLI "
+                      "argument — it sits in this process's argv, readable "
+                      "via ps. Prefer NOIREBOX_HSM_PIN (3hkpp, row 4).")
             if args.ensure_key:
                 if not args.key or not os.path.exists(args.key):
                     print("[✗] --ensure-key needs --key (the existing "
@@ -556,14 +563,14 @@ def main(argv: list[str] | None = None) -> int:
                     pem = f.read()
                 key = ensure_hsm_key(
                     args.pkcs11_module,
-                    token_label=args.pkcs11_token, pin=args.pkcs11_pin,
+                    token_label=args.pkcs11_token, pin=pin,
                     key_label=args.pkcs11_key_label, pem=pem)
                 print("[keyholder] key ensured in the token — the public "
                       "hex did not move")
             else:
                 key = P11Signer(
                     args.pkcs11_module,
-                    token_label=args.pkcs11_token, pin=args.pkcs11_pin,
+                    token_label=args.pkcs11_token, pin=pin,
                     key_label=args.pkcs11_key_label)
             sock_path = args.socket or (args.key + ".sock" if args.key
                                         else "noirebox-keyholder.sock")
