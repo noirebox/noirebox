@@ -387,33 +387,24 @@ the integrity of the journal — the verifier ships as a GitHub Action
 - uses: noirebox/noirebox-verify@v1
   with:
     export-path: export.json
-    noirebox-ref: v0.12.0  # pin the verifier ref — reproducible audits
+    noirebox-ref: v0.14.0  # pin the verifier ref — reproducible audits
 ```
 
 ## Roadmap
 
-- [x] OAuth2 (JWT bearer) + rate limiting — [ADR 004](docs/ADRs.md)
-- [x] PDF attestation export for DPOs — [ADR 005](docs/ADRs.md)
-- [x] Local LLM judge for doubtful cases — tier 2 of [ADR 001](docs/ADRs.md), `engine: "llm"` ([ADR 015](docs/ADRs.md))
-- [x] RFC 3161 timestamping of the chain head — [ADR 006/007](docs/ADRs.md), self-hosted TSA included
-- [x] **Fleet anchoring (Merkle)** — `noirebox/merkle.py`: one TSA seal covers
-      N journals (Certificate-Transparency pattern); inclusion proofs are
-      ~log2(N) hashes, verified offline — see `make demo-fleet`
-- [x] **Reconciliation plugin v0** — invariants over the journal ("every decision
-      must have an outcome"): `noirebox/reconcile.py` + CLI
-      `noirebox reconcile --fail-on-findings`, schema from
-      [issue #3](https://github.com/noirebox/noirebox/issues/3) (community
-      request), pattern sketch in [`demo/demo_payout.py`](demo/demo_payout.py)
+What remains. Everything shipped lives in the [CHANGELOG](CHANGELOG.md) and
+the [ADRs](docs/ADRs.md) — this section only holds what is still open.
+
 - [ ] Fleet hub console: scheduled aggregation, alerting — the v0 seal/verify primitives shipped ([ADR 017](docs/ADRs.md))
-- [x] **Multi-witness anchoring + auditor-pinned roots** — `NOIREBOX_TSA_PROFILES`, egress allowlist, `verifier/tsa_roots/` ([ADR 008](docs/ADRs.md))
-- [x] **OpenTimestamps witness** — a Bitcoin-anchored receipt rides in the same anchor event ([ADR 009](docs/ADRs.md))
-- [x] **AI-Act vocabulary + audit-pack** — art. 12(3) builders, `noirebox audit-pack` ([ADR 010](docs/ADRs.md))
-- [x] **Prometheus + Grafana metrics** — `GET /metrics` (text 0.0.4, zero dep), sample dashboard in [`docs/grafana-dashboard.json`](docs/grafana-dashboard.json)
 - [ ] HSM signing (the key never leaves the hardware) — secret-manager injection is shipped: `NOIREBOX_KEY_PEM` ([ADR 018](docs/ADRs.md))
-- [x] Product page rebuilt for GitHub Pages — premium dark landing in
-      [`docs/`](docs/index.html), auto-deployed by
-      [`.github/workflows/pages.yml`](.github/workflows/pages.yml)
-      (enable Pages → Source: GitHub Actions)
+- [ ] The registrar key bound to the PROCESS, not the disk file — ADR 020's
+      "keys are per PROCESS" as a runtime property (unix socket / uid-scoped
+      fd) instead of a deployment premise ([ADR 021, §17](docs/ADRs.md))
+- [ ] The authority ladder as a page — caller argument → store writer →
+      registry sealer → pinned registrar: each layer has fewer candidate
+      writers than the last; at the floor the artifact stops being evidence
+      about the agent and becomes trust in the operator ([ADR 021](docs/ADRs.md))
+- [ ] Randal's frontier leg — the landing pad is merged (#73), awaiting the PR
 
 ## Support
 
