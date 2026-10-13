@@ -532,6 +532,26 @@ uid AND a socket, the gate is the filesystem's — stated, not hidden. The pin
 makes "the one writer the agent cannot be" a deployment ASSERTION instead of
 a deployment hope.
 
+**Amendment (Oct 13, HSM — the same interface, hardware custody)**:
+`P11Signer` (`noirebox/hsm.py`, the `hsm` extra) duck-types
+`.sign()` + `.public_hex()` and puts the material in a PKCS#11 token — the
+keyholder daemon becomes the hardware bridge
+(`noirebox keyholder --pkcs11-module ... --ensure-key`), the agent keeps
+speaking the socket. Continuity is the point: `ensure_hsm_key(pem=...)`
+imports the EXISTING journal key — the public hex does not move, no
+signature breaks, no rotation. What this rung does NOT claim: the HSM does
+not change WHO can ask for a signature — that stays the socket premise —
+it changes what a compromise COSTS. A PEM read once is forgery forever,
+offline; a non-extractable key must be abused LIVE — detectable, revocable,
+rotatable. Blast radius: from "key stolen" to "live abuse only". And the
+honesty about the CI token: SoftHSM2 is an HSM-shaped FILE — it proves the
+INTERFACE (determinism, continuity, drop-in; the test asserts signatures
+byte-identical to the PEM key's own), never the non-extractability. PKCS#11
+itself keeps the pattern honest one layer down: `CKA_NEVER_EXTRACTABLE` is
+a LABEL — an imported key reports False, the token telling the truth that
+the seed did exist outside once; only keys BORN on real silicon make the
+label true. The attribute is a claim; the hardware is the predicate.
+
 ---
 
 ## ADR 021 — Flow independence is a testable invariant, not a claim

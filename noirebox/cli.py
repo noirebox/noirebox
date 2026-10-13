@@ -170,6 +170,21 @@ def main(argv: list[str] | None = None) -> int:
     kh.add_argument("--allow-uid", type=int, default=None,
                     help="refuse peers whose uid differs (Linux; fails "
                          "CLOSED where the peer uid is not checkable)")
+    kh.add_argument("--pkcs11-module", default=None,
+                    help="PKCS#11 module (.so) — the daemon's key lives in "
+                         "the TOKEN, non-extractable; the agent's socket "
+                         "contract is unchanged")
+    kh.add_argument("--pkcs11-token", default=None,
+                    help="token label (with --pkcs11-module)")
+    kh.add_argument("--pkcs11-pin", default=None,
+                    help="token user PIN (with --pkcs11-module; inject via "
+                         "secret manager, not shell history)")
+    kh.add_argument("--pkcs11-key-label", default=None,
+                    help="key label inside the token (with --pkcs11-module)")
+    kh.add_argument("--ensure-key", action="store_true",
+                    help="with --pkcs11-*: import --key (PEM) into the "
+                         "token under the label if absent — continuity, "
+                         "not rotation; the public hex does not move")
     khs = sub.add_parser("keyholder-status",
                          help="describe a running keyholder: its public key "
                               "(the out-of-band pin value) and the peer check")
@@ -524,21 +539,56 @@ def main(argv: list[str] | None = None) -> int:
         from noirebox.chain import KeyPair
         from noirebox.keyholder import KeyHolder
 
-        key_path = args.key
-        if key_path is None:
-            key_path = locate.resolve_journal() + ".key"
-        if not os.path.exists(key_path):
-            print(f"[✗] no key at {key_path} — pass --key or seal once first")
-            return 1
-        key = KeyPair._load_pem(key_path)
-        sock_path = args.socket or key_path + ".sock"
-        holder = KeyHolder(key, sock_path, allow_uid=args.allow_uid)
-        print(f"[keyholder] public key: {key.public_hex()}")
-        print(f"[keyholder] signing on {sock_path}"
-              + (f" (uid gate: {args.allow_uid})" if args.allow_uid is not None
-                 else " (no uid gate — the socket's 0600 is the gate)"))
-        print("[keyholder] the key material stays in this process. CTRL-C "
-              "to stop; the PEM file can be removed after start.")
+        if args.pkcs11_module:
+            from noirebox.hsm import P11Signer, ensure_hsm_key
+
+            if not args.pkcs11_token or args.pkcs11_pin is None \
+                    or not args.pkcs11_key_label:
+                print("[✗] --pkcs11-module needs --pkcs11-token, "
+                      "--pkcs11-pin and --pkcs11-key-label")
+                return 1
+            if args.ensure_key:
+                if not args.key or not os.path.exists(args.key):
+                    print("[✗] --ensure-key needs --key (the existing "
+                          "journal PEM) — continuity, not rotation")
+                    return 1
+                with open(args.key, "rb") as f:
+                    pem = f.read()
+                key = ensure_hsm_key(
+                    args.pkcs11_module,
+                    token_label=args.pkcs11_token, pin=args.pkcs11_pin,
+                    key_label=args.pkcs11_key_label, pem=pem)
+                print("[keyholder] key ensured in the token — the public "
+                      "hex did not move")
+            else:
+                key = P11Signer(
+                    args.pkcs11_module,
+                    token_label=args.pkcs11_token, pin=args.pkcs11_pin,
+                    key_label=args.pkcs11_key_label)
+            sock_path = args.socket or (args.key + ".sock" if args.key
+                                        else "noirebox-keyholder.sock")
+            holder = KeyHolder(key, sock_path, allow_uid=args.allow_uid)
+            print(f"[keyholder] public key: {key.public_hex()}")
+            print(f"[keyholder] signing on {sock_path} — the key lives in "
+                  f"the TOKEN ({args.pkcs11_token}/{args.pkcs11_key_label}), "
+                  "non-extractable; the socket contract is unchanged")
+        else:
+            key_path = args.key
+            if key_path is None:
+                key_path = locate.resolve_journal() + ".key"
+            if not os.path.exists(key_path):
+                print(f"[✗] no key at {key_path} — pass --key or seal once "
+                      "first")
+                return 1
+            key = KeyPair._load_pem(key_path)
+            sock_path = args.socket or key_path + ".sock"
+            holder = KeyHolder(key, sock_path, allow_uid=args.allow_uid)
+            print(f"[keyholder] public key: {key.public_hex()}")
+            print(f"[keyholder] signing on {sock_path}"
+                  + (f" (uid gate: {args.allow_uid})"
+                     if args.allow_uid is not None
+                     else " (no uid gate — the socket's 0600 is the gate)"))
+        print("[keyholder] CTRL-C to stop.")
         try:
             holder.serve_forever()
         except KeyboardInterrupt:
