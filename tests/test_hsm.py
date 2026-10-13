@@ -9,15 +9,16 @@ import shutil
 import tempfile
 import textwrap
 
-import pkcs11
 import pytest
 from cryptography.hazmat.primitives.serialization import (
     Encoding, NoEncryption, PrivateFormat)
-from pkcs11 import Attribute
 
 from noirebox.chain import KeyPair, verify_chain_multi
 from noirebox.hsm import ensure_hsm_key, find_softhsm
 from noirebox.store import EventStore
+
+# pkcs11 is imported INSIDE the tests: this module must COLLECT cleanly in
+# environments without the hsm extra (the skipifs above do the gating)
 
 pytestmark = [
     pytest.mark.skipif(find_softhsm() is None,
@@ -86,6 +87,9 @@ def test_the_value_attribute_is_shielded(hsm_env):
     (On SoftHSM2 the FILE still holds the material: the interface is
     proven here, the custody claim belongs to hardware. Stated, not
     hidden.)"""
+    import pkcs11
+    from pkcs11 import Attribute
+
     signer = ensure_hsm_key(hsm_env["module"], token_label=hsm_env["token"],
                             pin=hsm_env["pin"], key_label="shielded")
     privs = list(signer._session.get_objects({
@@ -100,6 +104,9 @@ def test_the_token_does_not_lie_about_never_extractable(hsm_env):
     """An IMPORTED key reports NEVER_EXTRACTABLE False — it did exist
     outside once, and the label says so. The token is honest; only keys
     BORN on real silicon make that label true."""
+    import pkcs11
+    from pkcs11 import Attribute
+
     signer = ensure_hsm_key(hsm_env["module"], token_label=hsm_env["token"],
                             pin=hsm_env["pin"], key_label="imported")
     privs = list(signer._session.get_objects({
