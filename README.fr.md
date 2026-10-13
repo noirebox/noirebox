@@ -370,7 +370,7 @@ exemples au dataset, puis `make train`. Architecture par étages :
 
 ## Tests
 
-253 tests : cryptographie (falsification, réordonnancement, mauvaise clé),
+343 tests : cryptographie (falsification, réordonnancement, mauvaise clé),
 garde-fou regex et **ML sur phrases inédites en FR et EN**, le pipeline
 gardé avec un LLM factice (sans Ollama, tourne en CI), agent API,
 serveur MCP, SDK client contre un **vrai serveur uvicorn** (port éphémère),
@@ -393,7 +393,7 @@ Action ([Marketplace](https://github.com/marketplace/actions/noirebox-verify)) :
 - uses: noirebox/noirebox-verify@v1
   with:
     export-path: export.json
-    noirebox-ref: v0.6.0   # fige le ref du vérifieur — audits reproductibles
+    noirebox-ref: v0.16.0  # fige le ref du vérifieur — audits reproductibles
 ```
 
 ## Cas d'usage — n'importe quel agent qui « décide »
