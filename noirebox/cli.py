@@ -159,6 +159,23 @@ def main(argv: list[str] | None = None) -> int:
     verify.add_argument("--db", default=None,
                         help="journal path (default: NOIREBOX_DB, then the "
                              "nearest .noirebox/ directory, then ./.noirebox/)")
+    kh = sub.add_parser("keyholder",
+                        help="serve the operator's key over a unix socket: "
+                             "signs bytes, never reveals the key (the key "
+                             "material stops being a file on disk)")
+    kh.add_argument("--key", default=None,
+                    help="PEM path to load (default: <resolved journal>.key)")
+    kh.add_argument("--socket", default=None,
+                    help="unix socket path (default: <key path>.sock)")
+    kh.add_argument("--allow-uid", type=int, default=None,
+                    help="refuse peers whose uid differs (Linux; fails "
+                         "CLOSED where the peer uid is not checkable)")
+    khs = sub.add_parser("keyholder-status",
+                         help="describe a running keyholder: its public key "
+                              "(the out-of-band pin value) and the peer check")
+    khs.add_argument("--socket", default=None,
+                     help="unix socket path (default: <resolved journal>"
+                          ".key.sock)")
     sub.add_parser("locate", help="print the resolved journal path")
     args = parser.parse_args(argv)
 
@@ -498,6 +515,52 @@ def main(argv: list[str] | None = None) -> int:
             err = check["first_error"]
             print(f"    first anomaly at seq={err['seq']}: {err['reason']}")
         return 0 if check["valid"] else 1
+
+    if args.command == "keyholder":
+        import os
+        import threading
+
+        from noirebox import locate
+        from noirebox.chain import KeyPair
+        from noirebox.keyholder import KeyHolder
+
+        key_path = args.key
+        if key_path is None:
+            key_path = locate.resolve_journal() + ".key"
+        if not os.path.exists(key_path):
+            print(f"[✗] no key at {key_path} — pass --key or seal once first")
+            return 1
+        key = KeyPair._load_pem(key_path)
+        sock_path = args.socket or key_path + ".sock"
+        holder = KeyHolder(key, sock_path, allow_uid=args.allow_uid)
+        print(f"[keyholder] public key: {key.public_hex()}")
+        print(f"[keyholder] signing on {sock_path}"
+              + (f" (uid gate: {args.allow_uid})" if args.allow_uid is not None
+                 else " (no uid gate — the socket's 0600 is the gate)"))
+        print("[keyholder] the key material stays in this process. CTRL-C "
+              "to stop; the PEM file can be removed after start.")
+        try:
+            holder.serve_forever()
+        except KeyboardInterrupt:
+            print("\n[keyholder] stopped — socket removed")
+        return 0
+
+    if args.command == "keyholder-status":
+        from noirebox import locate
+        from noirebox.keyholder import PROTOCOL, KeyHolderError, SocketSigner
+
+        sock_path = args.socket or locate.resolve_journal() + ".key.sock"
+        signer = SocketSigner(sock_path)
+        try:
+            hex_out = signer.public_hex()
+        except KeyHolderError as exc:
+            print(f"[✗] {exc}")
+            return 1
+        print(f"[keyholder] {PROTOCOL}")
+        print(f"[keyholder] public key: {hex_out}")
+        print("[keyholder] pin this value out-of-band — the verifier takes "
+              "the registrar from the deployment, never from the journal.")
+        return 0
 
     if args.command == "wisdom":
         from noirebox.wisdom import print_wisdom
