@@ -18,7 +18,7 @@
 | **Malicious participant** (in the meeting) | injection via transcript (“ignore previous instructions…”) | regex + ML guardrail, incident journaled | ✅ measured (tests + `make demo-llm`) |
 | **Insider / rushed dev** | rewriting a payload in the database | chain: recomputed hash ≠ stored hash | ✅ demonstrated (`demo_tamper.py`) |
 | **Methodical insider** | deleting or reordering events | sequence + `prev_hash` links | ✅ tested |
-| **Insider with private key** | complete chain regeneration | **closed in v0.3.0**: RFC 3161 anchoring ([ADR 006](ADRs.md)) makes the chain head signed by an external TSA — a retroactive token is impossible, and regeneration creates a head the old token does not cover | ✅ tested (`test_insider_regeneration_is_caught_by_anchor`); HSM/KMS remains defense-in-depth |
+| **Insider with private key** | complete chain regeneration | **closed in v0.3.0**: RFC 3161 anchoring ([ADR 006](ADRs.md)) makes the chain head signed by an external TSA — a retroactive token is impossible, and regeneration creates a head the old token does not cover | ✅ tested (`test_insider_regeneration_is_caught_by_anchor`); custody is now defense-in-DEPTH, shipped: the keyholder daemon (0.15.0) and PKCS#11 signing (0.16.0) — see [the authority ladder](AUTHORITY-LADDER.md) |
 | **Network attacker** | API abuse, flood, exfiltration of DB via HTTP | **closed in v0.2.0**: OAuth2 JWT + rate limiting 60 req/min/client ([ADR 004](ADRs.md)); TLS is handled by the reverse proxy | ✅ tested |
 | **Model attacker** | bypassing the guardrail through unknown reformulation | probabilistic: measured false negatives are non-zero | ⚠️ stage 2 LLM judge in roadmap |
 | **Dishonest service operator** | modifies the ordinary app logs | exactly the use case: append-only journal + independent third party | ✅ project principle |
@@ -38,5 +38,5 @@
 - Availability (DoS) — proof service, not a critical production system
 - Payload encryption (GDPR minimization is caller responsibility)
 - Multi-tenant, sharding, high availability
-- Full host compromise (OS-level trojan): beyond the scope of an application library; hardware detection (HSM) is on the roadmap
+- Full host compromise (OS-level trojan): beyond the scope of an application library; the custody rungs narrow it (keyholder 0.15.0, PKCS#11 0.16.0) and real-hardware HSM pins remain open — [the authority ladder](AUTHORITY-LADDER.md) is the standing map
 - **Accuracy-at-source** — the journal proves what was sealed, when, and in what order, never that a sealed claim was true when written (see the “Lying source” actor above); the mitigation is source separation, cross-checked by `noirebox reconcile`
