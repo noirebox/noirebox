@@ -376,8 +376,13 @@ gardé avec un LLM factice (sans Ollama, tourne en CI), agent API,
 serveur MCP, SDK client contre un **vrai serveur uvicorn** (port éphémère),
 agent LLM réel (skip si Ollama absent), **auth OAuth2 JWT +
 rate limiting + attestation PDF DPO + ancrage RFC 3161 contre une vraie TSA
-locale (dont l'attaque de régénération par l'insider)**, et le contrat
-complet du vérificateur tiers. Tout se rejoue en local : `make test`
+locale (dont l'attaque de régénération par l'insider)**, les **reçus scellés**
+(joins receipt↔journal, registre des writers, registrar pinné — la write race
+fermée à l'assemblage, le doublon `undecidable`, la disclosure), la **custody
+de la clé** (keyholder sur socket unix — signatures byte-identiques, gate uid
+fail-closed) et le **contrat PKCS#11** sur SoftHSM2 (job CI dédié), le gap GUI
+(servi vs observé), et le contrat complet du vérificateur tiers. Tout se rejoue
+en local : `make test`
 ré-entraîne les deux modèles linguistiques et lance la suite complète.
 
 **Scan statique de sécurité** en CI ([Bandit](https://bandit.readthedocs.io/),
@@ -412,26 +417,23 @@ domaine = ajouter des exemples au dataset et relancer `make train`.
 
 ## Roadmap
 
-- [x] OAuth2 (JWT bearer) + rate limiting — [ADR 004](docs/ADRs.md)
-- [x] Export PDF d'attestation pour DPO — [ADR 005](docs/ADRs.md)
-- [x] Horodatage RFC 3161 de la tête de chaîne — [ADR 006/007](docs/ADRs.md), TSA auto-hébergée incluse
-- [x] **Ancrage de flotte (Merkle)** — `noirebox/merkle.py` : UN sceau TSA couvre
-      N journaux (pattern Certificate Transparency) ; les preuves d'inclusion font
-      ~log2(N) hash, vérifiables hors-ligne — voir `make demo-fleet`
-- [x] **Plugin de réconciliation v0** — invariants sur le journal (« chaque décision
-      doit avoir une réponse ») : `noirebox/reconcile.py` + CLI
-      `noirebox reconcile --fail-on-findings`, schéma issu de
-      l'[issue #3](https://github.com/noirebox/noirebox/issues/3) (demande communauté),
-      sketch du pattern dans [`demo/demo_payout.py`](demo/demo_payout.py)
+Ce qui reste. Tout ce qui est livré vit dans le [CHANGELOG](CHANGELOG.md) et les
+[ADRs](docs/ADRs.md) — cette section ne garde que l'ouvert.
+
 - [ ] Console hub de flotte : agrégation programmée, alerting — les primitives v0 de sceau/vérification existent ([ADR 017](docs/ADRs.md))
-- [x] **Ancrage multi-témoins + racines épinglées côté auditeur** — `NOIREBOX_TSA_PROFILES`, allowlist d'egress, `verifier/tsa_roots/` ([ADR 008](docs/ADRs.md))
-- [x] **Témoin OpenTimestamps** — un reçu ancré dans Bitcoin dans le même événement `anchor` ([ADR 009](docs/ADRs.md))
-- [x] **Vocabulaire AI Act + audit-pack** — builders art. 12(3), `noirebox audit-pack` ([ADR 010](docs/ADRs.md))
-- [x] LLM-juge local pour les cas douteux — étage 2 de l'[ADR 001](docs/ADRs.md), `engine: "llm"` ([ADR 015](docs/ADRs.md))
-- [x] **Métriques Prometheus + Grafana** — `GET /metrics` (texte 0.0.4, zéro dep), dashboard d'exemple dans [`docs/grafana-dashboard.json`](docs/grafana-dashboard.json)
-- [ ] Signature HSM (la clé ne quitte jamais le matériel) — l'injection par secret manager est livrée : `NOIREBOX_KEY_PEM` ([ADR 018](docs/ADRs.md))
-- [x] Site produit refait pour GitHub Pages — landing dark premium (face de boîtier de vol :
-      bandes diagonales, fond rouge, FLIGHTDATA RECORDER) dans [`docs/`](docs/index.html)
+- [ ] HSM sur du VRAI matériel — l'interface PKCS#11 est livrée (`P11Signer` +
+      `keyholder --pkcs11-*`, prouvée en CI sur SoftHSM2 ; [amendement ADR 020](docs/ADRs.md)) ;
+      reste le pin d'un vrai module et les claims d'extractabilité que seul le
+      silicon rend vrais
+- [x] **Le keyholder : la clé registrar vit dans un PROCESS, pas dans un fichier** —
+      le PEM charge une fois dans `noirebox keyholder` et n'en sort jamais ;
+      `SocketSigner` est un drop-in de `KeyPair`, `--allow-uid` gate le peer et
+      échoue FERMÉ ([amendement ADR 020](docs/ADRs.md))
+- [x] **L'authority ladder, en page** —
+      [docs/AUTHORITY-LADDER.md](docs/AUTHORITY-LADDER.md) : argument du caller →
+      signataire → registre scellé → registrar pinné → custody. Chaque barreau :
+      ce qu'il a fermé, le résidu, le test qui mord — et la table des prémissses
+      que la prochaine sonde lit avant de descendre
 
 ## Soutenir
 

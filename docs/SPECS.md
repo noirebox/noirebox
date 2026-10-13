@@ -71,6 +71,34 @@ Exit: **0** (valid) or **1** (first break + reason). The verifier never contacts
 
 The TSA only sees a SHA-256 digest (no data leaves the infrastructure). The verifier performs two checks for each anchor: consistency of `head_seq`/`head_hash` with the chain, then `openssl ts -verify` on the token against that hash and the embedded certificate. This is the control that catches a full chain regeneration by an operator with the private key.
 
+## 3ter. Sealed receipts & key custody (receipt/0.2.x, writer/0.1, registry-disclosure/0.1)
+
+The receipts subsystem (ADR 019–022, the [authority ladder](AUTHORITY-LADDER.md))
+seals three payload schemas into the same journal:
+
+| schema | sealed by | payload |
+|---|---|---|
+| `receipt/0.2.2` | any writer | `judged_by` (`llm` requires `spec_hash` — a judge read
+its sealed bytecode or the seal REFUSES), `reason`, optional `requirement_ref` |
+| `writer/0.1` | the registrar | `public_hex` → `domain`, `declared_by` — the
+known-writers registry, resolved at reconciliation against the PINNED registrar key
+(`registrar_public_hex`, out-of-band); non-registrar entries cannot vote (filter at
+assembly, order does not decide); a key attested under two domains is
+`registry_duplicate_undecidable`, never first-wins |
+| `registry-disclosure/0.1` | the report | the registrant and the evidence grade —
+disclosure, never violation; never touches `clean_pass` |
+
+Key findings are named states, never silence: `unverified_label`,
+`independence_undecidable`, `label_llm_call_mismatch`,
+`registry_duplicate_undecidable` — undecidable is never clean, and a skipped
+check is reported (`scope_check_not_run`), never folded into clean.
+
+Custody rides the same signer interface everywhere (`KeyPair`, `SocketSigner`,
+`P11Signer` all answer `.sign()` + `.public_hex()`): the keyholder daemon holds
+the material in a process (sign + describe over a unix socket, no export op,
+`--allow-uid` fails closed), the `hsm` extra moves it into a PKCS#11 token
+(`--ensure-key` imports the existing journal key — continuity, not rotation).
+
 ## 4. Guardrail incident contract
 
 The output shape is shared by all engines:

@@ -116,7 +116,7 @@
     </div>
     <div class="grid-3">
       <div class="card"><h3>Chaîné par hash</h3><p>Chaque événement s'engage sur le précédent. Insertion, suppression, réécriture — détectées, et localisées à l'événement près.</p></div>
-      <div class="card"><h3>Signé</h3><p>Sceaux Ed25519 depuis une clé qui ne quitte jamais votre infrastructure. Un journal forgé — même parfaitement re-chaîné — échoue.</p></div>
+      <div class="card"><h3>Signé</h3><p>Sceaux Ed25519 depuis une clé qui ne quitte jamais votre infrastructure — ni votre process, ni votre token : la custody de la clé jusqu'au matériel (keyholder, PKCS#11). Un journal forgé — même parfaitement re-chaîné — échoue.</p></div>
       <div class="card"><h3>Append-only</h3><p>SQLite sans UPDATE, sans DELETE. Écrire est la seule opération qui existe. Événements signés en 0,21 ms.</p></div>
     </div>
   </div>
