@@ -362,7 +362,7 @@ examples, then `make train`.
 
 ## Tests
 
-330 tests: cryptography (tampering, reordering, wrong key), regex and **ML
+337 tests: cryptography (tampering, reordering, wrong key), regex and **ML
 guardrails on held-out sentences in FR and EN**, the guarded pipeline with a
 stub LLM (no Ollama needed, runs in CI), API agent, MCP server, SDK
 client against a **real uvicorn server** (ephemeral port), real LLM agent
@@ -397,9 +397,13 @@ the [ADRs](docs/ADRs.md) — this section only holds what is still open.
 
 - [ ] Fleet hub console: scheduled aggregation, alerting — the v0 seal/verify primitives shipped ([ADR 017](docs/ADRs.md))
 - [ ] HSM signing (the key never leaves the hardware) — secret-manager injection is shipped: `NOIREBOX_KEY_PEM` ([ADR 018](docs/ADRs.md))
-- [ ] The registrar key bound to the PROCESS, not the disk file — ADR 020's
-      "keys are per PROCESS" as a runtime property (unix socket / uid-scoped
-      fd) instead of a deployment premise ([ADR 021, §17](docs/ADRs.md))
+- [x] **The keyholder: the registrar key lives in a PROCESS, not a file** —
+      the PEM loads once into `noirebox keyholder` and never leaves it;
+      signers get a unix socket (`SocketSigner` is a drop-in for `KeyPair`),
+      `--allow-uid` gates the peer and fails closed ([ADR 020
+      amendment](docs/ADRs.md)). Remaining: hardware custody (HSM/PKCS#11
+      on the same signer interface); where agent and operator share a uid
+      AND the socket, the gate is the filesystem's — stated, not hidden.
 - [ ] The authority ladder as a page — caller argument → store writer →
       registry sealer → pinned registrar: each layer has fewer candidate
       writers than the last; at the floor the artifact stops being evidence

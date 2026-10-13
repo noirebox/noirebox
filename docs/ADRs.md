@@ -507,6 +507,31 @@ for fetches the server never served: the fabricated side, surfaced with the
 same finding (`receipt_gap`), the note naming the direction. Zero-sum coverage
 is the only clean answer.
 
+**Amendment (Oct 13, the keyholder — "per PROCESS" as a runtime property)**:
+this ADR's own audit found the gap (howcani, 3hif9): the code read a PEM file
+(`db_path + ".key"`, chmod 600) or `NOIREBOX_KEY_PEM` — nothing bound the key
+to a process, uid or role. "Keys are per PROCESS" was aspirational where the
+code reads a file: *what stands on it is a premise, not a cipher*. The
+keyholder closes the custody half structurally: the key loads ONCE into a
+dedicated daemon (`noirebox keyholder`) and never leaves it — signers get a
+unix socket (`noirebox-keyholder/0.1`) that answers `sign` and `describe`,
+nothing else, and `SocketSigner` duck-types `.sign()` + `.public_hex()` so
+every existing writer path (store, seal_writer, journal_report) signs
+THROUGH the daemon unchanged, signatures byte-identical (Ed25519 is
+deterministic). `--allow-uid` gates the peer by uid (SO_PEERCRED) and FAILS
+CLOSED where the peer is not checkable — asking for a check and not getting
+one is a refusal, never an assumption. The honest re-pricing of the floor:
+reachability of ONE socket path replaces readability of the key bytes — a
+deployment that wants "the agent cannot sign" mounts everything EXCEPT the
+socket, and after start the PEM can be removed from the agent-reachable
+volume entirely (the daemon holds the material in memory only). What the
+keyholder does NOT do: it does not bind the key to a hardware root (HSM/PKCS#11
+rides the same signer interface, later), and where agent and operator share a
+uid AND a socket, the gate is the filesystem's — stated, not hidden. The pin
+(v0.2.7) named the authority; the keyholder moves the material; the pair
+makes "the one writer the agent cannot be" a deployment ASSERTION instead of
+a deployment hope.
+
 ---
 
 ## ADR 021 — Flow independence is a testable invariant, not a claim

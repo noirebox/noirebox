@@ -3,6 +3,29 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versioning according to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **The keyholder — the operator's key lives in a process the agent is not
+  (ADR 020 as a runtime property; the floor "a premise, not a cipher",
+  re-priced)** — the PEM loads ONCE into a dedicated daemon
+  (`noirebox keyholder`) and never leaves it: the socket answers `sign`
+  and `describe`, nothing else (protocol `noirebox-keyholder/0.1`,
+  newline-delimited JSON, oversized lines dropped by disconnection).
+  `SocketSigner` duck-types `.sign()` + `.public_hex()`, so every writer
+  path (store, `seal_writer`, `journal_report`) signs THROUGH the daemon
+  unchanged — Ed25519 is deterministic, the signatures are byte-identical
+  to the key's own, and every existing verifier reads the journal as
+  before. `--allow-uid` gates the peer by uid (SO_PEERCRED, Linux) and
+  FAILS CLOSED where the peer uid is not checkable. `noirebox
+  keyholder-status` reads the daemon's public key out-of-band — the pin
+  value, taken from the process that holds the key, never from the
+  journal it sealed. The honest boundary: reachability of one socket path
+  replaces readability of the key bytes; a deployment that wants "the
+  agent cannot sign" mounts everything EXCEPT the socket, and the PEM can
+  be removed after start (the daemon holds the material in memory only).
+  HSM/PKCS#11 rides the same signer interface later.
+
 ## [0.14.0] — 2026-10-13
 
 ### Added
