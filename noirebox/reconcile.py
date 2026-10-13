@@ -153,6 +153,11 @@ class Finding:
         gui_observation_unserved — OS state moved with no served action on
                            the same key: something happened nobody served
                            (§16)
+        registry_duplicate_undecidable — the PINNED registrar attested one
+                           key under two domains: the operator contradicts
+                           itself, the key's domain is undecidable — emitted
+                           AT ASSEMBLY, never resolved first-write-wins
+                           (v0.2.7, howcani's write race)
     """
 
     invariant: str
@@ -761,17 +766,119 @@ def _resolve_key(event: dict, hexes: list[str]) -> str | None:
     return None
 
 
+def _validate_public_hex(value: str, what: str) -> str:
+    ph = str(value or "")
+    if len(ph) != 64 or any(c not in "0123456789abcdef" for c in ph):
+        raise ValueError(f"{what}: must be a 64-char sha256 hex digest")
+    return ph
+
+
+def _assemble_registry(events: list[dict],
+                       registrar_public_hex: str | None) -> tuple[dict, dict]:
+    """(v0.2.7 — §17, howcani's write race) Assembles the known-writers
+    registry from the journal's `writer` events.
+
+    PINNED (registrar key supplied out-of-band): only entries the pinned
+    registrar SEALED are admitted — filtered at assembly, so the agent's
+    own registration cannot vote no matter which order the writes landed
+    in. A key the registrar attested under TWO domains is the operator
+    contradicting itself: it lands in `contested`, undecidable, never
+    first-wins.
+
+    UNPINNED: the v0.2.6 store-derived scan — every writer event votes,
+    first write wins. The weaker mode on purpose: without a pin there is
+    no referent for "operator", and pretending otherwise is the one thing
+    the disclosure (registry_disclosure) exists to prevent."""
+    registry: dict[str, dict] = {}
+    contested: dict[str, list[str]] = {}
+    if registrar_public_hex:
+        reg = _validate_public_hex(registrar_public_hex,
+                                   "registrar_public_hex")
+        by_hex: dict[str, list[dict]] = {}
+        for w in events:
+            if w.get("type") == "writer" and _resolve_key(w, [reg]) == reg:
+                ph = str(w.get("payload", {}).get("public_hex", ""))
+                if ph:
+                    by_hex.setdefault(ph, []).append(w)
+        for ph, ws in by_hex.items():
+            domains = sorted({str(w.get("payload", {}).get("domain", ""))
+                              for w in ws})
+            if len(domains) > 1:
+                contested[ph] = domains
+            else:
+                registry[ph] = ws[0].get("payload", {})
+    else:
+        for w in events:
+            if w.get("type") == "writer":
+                ph = w.get("payload", {}).get("public_hex")
+                if ph:
+                    registry.setdefault(str(ph), w.get("payload", {}))
+    return registry, contested
+
+
+def registry_disclosure(events: list[dict],
+                        registrar_public_hex: str | None = None) -> dict:
+    """The DISCLOSURE ROW (v0.2.7 — §17, howcani's descent floor): the
+    verdict states WHO registered the writers and at what evidence grade.
+    At the last layer of the descent the artifact stops being evidence
+    about the agent and becomes a statement of trust in the operator —
+    grade 3, "anchored self", VOLUNTARY unless a regime imposes it
+    (ADR 022). Pretending to a stronger verdict is the one thing the
+    taxonomy exists to prevent.
+
+    Pinned: the registrant is the pinned registrar key and the counts are
+    the registrar-sealed assembly. Unpinned: the mode line says
+    "store-derived (first-write-wins)" — the registry nobody vouched for.
+    Seal it into the report beside the findings (journal_report)."""
+    from .aiact import evidence_grade
+
+    registry, contested = _assemble_registry(events, registrar_public_hex)
+    grade = evidence_grade("writer")  # journal-local → grade 3, by default
+    writer_events = [w for w in events if w.get("type") == "writer"]
+    pinned = registrar_public_hex is not None
+    if pinned:
+        reg = _validate_public_hex(registrar_public_hex,
+                                   "registrar_public_hex")
+        registrar_sealed = sum(1 for w in writer_events
+                               if _resolve_key(w, [reg]) == reg)
+    else:
+        registrar_sealed = len(writer_events)
+    return {
+        "schema": "registry-disclosure/0.1",
+        "mode": "pinned" if pinned else
+                "store-derived (first-write-wins — no registrar pinned)",
+        "registrar": (f"pinned {registrar_public_hex}" if pinned else None),
+        "grade": grade["grade"],
+        "grade_label": grade["label"],
+        "proof": grade["proof"],
+        "obligation": grade["obligation"],
+        "registered_keys": len(registry),
+        "writer_events_total": len(writer_events),
+        "registrar_sealed_events": registrar_sealed,
+        "filtered_writer_events": len(writer_events) - registrar_sealed,
+        "contested_keys": sorted(contested),
+    }
+
+
 def reconcile_receipts(events: list[dict], *,
                        judge_call_type: str = "llm_call",
                        requirement_type: str = "requirement",
                        correlation_key: str = "run_id",
                        transport_attempt_type: str = "agent_tool_use",
                        signers: list[tuple[str, str]] | None = None,
-                       touched_paths: list[str] | None = None) -> list[Finding]:
-    """(v0.2.6 adds the writer registry — `seal_writer` — and the explicit
-    check states: a skipped check is reported, never clean;
-    `signers=None` (no set supplied) and `signers=[]` (known-empty) are
-    distinct, and each note says which one it was."""
+                       touched_paths: list[str] | None = None,
+                       registrar_public_hex: str | None = None) -> list[Finding]:
+    """(v0.2.7 — §17, howcani's write race: `registrar_public_hex` pins the
+    registrar's key OUT-OF-BAND — ADR 008's TSA-root pattern, never read
+    from the artifact under audit. The registry assembles from
+    registrar-sealed entries only, a key the registrar attested under two
+    domains is `registry_duplicate_undecidable` — emitted at assembly,
+    never first-write-wins — and `registry_disclosure` states the
+    registrant and the grade. v0.2.6 adds the writer registry —
+    `seal_writer` — and the explicit check states: a skipped check is
+    reported, never clean; `signers=None` (no set supplied) and
+    `signers=[]` (known-empty) are distinct, and each note says which one
+    it was."""
     """The receipt joins (v0.2.3 — howcani's audit; v0.2.4 — the ceiling,
     closed): a receipt's sealed declarations are checked against
     OBSERVATIONS the declaring party did not author.
@@ -826,6 +933,20 @@ def reconcile_receipts(events: list[dict], *,
                 transports.setdefault(str(value), []).append(e)
 
     findings: list[Finding] = []
+    # (v0.2.6 §15; v0.2.7 §17) — the registry is assembled ONCE, before the
+    # row loop, and a contested key is emitted AT ASSEMBLY: the verdict
+    # reads the registry the operator sealed, not the registry that
+    # arrived first.
+    registry, contested = _assemble_registry(events, registrar_public_hex)
+    assembly_findings: list[Finding] = []
+    for ph, domains in contested.items():
+        assembly_findings.append(Finding(
+            "receipts", "registry_duplicate_undecidable", ph,
+            note="the pinned registrar attested this key under "
+                 f"{len(domains)} domains ({', '.join(domains)}) — the "
+                 "operator contradicts itself, the key's domain is "
+                 "undecidable, never first-wins (v0.2.7, howcani's "
+                 "write race)"))
     for e in receipts:
         payload = e.get("payload", {})
         join_value = payload.get(correlation_key)
@@ -837,17 +958,56 @@ def reconcile_receipts(events: list[dict], *,
         # v0.2.6 (§15) — REGISTRY MODE: when a sealed known-writers registry
         # exists, it is the authority. Key resolution, domains and
         # independence all come from it; the caller supplies nothing.
-        registry: dict[str, dict] = {}
-        for w in events:
-            if w.get("type") == "writer":
-                ph = w.get("payload", {}).get("public_hex")
-                if ph:
-                    registry.setdefault(str(ph), w.get("payload", {}))
+        # v0.2.7 (§17) — PINNED REGISTRY MODE: the registry itself was
+        # assembled from registrar-sealed entries only (filter at
+        # assembly), so the agent's self-registration cannot vote in
+        # either order, and a contested key is undecidable here too.
         attempts = transports.get(join_value, [])
         row_undecidable = False
         witnessed = False
 
-        if attempts and registry:
+        if attempts and registrar_public_hex is not None:
+            hexes = list(registry) + list(contested)
+            receipt_key = _resolve_key(e, hexes)
+            if receipt_key is None:
+                row_undecidable = True
+                findings.append(Finding(
+                    "receipts", "independence_undecidable", join_value,
+                    decision_seq=e["seq"],
+                    note="the receipt's writer does not resolve against "
+                         "the registry sealed by the pinned registrar — "
+                         "the receipt's own domain is unattested, and "
+                         "undecidable is never clean (v0.2.7)"))
+            elif receipt_key in contested:
+                row_undecidable = True
+                findings.append(Finding(
+                    "receipts", "independence_undecidable", join_value,
+                    decision_seq=e["seq"],
+                    note="the receipt's key is one the pinned registrar "
+                         f"attested under {len(contested[receipt_key])} "
+                         "domains — the registrar contradicts itself and "
+                         "the domain is undecidable, never first-wins "
+                         "(v0.2.7, howcani's write race)"))
+            else:
+                r_dom = registry[receipt_key].get("domain", "")
+                for a in attempts:
+                    wk = _resolve_key(a, hexes)
+                    if wk is None:
+                        continue  # unattested: outside the pinned registry
+                    if wk in contested:
+                        row_undecidable = True
+                        findings.append(Finding(
+                            "receipts", "independence_undecidable",
+                            join_value, decision_seq=e["seq"],
+                            note="a transport writer's domain is one the "
+                                 "pinned registrar attested under "
+                                 f"{len(contested[wk])} domains — the "
+                                 "witness is undecidable, never clean "
+                                 "(v0.2.7)"))
+                        break
+                    if registry[wk].get("domain", "") != r_dom:
+                        witnessed = True
+        elif attempts and registry:
             # REGISTRY MODE: resolution by signature against the sealed
             # public hexes; a witness is a REGISTERED writer whose domain
             # differs from the receipt's own.
@@ -908,9 +1068,15 @@ def reconcile_receipts(events: list[dict], *,
             if not attempts:
                 reason = "no transport attempt on this key"
             elif registry and not witnessed:
-                reason = ("no registered writer with a domain distinct from "
-                          "the receipt's own witnessed the attempt — same "
-                          "trust domain (ADR 021, one layer down)")
+                if registrar_public_hex is not None:
+                    reason = ("no writer the pinned registrar registered "
+                              "carries a domain distinct from the "
+                              "receipt's own — same trust domain (ADR "
+                              "021, one layer down)")
+                else:
+                    reason = ("no registered writer with a domain distinct from "
+                              "the receipt's own witnessed the attempt — same "
+                              "trust domain (ADR 021, one layer down)")
             elif signers is not None and len(signers) == 0:
                 reason = ("the known-writer set is EMPTY — nobody else could "
                           "have sealed the attempt, so the label cannot "
@@ -961,13 +1127,14 @@ def reconcile_receipts(events: list[dict], *,
                     decision_seq=e["seq"],
                     note="the scope check did not run — touched_paths not "
                          "supplied; never confused with clean (v0.2.6)"))
-    return findings
+    return assembly_findings + findings
 
 
 def journal_report(store, key, invariants: list[Invariant],
                    findings: list[Finding], probes: list[Finding] | None = None,
                    events: list[dict] | None = None,
-                   calibrations: list[Finding] | None = None) -> dict:
+                   calibrations: list[Finding] | None = None,
+                   registry_disclosure: dict | None = None) -> dict:
     """Seals the reconciliation report as a `reconciliation` event.
 
     v0.2 (ADR 019): the report is sealed EVEN WHEN EVERYTHING MATCHED — a
@@ -975,6 +1142,12 @@ def journal_report(store, key, invariants: list[Invariant],
     carries the run counts (how many decisions, attempts, outcomes were
     actually examined — the sum-to-n evidence) and the negative-control
     results. The journal audits its auditor.
+
+    v0.2.7 (§17): `registry_disclosure` — the disclosure row
+    (`registry_disclosure()`), stating WHO registered the writers and at
+    what evidence grade. A disclosure is not a violation: it never touches
+    `clean_pass`, it only stops a clean verdict from pretending to rest on
+    more than the operator's own custody.
     """
     by_status: dict[str, int] = {}
     for f in findings:
@@ -996,6 +1169,8 @@ def journal_report(store, key, invariants: list[Invariant],
                                                 "control_out_of_range")
                                    for f in (calibrations or [])),
     }
+    if registry_disclosure is not None:
+        report["registry_disclosure"] = registry_disclosure
     # ADR 019 §8 — the report witnesses its own run: byte counts of the
     # sealed payload, normalized (no wall-clock, no content beyond counts).
     from .chain import canonical

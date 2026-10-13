@@ -6,6 +6,26 @@ versioning according to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **The pin (v0.2.7 — the §17 write race, closed: howcani's 3hj95)** —
+  the registry's own authority was the residue: store-derived,
+  first-write-wins — the agent could seal its own `writer` entry and win
+  the vote by arriving first. `reconcile_receipts` now takes
+  `registrar_public_hex`: the registrar's key supplied OUT-OF-BAND
+  (ADR 008's TSA-root pattern, never read from the artifact under
+  audit). At assembly, only registrar-sealed entries are admitted; a key
+  the registrar attested under two domains is
+  `registry_duplicate_undecidable` — emitted at assembly, never resolved
+  first-wins. The verdict reads the registry the operator sealed, not
+  the registry that arrived first. howcani's registered prediction is a
+  test and holds: at the pinned head, the operator's attestation landing
+  second reads `unverified_label`. ADR 021 amendment.
+- **`registry_disclosure` — the descent's floor, disclosed (v0.2.7,
+  howcani's 3hif9)** — the disclosure row: the verdict states the
+  registrant and the evidence grade (grade 3, "anchored self", VOLUNTARY
+  unless a regime imposes it — ADR 022). Sealed into the report via
+  `journal_report(registry_disclosure=...)`; a disclosure is not a
+  violation and never touches `clean_pass`. Unpinned, the mode line says
+  "store-derived (first-write-wins)" — the registry nobody vouched for.
 - **`check_gui_gap` — the receipt_gap invariant at the GUI layer (§16 —
   reid, SoftwareGym)** — actions served by the app vs OS state observed
   by the system, on the same key: the gap is the finding. A served
