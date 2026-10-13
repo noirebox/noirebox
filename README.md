@@ -363,7 +363,7 @@ examples, then `make train`.
 
 ## Tests
 
-337 tests: cryptography (tampering, reordering, wrong key), regex and **ML
+343 tests: cryptography (tampering, reordering, wrong key), regex and **ML
 guardrails on held-out sentences in FR and EN**, the guarded pipeline with a
 stub LLM (no Ollama needed, runs in CI), API agent, MCP server, SDK
 client against a **real uvicorn server** (ephemeral port), real LLM agent
@@ -397,7 +397,11 @@ What remains. Everything shipped lives in the [CHANGELOG](CHANGELOG.md) and
 the [ADRs](docs/ADRs.md) — this section only holds what is still open.
 
 - [ ] Fleet hub console: scheduled aggregation, alerting — the v0 seal/verify primitives shipped ([ADR 017](docs/ADRs.md))
-- [ ] HSM signing (the key never leaves the hardware) — secret-manager injection is shipped: `NOIREBOX_KEY_PEM` ([ADR 018](docs/ADRs.md))
+- [ ] HSM signing on REAL hardware — the PKCS#11 interface is shipped
+      (`P11Signer` + `keyholder --pkcs11-*`, CI-proven on SoftHSM2;
+      [ADR 020 amendment](docs/ADRs.md)); what remains is a real module
+      pin (YubiHSM2 / Nitrokey / cloud HSM) and the extractability claims
+      that only silicon makes true
 - [x] **The keyholder: the registrar key lives in a PROCESS, not a file** —
       the PEM loads once into `noirebox keyholder` and never leaves it;
       signers get a unix socket (`SocketSigner` is a drop-in for `KeyPair`),
