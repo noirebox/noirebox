@@ -28,6 +28,7 @@ an attestation anyone can verify offline — **without trusting you**.
 
 [Quickstart](#quickstart) · [Real LLM scene](#the-real-llm-scene-local-ollama) ·
 [Specs](docs/SPECS.md) · [Threat model](docs/THREAT-MODEL.md) ·
+[The authority ladder](docs/AUTHORITY-LADDER.md) ·
 [ADRs](docs/ADRs.md)
 
 </div>
@@ -404,10 +405,11 @@ the [ADRs](docs/ADRs.md) — this section only holds what is still open.
       amendment](docs/ADRs.md)). Remaining: hardware custody (HSM/PKCS#11
       on the same signer interface); where agent and operator share a uid
       AND the socket, the gate is the filesystem's — stated, not hidden.
-- [ ] The authority ladder as a page — caller argument → store writer →
-      registry sealer → pinned registrar: each layer has fewer candidate
-      writers than the last; at the floor the artifact stops being evidence
-      about the agent and becomes trust in the operator ([ADR 021](docs/ADRs.md))
+- [x] **The authority ladder, as a page** — [docs/AUTHORITY-LADDER.md](docs/AUTHORITY-LADDER.md):
+      caller argument → store writer → sealed registry → pinned registrar →
+      keyholder custody. Each rung: what it closed, the residue it exposed,
+      the test that bites — and the standing-premises table the next probe
+      reads before it descends.
 - [ ] Randal's frontier leg — the landing pad is merged (#73), awaiting the PR
 
 ## Support
