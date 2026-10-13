@@ -3,7 +3,7 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versioning according to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.14.0] — 2026-10-13
 
 ### Added
 - **The pin (v0.2.7 — the §17 write race, closed: howcani's 3hj95)** —
