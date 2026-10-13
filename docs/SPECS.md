@@ -154,7 +154,7 @@ Absolute values vary with hardware and load — `make bench` on your machine is 
 ## 7. Known limits (assumed and tracked)
 
 - Unencrypted payloads: GDPR minimization is caller responsibility
-- Private key on disk: HSM/KMS in roadmap; published attestation is the countermeasure
+- Private key: custody shipped in stages — the keyholder daemon (0.15.0) keeps the key out of the agent's process and the `hsm` extra moves it onto a PKCS#11 token (0.16.0); a pinned hardware root remains open, and the published attestation stays the countermeasure
 - Probabilistic guardrail: measured false negatives are non-zero
 - Single-process append lock: sharding/scaling not targeted in v0
 
