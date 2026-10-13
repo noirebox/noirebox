@@ -122,10 +122,13 @@ class KeyHolder:
     # -- socket loop ------------------------------------------------------
 
     def serve_forever(self, stop_event: threading.Event | None = None,
-                      poll_seconds: float = 0.2) -> None:
+                      poll_seconds: float = 0.2,
+                      ready_event: threading.Event | None = None) -> None:
         """Binds, listens, serves one request per connection until the stop
         event is set. The socket file is created 0600 — the filesystem, not
-        the protocol, is the first gate."""
+        the protocol, is the first gate. `ready_event` is set the instant
+        the socket is listening — a client waits on the event, not on a
+        file-existence guess."""
         stop = stop_event or threading.Event()
         if os.path.exists(self.socket_path):
             os.unlink(self.socket_path)
@@ -134,6 +137,8 @@ class KeyHolder:
             server.bind(self.socket_path)
             os.chmod(self.socket_path, 0o600)
             server.listen(8)
+            if ready_event is not None:
+                ready_event.set()
             server.settimeout(poll_seconds)
             while not stop.is_set():
                 try:

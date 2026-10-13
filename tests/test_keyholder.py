@@ -30,15 +30,18 @@ class _Daemon:
         self.holder = KeyHolder(self.key, self.socket_path,
                                 allow_uid=allow_uid)
         self.stop = threading.Event()
+        self.ready = threading.Event()
         self.thread = threading.Thread(
-            target=self.holder.serve_forever, args=(self.stop,), daemon=True)
+            target=self.holder.serve_forever,
+            args=(self.stop,), kwargs={"ready_event": self.ready},
+            daemon=True)
 
     def __enter__(self):
         self.thread.start()
-        for _ in range(200):  # readiness: bind happens on the daemon thread
-            if os.path.exists(self.socket_path):
-                break
-            threading.Event().wait(0.01)
+        # readiness is SIGNALED by the daemon after listen() — not guessed
+        # from the socket file appearing
+        if not self.ready.wait(timeout=10):
+            raise RuntimeError("keyholder daemon did not become ready")
         return self
 
     def __exit__(self, *exc):
@@ -128,7 +131,11 @@ def test_oversized_request_is_refused(tmp_path):
         with contextlib.suppress(BrokenPipeError):
             client.sendall(b'{"op":"sign","data":"' + b"ab" * 6000
                            + b'"}\n')
-        got = client.recv(4096)
+        got = b""
+        with contextlib.suppress(ConnectionResetError):
+            # EOF (macOS) or RST (Linux): both mean the same thing — the
+            # oversized line was dropped, never served
+            got = client.recv(4096)
         client.close()
         assert got == b""  # no error line either: dropped, not served
 
