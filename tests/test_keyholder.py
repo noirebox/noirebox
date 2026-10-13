@@ -158,17 +158,20 @@ def test_the_material_never_crosses_the_socket(tmp_path):
 @pytest.mark.skipif(os.uname().sysname != "Linux",
                     reason="SO_PEERCRED is Linux; the fail-closed branch is "
                            "asserted on every platform")
-def test_uid_gate_enforces_and_fails_closed(tmp_path):
-    """The gate is a refusal engine: the right uid signs, any other uid is
-    refused, and where the peer cannot be checked the gate REFUSES —
-    asking for a check and not getting one is never a pass."""
+def test_uid_gate_enforces(tmp_path):
+    """The gate is a refusal engine: the right uid signs END-TO-END through
+    the live socket, and any other uid is refused — asserted at the request
+    boundary, deterministic. (Fail-closed is the next test.)"""
     daemon_key = KeyPair.generate()
     with _Daemon(allow_uid=os.getuid(), key=daemon_key) as daemon:
         signer = SocketSigner(daemon.socket_path)
         assert signer.sign(b"operator uid") == daemon_key.sign(b"operator uid")
-    with ( _Daemon(allow_uid=os.getuid() + 1, key=daemon_key),
-           pytest.raises(KeyHolderError, match="not the allowed operator") ):
-        SocketSigner(daemon.socket_path).sign(b"someone else")
+        refused = KeyHolder.handle_line(
+            daemon.holder,
+            json.dumps({"protocol": PROTOCOL, "op": "sign",
+                        "data": b"someone else".hex()}).encode(),
+            (os.getuid() + 1, True))
+        assert "not the allowed operator" in refused["error"]
 
 
 def test_uid_gate_on_a_deaf_platform_fails_closed(tmp_path):
