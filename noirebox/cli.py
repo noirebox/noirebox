@@ -186,6 +186,21 @@ def main(argv: list[str] | None = None) -> int:
                     help="with --pkcs11-*: import --key (PEM) into the "
                          "token under the label if absent — continuity, "
                          "not rotation; the public hex does not move")
+    ret = sub.add_parser("seal-retention",
+                         help="seal a retention change INTO the journal — "
+                              "prunes and migrations are custody events, "
+                              "not ops-layer edits (§20)")
+    ret.add_argument("--action", required=True,
+                     help="prune | migrate | policy-change | restore "
+                          "(bounded vocabulary)")
+    ret.add_argument("--scope", default=None, help="what it applies to")
+    ret.add_argument("--note", default=None, help="short human context")
+    ret.add_argument("--db", default=None, help="journal path")
+    cg = sub.add_parser("custody-grade",
+                        help="print the journal's custody disclosure: "
+                             "witness = min(authoring, retention) (§20)")
+    cg.add_argument("--max-tail-events", type=int, default=1000)
+    cg.add_argument("--db", default=None, help="journal path")
     khs = sub.add_parser("keyholder-status",
                          help="describe a running keyholder: its public key "
                               "(the out-of-band pin value) and the peer check")
@@ -600,6 +615,35 @@ def main(argv: list[str] | None = None) -> int:
             holder.serve_forever()
         except KeyboardInterrupt:
             print("\n[keyholder] stopped — socket removed")
+        return 0
+
+    if args.command == "seal-retention":
+        from noirebox import locate
+        from noirebox.chain import load_instance_key
+        from noirebox.reconcile import seal_retention
+        from noirebox.store import EventStore
+
+        db = args.db or locate.resolve_journal()
+        store = EventStore(db)
+        key = load_instance_key(db)
+        event = seal_retention(store, key, action=args.action,
+                               scope=args.scope, note=args.note)
+        print(f"[retention] sealed seq={event.seq} action={args.action}"
+              + (f" scope={args.scope}" if args.scope else ""))
+        return 0
+
+    if args.command == "custody-grade":
+        import json as _json
+
+        from noirebox import locate
+        from noirebox.reconcile import custody_grade
+        from noirebox.store import EventStore
+
+        db = args.db or locate.resolve_journal()
+        store = EventStore(db)
+        disc = custody_grade(store.all(),
+                             max_tail_events=args.max_tail_events)
+        print(_json.dumps(disc, indent=2, ensure_ascii=False))
         return 0
 
     if args.command == "keyholder-status":

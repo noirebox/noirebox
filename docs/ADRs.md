@@ -690,6 +690,28 @@ on more than the operator's own custody.
 
 **Consequences**: the trust-boundary mapping becomes part of deployment docs; the auto-anchor timer ships (wall-clock cadence, before-consequence guidance documented); the cost note is a standing section in the reconciliation docs.
 
+**Amendment (Oct 14, §20 — the custody grade, operationalized)**: the
+rudratosh/fluffydesk thread extended the taxonomy and this amendment
+ships it. fluffydesk's formula: **a witness is worth min(authoring,
+retention)** — receipts authored grade-1 but retained in
+operator-controlled storage sit at grade 3, and retention is the only
+grade that is **wrong by drift**, so it wants monitoring, not just an
+audit. Three closures: (1) retention changes are SEALED EVENTS
+(`seal_retention` → `retention/0.1`, action bounded to
+prune/migrate/policy-change/restore — the v0.3.0 enum lesson, one layer
+over): a prune or a migration with no sealed trace was an invisible
+grade change, the dashboard staying green while the custody moved;
+(2) `check_custody_drift` monitors the tail — the events beyond the
+newest anchor are the unanchored window, and exceeding the bound (by
+count or by wall-clock cadence) is `custody_drift`, a named state,
+never silence; (3) `custody_grade` discloses the journal's grade as the
+TAIL's grade — 2 ("disinterested custodian") while the anchor witnesses
+the head within cadence, 3 the moment it drifts — sealed into the
+report via `journal_report(custody_disclosure=...)`, never touching
+`clean_pass`. The head anchor itself (TSA/counterparty — a point the
+operator key cannot rewrite) is ADR 006/008's machinery, now priced as
+the retention witness.
+
 **Amendment (Oct 9, issue #47 — mickyarun, the top rung is regulatory)**:
 **"obligation, not immunity."** Every proof grade documents itself WITH the
 obligation it serves — the evidence exists to prove an obligation was met,

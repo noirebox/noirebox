@@ -158,6 +158,13 @@ class Finding:
                            itself, the key's domain is undecidable — emitted
                            AT ASSEMBLY, never resolved first-write-wins
                            (v0.2.7, howcani's write race)
+        custody_unanchored — the journal has NO external witness: every
+                           receipt is grade-3 by retention (§20, the
+                           rudratosh/fluffydesk custody thread)
+        custody_drift      — more events (or more time) live beyond the
+                           newest anchor than the cadence allows: the
+                           custody grade drifted, silently — retention is
+                           the only grade that is wrong by drift (§20)
     """
 
     invariant: str
@@ -1147,7 +1154,8 @@ def journal_report(store, key, invariants: list[Invariant],
                    findings: list[Finding], probes: list[Finding] | None = None,
                    events: list[dict] | None = None,
                    calibrations: list[Finding] | None = None,
-                   registry_disclosure: dict | None = None) -> dict:
+                   registry_disclosure: dict | None = None,
+                   custody_disclosure: dict | None = None) -> dict:
     """Seals the reconciliation report as a `reconciliation` event.
 
     v0.2 (ADR 019): the report is sealed EVEN WHEN EVERYTHING MATCHED — a
@@ -1184,6 +1192,8 @@ def journal_report(store, key, invariants: list[Invariant],
     }
     if registry_disclosure is not None:
         report["registry_disclosure"] = registry_disclosure
+    if custody_disclosure is not None:
+        report["custody_disclosure"] = custody_disclosure
     # ADR 019 §8 — the report witnesses its own run: byte counts of the
     # sealed payload, normalized (no wall-clock, no content beyond counts).
     from .chain import canonical
@@ -1359,3 +1369,167 @@ def check_receipt_gap(name: str, fetches_served: int, receipts_held: int) -> Fin
                        note=f"{-gap} receipt(s) beyond anything the server "
                             f"served — the fabricated half")
     return Finding("denominator", "receipt_coverage_ok", name)
+
+
+# --- §20 — the custody grade: retention is the witness's other half ---------
+
+_RETENTION_ACTIONS = frozenset({"prune", "migrate", "policy-change", "restore"})
+
+
+def seal_retention(store, key, *, action: str, scope: str | None = None,
+                   note: str | None = None) -> dict:
+    """Seals a RETENTION change as a journal event (v0.1 — §20, the
+    rudratosh/fluffydesk thread): prunes, migrations and policy changes
+    become SIGNED EVENTS instead of ops-layer actions around the journal.
+    A retention change with no sealed trace is an invisible grade change —
+    the dashboard keeps showing green while the receipts' custody moved.
+
+    `action` is a BOUNDED enum (v0.3.0's lesson, one layer over):
+    "prune" | "migrate" | "policy-change" | "restore" — never prose."""
+    if action not in _RETENTION_ACTIONS:
+        raise ValueError(
+            f"action must be one of {sorted(_RETENTION_ACTIONS)} — a "
+            "retention action is a protocol vocabulary, not a sentence")
+    payload = {"schema": "retention/0.1", "action": action}
+    if scope:
+        payload["scope"] = str(scope)
+    if note:
+        payload["note"] = str(note)
+    return store.append("retention", payload, key)
+
+
+def _newest_anchor(events: list[dict]) -> dict | None:
+    """The newest external witness: the anchor event with the highest
+    anchored head_seq (fluffydesk's retention half — the head hash is
+    provable to a TSA the operator key cannot rewrite)."""
+    newest = None
+    for e in events:
+        if e.get("type") == "anchor":
+            seq = e.get("payload", {}).get("head_seq")
+            if seq is not None and (newest is None
+                                    or seq > newest["head_seq"]):
+                newest = {"head_seq": int(seq), "ts": e.get("ts"),
+                          "event_seq": e["seq"]}
+    return newest
+    # the anchor EVENT is the trusted prefix's last member (it carries the
+    # external token): the unanchored tail starts AFTER it, so every
+    # consumer measures from event_seq, never head_seq
+
+
+def check_custody_drift(events: list[dict], *, max_tail_events: int = 1000,
+                        max_tail_seconds: int | None = None,
+                        now: str | None = None) -> list[Finding]:
+    """The retention half of the custody grade (§20 — the thread's
+    doctrine: **a witness is worth min(authoring, retention)** — receipts
+    authored grade-1 but retained in operator-controlled storage sit at
+    grade 3, and retention is the only grade that is WRONG BY DRIFT, so
+    it wants monitoring, not just an audit):
+
+    - `custody_unanchored` — the journal has NO external witness at all:
+      every receipt rests on operator custody end to end.
+    - `custody_drift` — more than `max_tail_events` events (or more than
+      `max_tail_seconds` of wall clock) live beyond the newest anchor:
+      the grade drifted silently, and the dashboard would still show
+      green. The repair is an anchor (the head, to a witness the key
+      cannot rewrite) or a sealed retention event — never a config edit
+      outside the journal."""
+    if max_tail_events is None and max_tail_seconds is None:
+        raise ValueError(
+            "give at least one bound — a drift check without a bound "
+            "would never fire, which is the silence it exists to prevent")
+    newest = _newest_anchor(events)
+    total = len(events)
+    if newest is None:
+        if total == 0:
+            return []
+        return [Finding(
+            "custody", "custody_unanchored", "journal",
+            decision_seq=total,
+            note=f"{total} event(s) with NO external witness — every "
+                 "receipt is grade-3 by retention: authored grade-1, "
+                 "retained in operator-controlled storage "
+                 "(min(authoring, retention)). Seal an anchor — the head "
+                 "hash, to a point the operator key cannot rewrite "
+                 "(TSA / counterparty)")]
+    tail = total - newest["event_seq"]
+    findings: list[Finding] = []
+    if max_tail_events is not None and tail > max_tail_events:
+        findings.append(Finding(
+            "custody", "custody_drift", f"tail:{newest['head_seq']}",
+            decision_seq=newest["event_seq"],
+            note=f"{tail} events live beyond the newest external witness "
+                 f"(seq {newest['head_seq']}) — the custody grade drifted: "
+                 "the tail is grade-3 by retention while its receipts are "
+                 "authored grade-1. Seal an anchor or a retention event; "
+                 "the dashboard does not see this one"))
+    if max_tail_seconds is not None:
+        anchor_ts = newest["ts"]
+        ref = now or (events[-1]["ts"] if events else None)
+        if anchor_ts and ref:
+            from datetime import datetime
+            delta = (datetime.fromisoformat(ref.replace("Z", "+00:00"))
+                     - datetime.fromisoformat(
+                         anchor_ts.replace("Z", "+00:00"))).total_seconds()
+            if delta > max_tail_seconds:
+                findings.append(Finding(
+                    "custody", "custody_drift", f"tail-age:{newest['head_seq']}",
+                    decision_seq=newest["event_seq"],
+                    note=f"{int(delta)}s since the newest external witness "
+                         f"(seq {newest['head_seq']}) — beyond the "
+                         f"{max_tail_seconds}s cadence: the grade drifted "
+                         "by time, which no event count can show"))
+    return findings
+
+
+def custody_grade(events: list[dict], *, max_tail_events: int = 1000,
+                  max_tail_seconds: int | None = None,
+                  now: str | None = None) -> dict:
+    """The DISCLOSURE row for custody (§20): the journal's evidence grade
+    as the thread prices it — **witness = min(authoring, retention)**
+    (fluffydesk). The grade is the TAIL's grade, because that is what the
+    current head rests on: 2 ("disinterested custodian") while an anchor
+    witnesses the head within cadence, 3 ("anchored self") the moment the
+    tail drifts — plus the counts that make the drift visible instead of
+    silent. Seal it into the report via `journal_report(
+    custody_disclosure=...)`; a disclosure never touches `clean_pass`."""
+    from .aiact import evidence_grade
+
+    newest = _newest_anchor(events)
+    total = len(events)
+    retention_events = sum(1 for e in events if e.get("type") == "retention")
+    tail = (total - newest["event_seq"]) if newest else total
+    drifted = False
+    if newest is not None and max_tail_events is not None \
+            and tail > max_tail_events:
+        drifted = True
+    if newest is not None and max_tail_seconds is not None:
+        anchor_ts = newest["ts"]
+        ref = now or (events[-1]["ts"] if events else None)
+        if anchor_ts and ref:
+            from datetime import datetime
+            delta = (datetime.fromisoformat(ref.replace("Z", "+00:00"))
+                     - datetime.fromisoformat(
+                         anchor_ts.replace("Z", "+00:00"))).total_seconds()
+            if delta > max_tail_seconds:
+                drifted = True
+    if newest is None:
+        grade, mode = 3, "unanchored"
+    elif drifted:
+        grade, mode = 3, "drifted"
+    else:
+        grade, mode = 2, "anchored-within-cadence"
+    g = evidence_grade("writer")  # grade-3 vocabulary, reused honestly
+    return {
+        "schema": "custody-grade/0.1",
+        "grade": grade,
+        "grade_label": ("disinterested custodian" if grade == 2
+                        else g["label"]),
+        "mode": mode,
+        "formula": "witness = min(authoring, retention)",
+        "newest_witness": newest,
+        "tail_events": tail,
+        "retention_events": retention_events,
+        "obligation": g["obligation"] if grade == 3 else
+                      "the TSA's signing duty (RFC 3161) covers the "
+                      "anchored prefix; the tail rests on the operator",
+    }
