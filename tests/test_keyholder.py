@@ -151,8 +151,8 @@ def test_the_material_never_crosses_the_socket(tmp_path):
             daemon.holder,
             json.dumps({"protocol": PROTOCOL, "op": "sign",
                         "data": "ab" * 32}).encode())
-        assert set(signed) == {"signature", "public_hex",
-                               "peer_uid", "peer_uid_checked"}
+        assert set(signed) == {"signature", "public_hex", "peer_uid",
+                               "peer_uid_checked", "uid_gate_configured"}
 
 
 @pytest.mark.skipif(os.uname().sysname != "Linux",
@@ -216,3 +216,56 @@ def test_v028_the_disclosure_names_the_gate_the_daemon_ran(tmp_path):
         else:
             assert d["uid_gate"] == "unavailable(darwin)"
             assert described["peer_uid"] is None
+
+
+def test_v029_the_daemon_reports_its_gate_configuration(tmp_path):
+    """3hl4l's registered prediction, row by row. The daemon knows BOTH
+    facts — whether the platform could check, and whether a gate is
+    configured — and reports the second, because the first alone read
+    'checked' for a daemon that checks nothing.
+
+    (a) UNGATED daemon: uid_gate_configured is False and the derived
+        value reads 'off' — on a checkable platform too, where
+        peer_uid_checked would have said True (the exact bug the field
+        prevents). (b) A gated daemon that refuses a peer cannot describe
+        itself as checked to that peer: the peer gets the refusal, and
+        the derivation reads enforcement or unavailability — never
+        'checked'."""
+    import sys
+
+    with _Daemon() as daemon:  # allow_uid=None: the gate is OFF
+        signer = SocketSigner(daemon.socket_path)
+        d = signer.describe()
+        assert d["uid_gate_configured"] is False
+        if sys.platform == "linux":
+            # the sharp edge: the platform COULD tell — and the value
+            # still reads 'off', because nobody's uid was consulted
+            assert d["peer_uid_checked"] is True
+        assert signer.uid_gate() == "off"
+
+    with _Daemon(allow_uid=os.getuid()) as daemon:
+        signer = SocketSigner(daemon.socket_path)
+        if sys.platform == "linux":
+            assert signer.uid_gate() == "enforced"
+            assert signer.describe()["uid_gate_configured"] is True
+        else:
+            # this platform cannot check: the gate refuses everything,
+            # and the derivation names the unavailability, never 'checked'
+            assert signer.uid_gate() == f"unavailable({sys.platform})"
+
+    # (b) the refused peer's view: enforcement or unavailability —
+    # never 'checked'. On Linux the stranger is refused by uid; on
+    # darwin the configured-but-uncheckable gate refuses fail-closed.
+    with _Daemon(allow_uid=os.getuid() + 7) as daemon:
+        stranger = SocketSigner(daemon.socket_path)
+        with pytest.raises(KeyHolderError) as excinfo:
+            stranger.describe()
+        if sys.platform == "linux":
+            assert "not the allowed operator" in str(excinfo.value)
+            assert stranger.uid_gate() == "enforced"
+        else:
+            assert "fail closed" in str(excinfo.value)
+            assert stranger.uid_gate() == f"unavailable({sys.platform})"
+        # in NO case did the refused peer receive a describe claiming a check
+        with pytest.raises(KeyHolderError):
+            stranger.describe()
