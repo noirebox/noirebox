@@ -3,6 +3,82 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versioning according to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **The custody grade (v0.1 — §20, the rudratosh/fluffydesk thread)** —
+  a witness is worth **min(authoring, retention)**: receipts authored
+  grade-1 but retained in operator-controlled storage sit at grade 3,
+  and retention is the only grade that is WRONG BY DRIFT — so it is
+  monitored. Retention changes become sealed events
+  (`seal_retention` → `retention/0.1`, action bounded to
+  prune/migrate/policy-change/restore); `check_custody_drift` names the
+  unanchored journal and the tail beyond the newest anchor (by count or
+  wall-clock cadence — `custody_drift`); `custody_grade` discloses the
+  grade as the TAIL's grade (2 while anchored within cadence, 3 the
+  moment it drifts), sealed via
+  `journal_report(custody_disclosure=...)`, never touching
+  `clean_pass`. CLI: `noirebox seal-retention`, `noirebox custody-grade`.
+
+## [0.19.0] — 2026-10-14
+
+### Added
+- **The derivation reads the code, never the sentence (receipt v0.3.0 —
+  3hnok, the seventh premise)** — the re-probe found `uid_gate()`
+  string-matching "not the allowed operator": the strongest token in the
+  vocabulary had the interface's weakest derivation. Every daemon
+  refusal now carries a machine-readable `error_code` beside the prose
+  (the not-checkable refusal carrying the DAEMON's platform), the
+  fourth token `undecidable(<reason>)` is the resting state (old daemon
+  prose → `undecidable(unclassifiable-refusal)`, transport failure →
+  `undecidable(unreachable)`, null = "not stated" only), and the wire
+  handshake stays `noirebox-keyholder/0.2` on purpose — additive fields
+  plus the token ARE the mixed-version answer. Ships with the stub
+  battery (every refusal string and code asserted against the derived
+  value) — whose first socket-level run caught a REAL daemon bug: the
+  accept loop died on BSD/macOS ECONNABORTED when a peer hung up
+  pre-accept. The listener survives its peers now. Release note: the
+  tag was first cut as `v0.3.0` and PyPI refused honestly — version
+  already exists, uploaded 2026-09-23 (a pre-0.4.0 build the ladder
+  skipped). A burned number is dead forever; this is 0.19.0.
+
+## [0.18.0] — 2026-10-14
+
+### Added
+- **The gate state, owned by the daemon (receipt v0.2.9 — 3hl4l)** —
+  `peer_uid_checked` answered "could the platform tell": an UNGATED
+  daemon on a checkable platform reported True. The daemon now reports
+  `uid_gate_configured` beside the check flag, `SocketSigner.uid_gate()`
+  derives the tri-state — "off" / "enforced" / "unavailable(<platform>)"
+  — and a refused peer never receives a describe at all: the refusal IS
+  the enforcement. Premise 6: the env var is inherited — the PIN left
+  argv, not the daemon's address space.
+
+## [0.17.0] — 2026-10-13
+
+### Added
+- **The custody mode, disclosed (receipt v0.2.8 — 3hkpp)** — the
+  drop-in property makes the journal blind to custody, so the mode
+  becomes a disclosure field: `registry_disclosure(signer_mode=...,
+  uid_gate=...)` (schema `registry-disclosure/0.2`, null = unstated),
+  derived from the daemon's own `SocketSigner.describe()` — and the
+  darwin boundary lands in the ladder: the socket's 0600 separates
+  USERS, not processes; the token PIN left argv.
+
+## [0.16.0] — 2026-10-13
+
+### Added
+- **HSM signing — the same signer interface, hardware custody (ADR 020,
+  rung 5)** — `P11Signer` (`noirebox/hsm.py`, the `hsm` extra,
+  python-pkcs11 pinned 0.7.0) duck-types `.sign()` + `.public_hex()` and
+  puts the material in a PKCS#11 token; the keyholder daemon becomes the
+  hardware bridge (`--pkcs11-*`, `--ensure-key` imports the EXISTING
+  journal key — continuity, not rotation); the PKCS#11 contract is
+  CI-proven on SoftHSM2 (the `test-hsm` job). The HSM narrows the blast
+  radius (live abuse, not stolen-key-forever), never the socket
+  premise — and `CKA_NEVER_EXTRACTABLE` is a label an imported key
+  honestly reports False.
+
 ## [0.15.0] — 2026-10-13
 
 ### Added
@@ -747,6 +823,8 @@ versioning according to [Semantic Versioning](https://semver.org/).
 
 [Unreleased]: https://github.com/noirebox/noirebox/compare/v0.16.0...HEAD
 [0.19.0]: https://github.com/noirebox/noirebox/compare/v0.18.0...v0.19.0
+[0.18.0]: https://github.com/noirebox/noirebox/compare/v0.17.0...v0.18.0
+[0.17.0]: https://github.com/noirebox/noirebox/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/noirebox/noirebox/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/noirebox/noirebox/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/noirebox/noirebox/compare/v0.13.0...v0.14.0
