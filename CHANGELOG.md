@@ -746,6 +746,7 @@ versioning according to [Semantic Versioning](https://semver.org/).
   gated licensing, dependencies)
 
 [Unreleased]: https://github.com/noirebox/noirebox/compare/v0.16.0...HEAD
+[0.19.0]: https://github.com/noirebox/noirebox/compare/v0.18.0...v0.19.0
 [0.16.0]: https://github.com/noirebox/noirebox/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/noirebox/noirebox/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/noirebox/noirebox/compare/v0.13.0...v0.14.0
