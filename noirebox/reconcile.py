@@ -827,12 +827,15 @@ def registry_disclosure(events: list[dict],
     event sealed through the keyholder reads exactly as one signed
     in-process — so the custody mode is a disclosure field, not something
     the artifact can prove: `signer_mode` ("in-process" | "socket" |
-    "pkcs11" | the deployment's own word) and `uid_gate` ("checked" |
-    "unavailable(<platform>)" | "off"). Both default to None — serialized
+    "pkcs11" | the deployment's own word) and `uid_gate` ("enforced" |
+    "off" | "unavailable(<platform>)"). Both default to None — serialized
     as null, meaning the caller did NOT state it: the same honesty as the
-    unpinned mode line. `SocketSigner.describe()` reports
-    `peer_uid_checked` so the caller can derive uid_gate from the daemon
-    instead of asserting it.
+    unpinned mode line. Derive it with `SocketSigner.uid_gate()`: the
+    daemon reports BOTH facts (peer_uid_checked AND uid_gate_configured)
+    — 'off' when no gate is configured, even where the platform could
+    have checked (3hl4l: peer_uid_checked alone answered "could the
+    platform tell", and read 'checked' for a daemon that checks
+    nothing).
 
     Pinned: the registrant is the pinned registrar key and the counts are
     the registrar-sealed assembly. Unpinned: the mode line says

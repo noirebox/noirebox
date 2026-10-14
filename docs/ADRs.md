@@ -572,6 +572,26 @@ table, readable via `ps`; the daemon warns when it sees one).
 
 ---
 
+**Amendment (Oct 14, v0.2.9 — 3hl4l: the gate's configuration is a fact
+the daemon owns)**: the probe's acceptance run confirmed v0.2.8, then
+read its own seam back: `peer_uid_checked` answered "could the platform
+tell" — an UNGATED daemon on a checkable platform reported True, and the
+recommended derivation printed 'checked' for a daemon that checks
+nothing. A field true about one question, read as true about another —
+the shape this week has been closing. The daemon now reports
+`uid_gate_configured` beside the check flag (protocol
+`noirebox-keyholder/0.2`), and `SocketSigner.uid_gate()` derives the
+tri-state the disclosure wants: "off" (nobody's uid consulted), 
+"enforced" (a gate configured and this peer passed it), 
+"unavailable(<platform>)" (configured, uncheckable, refused fail-closed).
+A refused peer never receives a describe at all — the refusal IS the
+enforcement. And the probe's narrowing is a premise now: the env var is
+inherited, so the PIN left argv but not the daemon's address space —
+possession of the address space is a host boundary (premise 6), not an
+application property.
+
+---
+
 ## ADR 021 — Flow independence is a testable invariant, not a claim
 
 **Status**: accepted — shared-dependency attack (glenallen, picked up by james as "the attack that would actually hurt"); clock/key independence (indiainfranotes); sealer identity (naveen thread, 27/09 + james: "a name, not a role").

@@ -42,7 +42,7 @@ import struct
 import sys
 import threading
 
-PROTOCOL = "noirebox-keyholder/0.1"
+PROTOCOL = "noirebox-keyholder/0.2"
 _MAX_LINE = 8192  # a signature request is small by construction: event
                   # hashes are 32 bytes; anything bigger is refused, the
                   # socket is an oracle for THIS journal's signatures
@@ -101,11 +101,13 @@ class KeyHolder:
             if uid != self.allow_uid:
                 return {"error": f"peer uid {uid} is not the allowed "
                                  f"operator uid {self.allow_uid}"}
+        gate_configured = self.allow_uid is not None
         op = req.get("op")
         if op == "describe":
             return {"protocol": PROTOCOL,
                     "public_hex": self._key.public_hex(),
-                    "peer_uid": uid, "peer_uid_checked": uid_checked}
+                    "peer_uid": uid, "peer_uid_checked": uid_checked,
+                    "uid_gate_configured": gate_configured}
         if op == "sign":
             data_hex = req.get("data")
             if not isinstance(data_hex, str):
@@ -116,7 +118,8 @@ class KeyHolder:
                 return {"error": "data is not valid hex"}
             return {"signature": self._key.sign(data),
                     "public_hex": self._key.public_hex(),
-                    "peer_uid": uid, "peer_uid_checked": uid_checked}
+                    "peer_uid": uid, "peer_uid_checked": uid_checked,
+                    "uid_gate_configured": gate_configured}
         return {"error": f"unknown op {op!r} — sign or describe"}
 
     # -- socket loop ------------------------------------------------------
@@ -225,17 +228,46 @@ class SocketSigner:
         return str(resp["signature"])
 
     def describe(self) -> dict:
-        """The daemon's own account of itself — identity AND whether the
-        uid check ran (`peer_uid_checked`). The caller derives the
-        disclosure's uid_gate from THIS, not from an assertion: on Linux
-        a gated daemon reports the check ran; on platforms without
-        SO_PEERCRED it reports False — 'unavailable(<platform>)', never a
-        silent pass (3hkpp, row 3: the disclosure must say what the
-        signature rests on)."""
+        """The daemon's own account of itself — identity, whether the uid
+        check RAN (`peer_uid_checked`), and whether a gate is CONFIGURED
+        (`uid_gate_configured`, v0.2.9 — 3hl4l: the platform's ability to
+        check is one fact; the deployment's gate is the other, and the
+        daemon knows both while the caller could only see one).
+
+        Derive the disclosure value with `uid_gate()`, never from
+        `peer_uid_checked` alone: an UNGATED daemon on a checkable
+        platform reports checked=True — the platform could tell, the
+        daemon checks nothing."""
         if self._describe is None:
             self._describe = self._request({"protocol": PROTOCOL,
                                             "op": "describe"})
         return self._describe
+
+    def uid_gate(self) -> str:
+        """The disclosure's gate value, derived from the daemon's account
+        of BOTH facts (3hl4l's ask — 'checked' stops meaning "the
+        platform could" by accident):
+
+        - "off" — no gate configured: nobody's uid was ever consulted
+        - "enforced" — a gate is configured and THIS peer passed it
+        - "unavailable(<platform>)" — a gate is configured but the
+          platform cannot check peers; the daemon refused this peer
+          fail-closed (3hkpp, darwin)
+
+        A refused peer never receives a describe at all — the refusal is
+        the enforcement — so "enforced" from a refusal means exactly what
+        the peer experienced."""
+        import sys
+        try:
+            d = self.describe()
+        except KeyHolderError as exc:
+            msg = str(exc)
+            if "uid gate was requested" in msg:
+                return f"unavailable({sys.platform})"
+            if "not the allowed operator" in msg:
+                return "enforced"  # to THIS peer: the refusal IS enforcement
+            raise
+        return ("enforced" if d["uid_gate_configured"] else "off")
 
     def public_hex(self) -> str:
         """The SIGNER's identity, learned from the daemon — the out-of-band

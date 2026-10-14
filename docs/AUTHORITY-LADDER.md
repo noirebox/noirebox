@@ -146,11 +146,16 @@ crosses) but **"the agent does not run as the operator's uid"** — a
 deployment property, checkable only where the platform lets you ask.
 Which is why the custody mode is a DISCLOSURE field, not something the
 artifact can prove: `registry_disclosure(signer_mode=..., uid_gate=...)`
-— "checked" or "unavailable(<platform>)", null when the caller states
-nothing (`SocketSigner.describe()` reports `peer_uid_checked` so the
-caller derives it from the daemon instead of asserting it). The token
-PIN rides `NOIREBOX_HSM_PIN`, not argv — a CLI-argument PIN sits in the
-process table, readable via `ps`.
+— "enforced" | "off" | "unavailable(<platform>)", null when the caller
+states nothing. And the derivation reads BOTH of the daemon's facts
+(v0.2.9 — 3hl4l): `peer_uid_checked` alone answered "could the platform
+tell" — an UNGATED daemon on a checkable platform reported it True, and
+the derivation printed 'checked' for a daemon that checks nothing. The
+daemon now reports `uid_gate_configured` too, and `SocketSigner.uid_gate()`
+derives the tri-state: off / enforced / unavailable — a refused peer
+never receives a describe at all, so enforcement is what it experienced.
+The token PIN rides `NOIREBOX_HSM_PIN`, not argv — a CLI-argument PIN
+sits in the process table, readable via `ps`.
 
 **Still open**: hardware custody — HSM/PKCS#11 rides the same signer
 interface; the key never leaving hardware is the same move one rung
@@ -179,7 +184,8 @@ assertions and the honesty rules that make them auditable:
 | 2 | the keyholder's socket is reachable only to those the filesystem + uid gate allow | one path; the gate is platform-bound — Linux checks the peer, darwin has no check at all, so there the 0600 separates USERS, not processes | ADR 020 amendment; 3hkpp |
 | 3 | agent and operator do not share uid AND socket | a container/mount assertion — reachability, not readability | ADR 020 amendment |
 | 4 | no hardware root under the signing key | HSM/PKCS#11, same signer interface — interface shipped, the silicon still owes the closure | README roadmap |
-| 5 | the custody MODE is a disclosure field, not a proof — the journal cannot tell in-process from socket from token | `signer_mode` + `uid_gate` in the disclosure, null when unstated | 3hkpp, v0.2.8 |
+| 5 | the custody MODE is a disclosure field, not a proof — the journal cannot tell in-process from socket from token | `signer_mode` + `uid_gate` in the disclosure, null when unstated; the gate value reads BOTH daemon facts (off / enforced / unavailable), never `peer_uid_checked` alone | 3hkpp v0.2.8; 3hl4l v0.2.9 |
+| 6 | the daemon's ENVIRONMENT is inherited — a same-uid process can read it subject to the kernel's ptrace rules | the PIN lives in the daemon's address space; possession of the address space is a host boundary, not an application property | 3hl4l row 4 |
 
 ## The receipts
 
