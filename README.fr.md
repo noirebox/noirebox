@@ -59,8 +59,10 @@ d'affaires.
 
 > **Périmètre honnête** (nous sommes une brique, pas une certification) :
 > NoireBox prouve l'*intégrité* du registre de votre IA. La minimisation des
-> payloads et le stockage de clé de grade HSM relèvent du responsable de
-> déploiement en v0 — voir le [threat model](docs/THREAT-MODEL.md). Un outil
+> payloads reste du côté du déployeur. La custody de clé est livrée dans la
+> boîte — la clé vit dans un process dédié (0.15.0) ou sur un token PKCS#11
+> (0.16.0) ; le pin *matériel* reste sa décision — voir le
+> [threat model](docs/THREAT-MODEL.md). Un outil
 > qui survend sa conformité est un passif ; un outil qui énonce son périmètre
 > est auditable.
 

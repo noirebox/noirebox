@@ -58,7 +58,9 @@ Reg. (EU) 2026/1744) — with fines up to €35 M / 7 % of turnover.
 
 > **Honest scope** (we're a building block, not a certification): NoireBox
 > proves the *integrity* of your AI's record. Data minimization of payloads
-> and HSM-grade key storage are the deployer's responsibility in v0 — see
+> remains the deployer's responsibility. Key custody now ships in the box —
+> the key can live in a dedicated process (0.15.0) or on a PKCS#11 token
+> (0.16.0); the pinned *hardware* root is still the deployer's call — see
 > the [threat model](docs/THREAT-MODEL.md). A tool that oversells compliance
 > is a liability; one that states its perimeter is auditable.
 
@@ -406,9 +408,9 @@ the [ADRs](docs/ADRs.md) — this section only holds what is still open.
       the PEM loads once into `noirebox keyholder` and never leaves it;
       signers get a unix socket (`SocketSigner` is a drop-in for `KeyPair`),
       `--allow-uid` gates the peer and fails closed ([ADR 020
-      amendment](docs/ADRs.md)). Remaining: hardware custody (HSM/PKCS#11
-      on the same signer interface); where agent and operator share a uid
-      AND the socket, the gate is the filesystem's — stated, not hidden.
+      amendment](docs/ADRs.md)); the PKCS#11 bridge ships in 0.16.0
+      (`P11Signer` behind the same daemon). Where agent and operator share a
+      uid AND the socket, the gate is the filesystem's — stated, not hidden.
 - [x] **The authority ladder, as a page** — [docs/AUTHORITY-LADDER.md](docs/AUTHORITY-LADDER.md):
       caller argument → store writer → sealed registry → pinned registrar →
       keyholder custody. Each rung: what it closed, the residue it exposed,
