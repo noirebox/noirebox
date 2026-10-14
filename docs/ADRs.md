@@ -592,6 +592,35 @@ application property.
 
 ---
 
+**Amendment (Oct 14, v0.3.0 — 3hnok: the derivation read prose)**: the
+re-probe of v0.2.9 accepted everything, then read the derivation itself:
+`uid_gate()` string-matched "not the allowed operator" — **the strongest
+token in the vocabulary had the interface's weakest derivation** — any
+error containing the sentence laundered into `enforced`, the platform in
+`unavailable(...)` was the CALLER's when the fact belongs to the
+daemon's host, and an unclassifiable refusal raised, inviting the caller
+to write "not stated" over "could not be derived" — the ladder's own
+rule, broken where it must hold most. The seventh premise is on the
+ladder in the probe's wording: **a derived value's meaning is coupled to
+the wording of the message that carries it.** The code carries the
+enforcement: every daemon refusal gains a machine-readable
+`error_code` beside the prose (the not-checkable refusal carrying the
+DAEMON's platform), `uid_gate()` derives from the code — never the
+sentence — and the fourth token `undecidable(<reason>)` becomes the
+resting state for everything unclassifiable: an old daemon's prose reads
+`undecidable(unclassifiable-refusal)`, null goes back to meaning only
+"not stated". The wire handshake stays `noirebox-keyholder/0.2` ON
+PURPOSE: the fields are additive and the token is the mixed-version
+answer — an old peer degrades to a named state instead of breaking
+loudly. The stub battery ships with it: a scripted transport answering
+each refusal string and each code, asserting the derived value — the
+malformed-self-report cells are reachable from the suite. (The battery's
+first socket-level version also caught a real daemon bug: the accept
+loop died on BSD/macOS ECONNABORTED when a peer hung up pre-accept — the
+listener survives its peers now.)
+
+---
+
 ## ADR 021 — Flow independence is a testable invariant, not a claim
 
 **Status**: accepted — shared-dependency attack (glenallen, picked up by james as "the attack that would actually hurt"); clock/key independence (indiainfranotes); sealer identity (naveen thread, 27/09 + james: "a name, not a role").

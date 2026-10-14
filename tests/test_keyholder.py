@@ -269,3 +269,108 @@ def test_v029_the_daemon_reports_its_gate_configuration(tmp_path):
         # in NO case did the refused peer receive a describe claiming a check
         with pytest.raises(KeyHolderError):
             stranger.describe()
+
+
+# --- v0.3.0 — the stub battery (3hnok): every refusal string and code,
+# --- asserted against the derived value; prose can no longer launder.
+# The stub answers at the TRANSPORT boundary (a scripted _request), which
+# is the unit under test: the derivation. The real-socket paths —
+# byte-identical signatures, gate enforcement, fail-closed refusals — are
+# the live-daemon tests above and the test-hsm job; macOS's loopback
+# aborts made a socket-level battery flaky in ways that had nothing to
+# do with what it was proving.
+
+def _scripted_signer(monkeypatch, responses):
+    """A SocketSigner whose transport plays a script: each entry is either
+    a response dict (returned) or an (error, code, daemon_platform) triple
+    (raised as the structured KeyHolderError a real daemon's refusal
+    produces — including the OLD-daemon shape: no code at all)."""
+    import queue
+    script = queue.Queue()
+    for item in responses:
+        script.put(item)
+    signer = SocketSigner("/dev/null/no-socket")
+
+    def fake_request(payload):
+        item = script.get()
+        if isinstance(item, tuple):
+            error, code, platform = item
+            raise KeyHolderError(f"keyholder refused: {error}",
+                                 code=code, daemon_platform=platform)
+        if "error" in item:
+            raise KeyHolderError(f"keyholder refused: {item['error']}",
+                                 code=item.get("error_code"),
+                                 daemon_platform=item.get("daemon_platform"))
+        return item
+
+    monkeypatch.setattr(signer, "_request", fake_request)
+    return signer
+
+
+def test_v030_stub_battery_the_code_wins_over_the_prose(monkeypatch):
+    """The derivation reads the CODE, never the sentence. Each cell is a
+    daemon answer this suite could not build before the battery existed —
+    including an OLD daemon's prose containing the exact enforcement
+    sentence without meaning it (3hnok's row A)."""
+    cells = [
+        # row A: the exact sentence, NO code — prose cannot launder into
+        # the strongest token in the vocabulary
+        ({"error": "keyholder refused: peer uid 999 is not the allowed "
+                   "operator uid 1000"},
+         "undecidable(unclassifiable-refusal)"),
+        # the platform sentence without a code: the caller cannot know
+        # the daemon's host, so it names no platform
+        ({"error": "a uid gate was requested but the peer uid is not "
+                   "checkable on this platform — refusing (fail closed)"},
+         "undecidable(unclassifiable-refusal)"),
+        # prose that merely CONTAINS the sentences, weaponised
+        ({"error": "DEBUG: audit trail would print 'not the allowed "
+                   "operator' here — have a nice day"},
+         "undecidable(unclassifiable-refusal)"),
+        # the code wins over contradicting prose
+        ({"error": "peer uid 999 is not the allowed operator uid 1000",
+          "error_code": "gate-enforced", "daemon_platform": None},
+         "enforced"),
+        # the DAEMON's platform travels with the unavailability — a
+        # darwin CALLER reading a linux DAEMON names linux
+        ({"error": "a uid gate was requested but the peer uid is not "
+                   "checkable on this platform — refusing (fail closed)",
+          "error_code": "gate-unavailable", "daemon_platform": "linux"},
+         "unavailable(linux)"),
+        # an unknown code: named state, not silence
+        ({"error": "something entirely new", "error_code": "warp-core"},
+         "undecidable(warp-core)"),
+        # the old-daemon shape: refusal, no code field at all
+        ({"error": "gate misconfigured"},
+         "undecidable(unclassifiable-refusal)"),
+    ]
+    for i, (response, expected) in enumerate(cells):
+        signer = _scripted_signer(monkeypatch, [response])
+        got = signer.uid_gate()
+        assert got == expected, f"cell {i}: {response} -> {got}"
+
+
+def test_v030_unreachable_is_a_named_state_not_silence(monkeypatch):
+    """Row C: nothing degrades to None. A transport failure reads
+    undecidable(unreachable) — the disclosure's null keeps meaning only
+    'not stated' (3hnok)."""
+    signer = _scripted_signer(monkeypatch, [])
+    monkeypatch.setattr(signer, "_request", None)  # typing: replaced below
+
+    def unreachable(payload):
+        raise KeyHolderError("keyholder unreachable at /tmp/x: boom",
+                             code="unreachable")
+    monkeypatch.setattr(signer, "_request", unreachable)
+    assert signer.uid_gate() == "undecidable(unreachable)"
+
+
+def test_v030_transport_failure_is_a_named_state_not_silence(tmp_path):
+    """Unreachable is not a gate state and not an exception to degrade
+    away: it reads undecidable(unreachable) — the disclosure's null
+    keeps meaning only 'not stated' (3hnok's row C)."""
+    signer = SocketSigner(str(tmp_path / "never-bound.sock"))
+    with pytest.raises(KeyHolderError):
+        signer.describe()
+    assert signer.uid_gate() == "undecidable(unreachable)"
+
+

@@ -146,16 +146,22 @@ crosses) but **"the agent does not run as the operator's uid"** — a
 deployment property, checkable only where the platform lets you ask.
 Which is why the custody mode is a DISCLOSURE field, not something the
 artifact can prove: `registry_disclosure(signer_mode=..., uid_gate=...)`
-— "enforced" | "off" | "unavailable(<platform>)", null when the caller
-states nothing. And the derivation reads BOTH of the daemon's facts
-(v0.2.9 — 3hl4l): `peer_uid_checked` alone answered "could the platform
-tell" — an UNGATED daemon on a checkable platform reported it True, and
-the derivation printed 'checked' for a daemon that checks nothing. The
-daemon now reports `uid_gate_configured` too, and `SocketSigner.uid_gate()`
-derives the tri-state: off / enforced / unavailable — a refused peer
-never receives a describe at all, so enforcement is what it experienced.
-The token PIN rides `NOIREBOX_HSM_PIN`, not argv — a CLI-argument PIN
-sits in the process table, readable via `ps`.
+— "enforced" | "off" | "unavailable(<daemon platform>)" |
+"undecidable(<reason>)", null when the caller states nothing. The
+derivation has been down this ladder too (v0.2.9 — 3hl4l):
+`peer_uid_checked` alone answered "could the platform tell" — an UNGATED
+daemon on a checkable platform reported it True. And v0.3.0 (3hnok)
+found the derivation itself reading PROSE — string-matching
+"not the allowed operator" let any error containing the sentence launder
+into `enforced`, and the platform in the value was the CALLER's when the
+fact belongs to the daemon's host. Now the daemon stamps every refusal
+with a machine-readable `error_code` (the not-checkable one carrying the
+DAEMON's platform), `SocketSigner.uid_gate()` derives from the code —
+never the sentence — and everything it cannot classify reads as the
+named state `undecidable(<reason>)`: an old daemon's prose, an unknown
+code, a transport failure. Null keeps meaning only "not stated". The
+token PIN rides `NOIREBOX_HSM_PIN`, not argv — a CLI-argument PIN sits
+in the process table, readable via `ps`.
 
 **Still open**: hardware custody — HSM/PKCS#11 rides the same signer
 interface; the key never leaving hardware is the same move one rung
@@ -186,6 +192,7 @@ assertions and the honesty rules that make them auditable:
 | 4 | no hardware root under the signing key | HSM/PKCS#11, same signer interface — interface shipped, the silicon still owes the closure | README roadmap |
 | 5 | the custody MODE is a disclosure field, not a proof — the journal cannot tell in-process from socket from token | `signer_mode` + `uid_gate` in the disclosure, null when unstated; the gate value reads BOTH daemon facts (off / enforced / unavailable), never `peer_uid_checked` alone | 3hkpp v0.2.8; 3hl4l v0.2.9 |
 | 6 | the daemon's ENVIRONMENT is inherited — a same-uid process can read it subject to the kernel's ptrace rules | the PIN lives in the daemon's address space; possession of the address space is a host boundary, not an application property | 3hl4l row 4 |
+| 7 | a derived value's meaning is coupled to the wording of the message that carries it | refusals carry `error_code`; the derivation reads the code, never the sentence; the unclassifiable rests at `undecidable(<reason>)` | 3hnok, v0.3.0 — "the strongest token in the vocabulary has the interface's weakest derivation" |
 
 ## The receipts
 
