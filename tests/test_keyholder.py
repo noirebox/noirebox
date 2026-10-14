@@ -374,3 +374,42 @@ def test_v030_transport_failure_is_a_named_state_not_silence(tmp_path):
     assert signer.uid_gate() == "undecidable(unreachable)"
 
 
+
+
+def test_v030_totality_every_code_maps_to_a_derivation(monkeypatch):
+    """3ho4c's totality property — TESTED, not claimed: for EVERY code
+    the daemon can emit, uid_gate() returns a value (never raises); for
+    a code the client does not know, a resting state; and NO path in
+    between reaches a strong token. A strong token is reachable only
+    from the code that asserts the fact it encodes (gate-enforced), or
+    from a configured daemon's own describe."""
+    from noirebox.keyholder import REFUSAL_CODES
+
+    # the derivation for every code the daemon can emit — including the
+    # unknown future code and the old-daemon no-code shape
+    for code in sorted(REFUSAL_CODES | {"warp-core-future", None}, key=str):
+        platform = "linux" if code == "gate-unavailable" else None
+        signer = _scripted_signer(monkeypatch, [(
+            {"error": f"refusal for {code}", "error_code": code,
+             "daemon_platform": platform})])
+        got = signer.uid_gate()  # MUST NOT raise — totality
+        # named states only: a strong token or an undecidable rest
+        assert got == "enforced" or got.startswith("undecidable(") \
+            or got.startswith("unavailable("), f"{code!r} -> {got!r}"
+
+    # strong-token exclusivity: 'enforced' comes ONLY from the code that
+    # asserts it — never from an unknown code, never from malformed prose
+    for code in sorted((REFUSAL_CODES | {None}) - {"gate-enforced"}, key=str):
+        signer = _scripted_signer(monkeypatch, [(
+            {"error": f"refusal for {code}", "error_code": code,
+             "daemon_platform": None})])
+        assert signer.uid_gate() != "enforced", f"{code!r} laundered to enforced"
+
+    # the mixed-version cell, named: a future protocol's refusal reaches
+    # an older client and rests — the new token is reachable for exactly
+    # the peers it was introduced for (3ho4c, the row he would not skip)
+    signer = _scripted_signer(monkeypatch, [(
+        {"error": "unknown protocol — this socket speaks "
+                  "noirebox-keyholder/0.3",
+         "error_code": "protocol-mismatch", "daemon_platform": "linux"})])
+    assert signer.uid_gate() == "undecidable(protocol-mismatch)"

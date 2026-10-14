@@ -43,6 +43,17 @@ import sys
 import threading
 
 PROTOCOL = "noirebox-keyholder/0.2"
+
+# The daemon's refusal vocabulary — the machine side of the protocol
+# (v0.3.0, 3hnok/3ho4c: the derivation reads THIS, never the sentence;
+# the totality property is asserted over this set in the suite).
+REFUSAL_CODES = frozenset({
+    "gate-enforced",        # a gate is configured and this peer was refused
+    "gate-unavailable",     # configured, uncheckable — refused fail-closed
+    "protocol-mismatch",    # the request spoke a different protocol version
+    "malformed-request",    # not JSON / not an object / bad data
+    "unknown-op",           # not sign, not describe
+})
 _MAX_LINE = 8192  # a signature request is small by construction: event
                   # hashes are 32 bytes; anything bigger is refused, the
                   # socket is an oracle for THIS journal's signatures
