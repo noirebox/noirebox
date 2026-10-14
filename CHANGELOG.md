@@ -3,7 +3,7 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versioning according to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.20.0] — 2026-10-14
 
 ### Added
 - **The custody grade (v0.1 — §20, the rudratosh/fluffydesk thread)** —
@@ -822,6 +822,8 @@ versioning according to [Semantic Versioning](https://semver.org/).
   gated licensing, dependencies)
 
 [Unreleased]: https://github.com/noirebox/noirebox/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/noirebox/noirebox/compare/v0.19.0...HEAD
+[0.20.0]: https://github.com/noirebox/noirebox/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/noirebox/noirebox/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/noirebox/noirebox/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/noirebox/noirebox/compare/v0.16.0...v0.17.0
