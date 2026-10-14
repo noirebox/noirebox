@@ -49,7 +49,22 @@ _MAX_LINE = 8192  # a signature request is small by construction: event
 
 
 class KeyHolderError(Exception):
-    """A keyholder request failed — refused, malformed, or unreachable."""
+    """A keyholder request failed — refused, malformed, or unreachable.
+
+    v0.3.0 (3hnok, the seventh premise): a derived value's meaning is
+    coupled to the wording of the message that carries it — so refusals
+    travel with their MEANING as fields, and the prose stays for humans.
+    `code` is the daemon's machine-readable `error_code` (None from an
+    older daemon — that absence is exactly what the `undecidable` token
+    is for); `daemon_platform` is the DAEMON host's platform, carried by
+    the not-checkable refusal ("can this host check the peer" is a fact
+    about the daemon, and the keyholder exists to be elsewhere)."""
+
+    def __init__(self, message: str, *, code: str | None = None,
+                 daemon_platform: str | None = None):
+        super().__init__(message)
+        self.code = code
+        self.daemon_platform = daemon_platform
 
 
 def _peer_uid(sock: socket.socket) -> tuple[int | None, bool]:
@@ -83,24 +98,34 @@ class KeyHolder:
     def handle_line(self, line: bytes,
                     peer: tuple[int | None, bool] = (None, False)) -> dict:
         """One request line → one response dict. Pure: tests call this
-        directly; the socket loop is transport."""
+        directly; the socket loop is transport. Every refusal carries a
+        machine-readable `error_code` beside the prose (v0.3.0 — 3hnok:
+        the derivation must read the code, never the sentence), and the
+        not-checkable refusal names the DAEMON's platform — the fact
+        belongs to the daemon's host, not the caller's."""
         try:
             req = json.loads(line.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError):
-            return {"error": "request is not valid JSON"}
+            return {"error": "request is not valid JSON",
+                    "error_code": "malformed-request"}
         if not isinstance(req, dict):
-            return {"error": "request must be a JSON object"}
+            return {"error": "request must be a JSON object",
+                    "error_code": "malformed-request"}
         if req.get("protocol") != PROTOCOL:
-            return {"error": f"unknown protocol — this socket speaks {PROTOCOL}"}
+            return {"error": f"unknown protocol — this socket speaks {PROTOCOL}",
+                    "error_code": "protocol-mismatch"}
         uid, uid_checked = peer
         if self.allow_uid is not None:
             if not uid_checked:
                 return {"error": "a uid gate was requested but the peer uid "
                                  "is not checkable on this platform — "
-                                 "refusing (fail closed)"}
+                                 "refusing (fail closed)",
+                        "error_code": "gate-unavailable",
+                        "daemon_platform": sys.platform}
             if uid != self.allow_uid:
                 return {"error": f"peer uid {uid} is not the allowed "
-                                 f"operator uid {self.allow_uid}"}
+                                 f"operator uid {self.allow_uid}",
+                        "error_code": "gate-enforced"}
         gate_configured = self.allow_uid is not None
         op = req.get("op")
         if op == "describe":
@@ -108,6 +133,8 @@ class KeyHolder:
                     "public_hex": self._key.public_hex(),
                     "peer_uid": uid, "peer_uid_checked": uid_checked,
                     "uid_gate_configured": gate_configured}
+            # (successes carry no error_code: the fields below are the
+            #  refusal vocabulary only)
         if op == "sign":
             data_hex = req.get("data")
             if not isinstance(data_hex, str):
@@ -115,12 +142,14 @@ class KeyHolder:
             try:
                 data = bytes.fromhex(data_hex)
             except ValueError:
-                return {"error": "data is not valid hex"}
+                return {"error": "data is not valid hex",
+                        "error_code": "malformed-request"}
             return {"signature": self._key.sign(data),
                     "public_hex": self._key.public_hex(),
                     "peer_uid": uid, "peer_uid_checked": uid_checked,
                     "uid_gate_configured": gate_configured}
-        return {"error": f"unknown op {op!r} — sign or describe"}
+        return {"error": f"unknown op {op!r} — sign or describe",
+                "error_code": "unknown-op"}
 
     # -- socket loop ------------------------------------------------------
 
@@ -147,6 +176,13 @@ class KeyHolder:
                 try:
                     conn, _ = server.accept()
                 except socket.timeout:
+                    continue
+                except OSError:
+                    # a peer aborting before accept wakes accept() with
+                    # ECONNABORTED on BSD/macOS (Errno 53) — the listener
+                    # stays up; the daemon does not die for a peer that
+                    # hung up first (found by the v0.3.0 stub battery)
+                    stop.wait(0.01)
                     continue
                 with conn:
                     self._serve_connection(conn)
@@ -195,6 +231,23 @@ class SocketSigner:
         self._describe: dict | None = None
 
     def _request(self, payload: dict) -> dict:
+        """One request, one retry on transport failure. The retry is safe
+        BY CONSTRUCTION: describe is read-only and sign is deterministic
+        (Ed25519 — the retried request produces the byte-identical
+        signature), so a swallowed-then-replayed request cannot
+        double-apply. Refusals are ANSWERS, not transport failures: they
+        never retry (v0.3.0 — the battery found the BSD/macOS
+        pre-accept abort swallowing a live connection)."""
+        for attempt in (1, 2):
+            try:
+                return self._attempt(payload)
+            except KeyHolderError as exc:
+                if exc.code != "unreachable" or attempt == 2:
+                    raise
+                # one replay: the listener may have skipped a connection
+                # the kernel aborted under it (ECONNABORTED, BSD/macOS)
+
+    def _attempt(self, payload: dict) -> dict:
         try:
             client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             client.settimeout(self.timeout)
@@ -211,13 +264,17 @@ class SocketSigner:
                 client.close()
         except OSError as exc:
             raise KeyHolderError(
-                f"keyholder unreachable at {self.socket_path}: {exc}") from exc
+                f"keyholder unreachable at {self.socket_path}: {exc}",
+                code="unreachable") from exc
         try:
             resp = json.loads(buf.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise KeyHolderError("keyholder response is not valid JSON") from exc
+            raise KeyHolderError("keyholder response is not valid JSON",
+                                 code="malformed-response") from exc
         if "error" in resp:
-            raise KeyHolderError(f"keyholder refused: {resp['error']}")
+            raise KeyHolderError(f"keyholder refused: {resp['error']}",
+                                 code=resp.get("error_code"),
+                                 daemon_platform=resp.get("daemon_platform"))
         return resp
 
     def sign(self, data: bytes) -> str:
@@ -244,29 +301,30 @@ class SocketSigner:
         return self._describe
 
     def uid_gate(self) -> str:
-        """The disclosure's gate value, derived from the daemon's account
-        of BOTH facts (3hl4l's ask — 'checked' stops meaning "the
-        platform could" by accident):
+        """The disclosure's gate value, derived from the daemon's
+        `error_code` — never from the sentence (v0.3.0, 3hnok: the
+        strongest token in the vocabulary had the interface's weakest
+        derivation; string-matching let any prose containing the sentence
+        launder into a strong claim, and the platform in the value was
+        the CALLER's when the fact belongs to the daemon's host).
 
         - "off" — no gate configured: nobody's uid was ever consulted
-        - "enforced" — a gate is configured and THIS peer passed it
-        - "unavailable(<platform>)" — a gate is configured but the
-          platform cannot check peers; the daemon refused this peer
-          fail-closed (3hkpp, darwin)
-
-        A refused peer never receives a describe at all — the refusal is
-        the enforcement — so "enforced" from a refusal means exactly what
-        the peer experienced."""
-        import sys
+        - "enforced" — a gate is configured and THIS peer passed it (or
+          was refused by it: the refusal IS the enforcement)
+        - "unavailable(<daemon platform>)" — configured, uncheckable,
+          refused fail-closed; the platform is the DAEMON's
+        - "undecidable(<reason>)" — everything else: an older daemon's
+          prose without a code, an unknown code, a transport failure.
+          A named state, never silence: null keeps meaning only "not
+          stated"."""
         try:
             d = self.describe()
         except KeyHolderError as exc:
-            msg = str(exc)
-            if "uid gate was requested" in msg:
-                return f"unavailable({sys.platform})"
-            if "not the allowed operator" in msg:
-                return "enforced"  # to THIS peer: the refusal IS enforcement
-            raise
+            if exc.code == "gate-unavailable":
+                return f"unavailable({exc.daemon_platform or 'unknown-host'})"
+            if exc.code == "gate-enforced":
+                return "enforced"
+            return f"undecidable({exc.code or 'unclassifiable-refusal'})"
         return ("enforced" if d["uid_gate_configured"] else "off")
 
     def public_hex(self) -> str:
