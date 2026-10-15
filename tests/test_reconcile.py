@@ -372,7 +372,8 @@ def test_outbound_expectation_without_witness_is_a_wish_with_a_hash(tmp_path):
                   {"decision_id": "d2", "expected_by": "2026-10-09T12:00:00+00:00"}, key2)
     events = store2.all()
     head = events[-1]["event_hash"]
-    store2.append("anchor", {"head_seq": 1, "head_hash": head}, key2)
+    store2.append("anchor", {"head_seq": 1, "head_hash": head,
+                             "tsr": "AAAA"}, key2)  # a witness carries a token (NB-03)
     findings2 = reconcile(store2.all(), [inv], now=now)
     assert [f.status for f in findings2] == ["pending"]  # witnessed → pending is provable
 
