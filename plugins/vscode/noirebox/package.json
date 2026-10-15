@@ -4,7 +4,7 @@
   "description": "Seal your coding agent's decisions into the tamper-evident NoireBox journal: seal, verify, attest \u2014 from the VSCode sidebar.",
   "version": "0.10.1",
   "publisher": "noirebox",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "engines": {
     "vscode": "^1.85.0"
   },

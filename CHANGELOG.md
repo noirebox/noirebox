@@ -3,6 +3,18 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versioning according to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- **License: MIT → Review-Only.** The source stays public for reading
+  and audit; use, modification, redistribution, offering it as a
+  service, and inclusion in AI-training corpora now require prior
+  written permission. Versions up to and including 0.21.0 remain MIT —
+  the change is not retroactive. The commit history is single-author
+  (all commits by the maintainer), so no third-party relicensing
+  consent applies.
+
 ## [0.21.0] — 2026-10-15
 
 ### Security

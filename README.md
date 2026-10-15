@@ -8,7 +8,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/noirebox)](https://pypi.org/project/noirebox/)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![License: Review-Only](https://img.shields.io/badge/license-Review--Only-red)](LICENSE)
 [![Lint: ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Image on GHCR](https://img.shields.io/badge/image-ghcr.io%2Fnoirebox%2Fnoirebox-blue)](https://github.com/noirebox/noirebox/pkgs/container/noirebox)
 [![Made in France](https://img.shields.io/badge/made%20in-France-blue)](#)
@@ -420,7 +420,9 @@ the [ADRs](docs/ADRs.md) — this section only holds what is still open.
 
 ## Support
 
-NoireBox is free and MIT — verification included, forever. If it saved you
+NoireBox is source-available under a review-only license — the code is
+public to read and audit; any use, modification, or redistribution
+requires written permission. If it saved you
 time (or a compliance headache), a coffee is the best way to say it helps:
 
 <a href="https://buymeacoffee.com/samlabbe"><img src="docs/bmc_qr.png" width="160" alt="Buy Me A Coffee — scan to support NoireBox"></a>
@@ -431,4 +433,8 @@ NoireBox is created and maintained by [@slabbdev](https://github.com/slabbdev) �
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+Review-only — see [LICENSE](LICENSE). The source is public for review
+and evaluation; any use, modification, redistribution, or commercial
+deployment requires prior written permission. Versions up to and
+including 0.21.0 remain MIT — the new license applies going forward,
+not retroactively.

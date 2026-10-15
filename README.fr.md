@@ -8,7 +8,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/noirebox)](https://pypi.org/project/noirebox/)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![License: Review-Only](https://img.shields.io/badge/license-Review--Only-red)](LICENSE)
 [![Lint: ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Image on GHCR](https://img.shields.io/badge/image-ghcr.io%2Fnoirebox%2Fnoirebox-blue)](https://github.com/noirebox/noirebox/pkgs/container/noirebox)
 [![Made in France](https://img.shields.io/badge/made%20in-France-blue)](#)
@@ -439,7 +439,9 @@ Ce qui reste. Tout ce qui est livré vit dans le [CHANGELOG](CHANGELOG.md) et le
 
 ## Soutenir
 
-NoireBox est libre et MIT — vérification incluse, pour toujours. Si ça t'a
+NoireBox est source-available sous licence review-only — le code est
+public pour lecture et audit ; tout usage, modification ou redistribution
+demande une autorisation écrite. Si ça t'a
 fait gagner du temps (ou épargné un casse-tête de conformité), un café est
 la meilleure façon de le dire :
 

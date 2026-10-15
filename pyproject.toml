@@ -8,7 +8,7 @@ version = "0.21.0"
 description = "The flight data recorder for AI agents — hash-chained, signed journal with RFC 3161 anchoring and third-party-verifiable exports."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = { text = "NoireBox Review-Only License 1.0" }
 authors = [{ name = "NoireBox contributors" }]
 keywords = [
     "ai-agents", "audit-trail", "tamper-evident", "rfc3161",
@@ -17,7 +17,7 @@ keywords = [
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
+    "License :: Other/Proprietary License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
