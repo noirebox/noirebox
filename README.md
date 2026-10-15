@@ -150,7 +150,7 @@ Verify an export as a third party (auditor, DPO, client):
 
 ```bash
 curl -s http://127.0.0.1:8768/api/v1/export > export.json
-.venv/bin/python verifier/verifier.py export.json   # exit 0 = chain intact
+.venv/bin/python verifier/verifier.py export.json   # exit 0 = intact & witnesses verified · exit 2 = anchoring UNPROVEN (missing openssl/ots?) · --allow-unverified-witnesses to accept
 ```
 
 > The verifier needs the NoireBox package on the auditing machine —
@@ -365,7 +365,7 @@ examples, then `make train`.
 
 ## Tests
 
-349 tests: cryptography (tampering, reordering, wrong key), regex and **ML
+378 tests: cryptography (tampering, reordering, wrong key), regex and **ML
 guardrails on held-out sentences in FR and EN**, the guarded pipeline with a
 stub LLM (no Ollama needed, runs in CI), API agent, MCP server, SDK
 client against a **real uvicorn server** (ephemeral port), real LLM agent

@@ -3,6 +3,93 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versioning according to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Security
+
+The full external audit of 0.20.0 — ten findings, none breaking the
+cryptography, several landing on the verification LOGIC the product
+exists to enforce. Eight are closed here, each with its own named test
+(350 → 378); two are assessed and deferred, stated below rather than
+silently dropped.
+
+- **NB-01 (high)** — a SET-but-unparseable `NOIREBOX_CLIENTS` silently
+  fell back to the publicly-known `demo:demo-secret` while the operator
+  believed their credentials were live. `load_clients` now refuses to
+  build the app unless no valid pair remains at all (fail-closed). The
+  JWT secret is derived once from the key the app actually loaded
+  (`jwt_secret_from_key`, threaded through issue/verify): the token path
+  no longer env-resolves — and `load_or_create`s — a key file behind the
+  app's back, nor re-reads the PEM per request.
+- **NB-02 (high)** — unverifiable witness tokens (missing `openssl`/`ots`,
+  or a timeout) left the third-party verifier at exit 0 with
+  `valid: True`: a CI gate in a slim container read a forged-token
+  journal as INTACT, and ONE checked token among others silenced the
+  zero-checked warning. An unproven anchoring now exits **2**, carries
+  its own report field (`unverifiable_witnesses`), and exit 0 costs an
+  explicit `--allow-unverified-witnesses`. The doctrine, applied to the
+  tool that enforces it: undecidable is never clean.
+- **NB-03 (high, two halves)** — `_newest_anchor`, the input of
+  `custody_grade`/`check_custody_drift`, validated neither the cited
+  head_hash nor the presence of a token: an anchor-shaped event with a
+  fake hash walked the custody grade to 2 "disinterested custodian".
+  Both are now required (`_anchored_upto` hardened symmetrically), and
+  the §20 fixtures stopped sealing `hash-{seq}` fakes. AND the §23 VTA
+  residue is closed: a non-terminal record of the terminal type can no
+  longer overwrite the terminal it follows and swallow a proven
+  `verdict_predates_terminal` race — it is surfaced as its own finding,
+  `post_terminal_activity`. The permutation matrix's open question —
+  whether a reopened run un-cancels a proven contradiction — is answered
+  NO; the implementation now holds the theory the matrix pinned.
+- **NB-04 (medium)** — the egress rule tested only `is_link_local`:
+  `::ffff:169.254.169.254` (the cloud-metadata prize, IPv4-mapped)
+  passed on python:3.12 — the shipped image — and an allowlisted
+  external host resolving into RFC 1918 walked straight in. `_as_v4`
+  unwraps the mapping before every range check, non-default hosts must
+  resolve to GLOBAL addresses (loopback keeps serving `make tsa`), the
+  pinned resolution applies the same rule, a TSA response read is capped
+  at 1 MiB, and the fleet-watch webhook is held to the bar
+  (`NOIREBOX_WEBHOOK_ALLOW_PRIVATE` opts in).
+- **NB-06 (medium)** — `EventIn.payload` was the API's only unbounded
+  body; it now carries a 256 KiB canonical-JSON seal budget (a payload
+  is sealed forever). `/verify` — open ALWAYS per ADR 004, O(N) Ed25519
+  per call — caches its verdict against the chain head (`store.head()`,
+  O(1) through the PK); any append invalidates it. `build_attestation`
+  stays uncached on purpose: `generated_at` is part of its signed
+  payload.
+- **NB-07 (medium)** — `POST /api/v1/token` was the one endpoint an
+  unauthenticated peer could hammer: 10 attempts/min per
+  (peer, client_id) now, `Retry-After` included; the `RateLimiter`
+  sweeps expired buckets past 1000 identities instead of holding ghosts
+  forever.
+- **NB-09 (low)** — the container ran as root (no `USER`) and compose
+  published 8768 on all interfaces with auth disabled: an open, root API
+  by default. Dedicated uid 10001 owns `/srv`, the port binds 127.0.0.1,
+  the journal moves to a named volume, and the compose file names the
+  `NOIREBOX_CLIENTS` obligation in place.
+- **NB-10 (low)** — the hook preview sealed up to 800 characters of raw
+  `tool_input`: a `curl -H "Authorization: Bearer sk-…"` or a written
+  `.env` became permanent, export-readable secret material, against the
+  module's own data-minimization contract. Redaction runs BEFORE
+  truncation (bearer/`sk-`/`ghp_`/AKIA shapes, `KEY=value` and
+  `"key": "value"`, escaped quotes included), and
+  `NOIREBOX_PREVIEW_MODE=hash` seals the digest alone.
+
+**Assessed, deferred on purpose:**
+
+- **NB-05 (medium)** — the Merkle tree lacks RFC 6962 domain separation
+  and deduplicates leaves silently. No practical attack in the current
+  threat model (fixed-width hash leaves, side-bound proofs), and the
+  honest fix — prefixed node hashing — changes every root: sealed fleet
+  anchors and their proofs would stop verifying. It wants a versioned
+  tree format (`merkle/0.2` + dual verification), not a patch; decision
+  deliberately left open.
+- **NB-08 (medium)** — `joblib.load` without an integrity check is real,
+  but the audit's fix (pinning three SHA-256 hashes) contradicts
+  `make train`, which regenerates the models per machine. The right
+  shape is a build-time manifest signed at package build — tracked, not
+  patched ad hoc.
+
 ## [0.20.0] — 2026-10-14
 
 ### Added
