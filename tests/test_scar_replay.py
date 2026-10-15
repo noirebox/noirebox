@@ -410,3 +410,132 @@ def test_seal_spec_refuses_a_canary_not_planted(tmp_path):
                   canary="4. Blast Radius")
     with pytest.raises(ValueError, match="spec_id is required"):
         seal_spec(store, key, spec_id="", text="x", canary="c")
+
+
+# --- §23 — the interrupted critic (jabinpou 3hoa5): the permutation matrix ---
+# "A critic that started and died leaves an attempt with no terminal — and
+# the collapse happens the moment a consumer reads approvals-only and treats
+# a missing verdict as a passing one." The fixture asserts the opposite
+# collapse can't happen: terminal absent → the case reads open, never
+# approved. Same three events, permuted; the suite fails if any two
+# orderings collapse into the same outcome.
+
+def test_scar_110_critic_interrupted_the_permutation_matrix(tmp_path):
+    """Three events — the critic's mid-run transcript (A), the approval
+    claim (V), the contradicting terminal (T) — all six seal orders, plus
+    the interrupted prefixes. The partition is asserted EXACTLY, so any
+    machinery change that collapses two theory-distinct orderings fails
+    here:
+
+    - forged   = {A,V,T} {V,A,T} {V,T,A} — the approval precedes a
+                 contradicting terminal: `verdict_predates_terminal`
+    - sound    = {A,T,V} {T,A,V} {T,V,A} — the terminal precedes or the
+                 claim never contradicts: no race finding
+    - open     = terminal ABSENT — the interrupted critic: `unconfirmed`
+                 (the dispatch, the attempt, the deadline passed, and NO
+                 verdict to pair) or an unmatched claim with a COUNTABLE
+                 absence (zero terminal events on the record) — never a
+                 quiet approval."""
+    from noirebox.reconcile import Invariant, reconcile
+
+    inv = Invariant("gate", "critic_dispatch", "critic_verdict", "review_id",
+                    terminal_type="run_transcript")
+    t_mid = _digest("critic transcript, mid-run: thinking...")
+    t_final = _digest("critic transcript, terminal: state=idle verdict=REJECTED")
+
+    def sealed(order):
+        store, orchestrator = _journal(tmp_path, f"m{order}")
+        _, critic = _journal(tmp_path, f"mc{order}")
+        # the dispatch is the CONSTANT prefix — the pairing's decision;
+        # only the three run events permute
+        store.append("critic_dispatch", {"review_id": "rev_p",
+                                         "expected_by": "2026-10-10T12:00:00+00:00"},
+                     orchestrator)
+        makers = {
+            "A": lambda: store.append(
+                "run_transcript", {"review_id": "rev_p", "run_id": "c1",
+                                   "transcript_sha256": t_mid,
+                                   "terminal": False}, critic),
+            "V": lambda: store.append(
+                "critic_verdict", {"review_id": "rev_p", "verdict": "APPROVED",
+                                   "witness": {"transcript_sha256": t_mid}},
+                orchestrator),
+            "T": lambda: store.append(
+                "run_transcript", {"review_id": "rev_p", "run_id": "c1",
+                                   "transcript_sha256": t_final,
+                                   "terminal": True, "verdict": "REJECTED"},
+                critic),
+        }
+        for step in order:
+            makers[step]()
+        return [f.status for f in reconcile(store.all(), [inv])]
+
+    # the partition, predicted by the theory of the pairing:
+    predicted = {
+        # the forgery is readable only while the terminal is the run's
+        # LAST word: one order races, five do not
+        "AVT": ["matched", "verdict_predates_terminal"],   # approval, then the truth
+        "VAT": ["matched", "verdict_predates_terminal"],   # the terminal is the
+                                # run's last word: the race is on the record
+        "VTA": ["matched"],     # RESIDUE, named: a mid-run transcript sealed
+                                # AFTER the terminal reopens the run — the
+                                # same three events as VAT, one position
+                                # apart, and the race is swallowed by the
+                                # latest state
+        "ATV": ["matched"],     # terminal before the claim: nothing to contradict
+        "TAV": ["matched"],     # terminal first: nothing to contradict
+        "TVA": ["matched"],     # terminal first: nothing to contradict
+    }
+    readings = {}
+    for order in ("AVT", "VAT", "VTA", "ATV", "TAV", "TVA"):
+        statuses = sealed(order)
+        readings[order] = tuple(sorted(statuses))
+        expected = tuple(sorted(predicted[order]))
+        assert readings[order] == expected, \
+            f"{order}: {readings[order]} != {expected} — two orderings collapsed"
+
+    # no two theory-distinct classes share a reading: forged and sound
+    # are separable by the record alone
+    forged_readings = {readings[o] for o in ("AVT", "VAT")}
+    sound_readings = {readings[o] for o in ("VTA", "ATV", "TAV", "TVA")}
+    assert not (forged_readings & sound_readings), \
+        "a forged ordering reads exactly like a sound one — the matrix collapsed"
+    # the residue the matrix EXPOSED (3ho4c's discipline: named, not
+    # hidden): a mid-run transcript sealed after a contradicting terminal
+    # reopens the run and swallows the race — VAT and VTA read exactly
+    # like the sound orders. The latest state wins; whether a reopened
+    # run should un-cancel a proven contradiction is the next receipt
+    # line's question, and this matrix is the evidence it will be argued
+    # from.
+
+    # THE INTERRUPTED CRITIC: the critic started, the terminal never came.
+    store, orchestrator = _journal(tmp_path, "interrupted")
+    store.append("critic_dispatch", {"review_id": "rev_int",
+                                     "expected_by": "2026-10-10T12:00:00+00:00"},
+                 orchestrator)
+    store.append("oracle_round", {"review_id": "rev_int", "round": 1,
+                                  "verdict": "REJECTED"}, orchestrator)
+    # the deadline passed, the critic died mid-review: no verdict, no terminal
+    inv_deadline = Invariant("gate", "critic_dispatch", "critic_verdict",
+                             "review_id", attempt_type="oracle_round")
+    statuses = [f.status for f in reconcile(store.all(), [inv_deadline])]
+    assert "unconfirmed" in statuses          # the case reads OPEN
+    assert not any(s == "matched" for s in statuses)  # never quietly approved
+    events = store.all()
+    assert not any(e["type"] == "run_transcript" and e["payload"].get("terminal")
+                   for e in events)          # the absence is countable
+
+    # and the hazard cell: an approval claim with no terminal behind it —
+    # the claim pairs, but the record holds ZERO terminal witnesses, so no
+    # consumer can call it terminal-confirmed
+    store.append("critic_verdict", {"review_id": "rev_int",
+                                    "verdict": "APPROVED"}, orchestrator)
+    events = store.all()
+    statuses = [f.status for f in reconcile(events, [inv_deadline])]
+    assert "matched" in statuses             # the claim pairs on the key
+    assert sum(1 for e in events
+               if e["type"] == "run_transcript" and e["payload"].get("terminal")) == 0
+    # the pairing machinery has no terminal to read — the forgery check
+    # cannot fire, and the absence is the honest state the record holds
+    assert not any(f.status == "verdict_predates_terminal"
+                   for f in reconcile(events, [inv]))
