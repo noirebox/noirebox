@@ -76,7 +76,9 @@ def test_anchors_without_tooling_are_counted_and_flagged(tmp_path, monkeypatch, 
     """Chain intact ≠ anchoring proven: with openssl absent, the tokens are
     reported (never hidden) but none is cryptographically checked — the CLI
     must print a distinct UNPROVEN warning instead of a clean-looking
-    INTACT line, and the report must expose the gap in numbers."""
+    INTACT line, the report must expose the gap in numbers, and since NB-02
+    the exit code agrees: UNPROVEN anchoring exits 2, never the clean 0
+    (undecidable is never clean). Exit 0 costs an explicit flag."""
     import json as _json
 
     from verifier import verifier as vmod
@@ -96,6 +98,7 @@ def test_anchors_without_tooling_are_counted_and_flagged(tmp_path, monkeypatch, 
     monkeypatch.setattr(vmod.shutil, "which", lambda _: None)
     report = vmod.verify_export(export)
     assert report["valid"] is True                       # the chain itself is intact
+    assert report["unverifiable_witnesses"] is True      # the named gap state
     assert report["anchors_in_journal"] == 1
     assert report["anchors_checked"] == 0                # nothing cryptographically checked
     assert report["anchors_unverifiable"] == 1           # reported, not hidden
@@ -103,10 +106,71 @@ def test_anchors_without_tooling_are_counted_and_flagged(tmp_path, monkeypatch, 
     path = tmp_path / "export.json"
     path.write_text(_json.dumps(export), encoding="utf-8")
     monkeypatch.setattr(vmod.sys, "argv", ["verifier.py", str(path)])
-    assert vmod.main() == 0
+    assert vmod.main() == 2                              # was 0 — the fail-open, closed
     out = capsys.readouterr().out
     assert "INTACT" in out
     assert "UNPROVEN" in out and "reported-not-verified" in out
+
+    # Accepting an unproven anchoring is a decision, not a default.
+    monkeypatch.setattr(vmod.sys, "argv",
+                        ["verifier.py", str(path), "--allow-unverified-witnesses"])
+    assert vmod.main() == 0
+    assert "accepted explicitly" in capsys.readouterr().out
+
+
+def test_one_checked_token_no_longer_masks_an_unverifiable_one(tmp_path, monkeypatch, capsys):
+    """NB-02, the partial-masking vector: a journal carrying one anchor this
+    machine CAN check and one it cannot (no `ots`) used to exit 0 — the old
+    warning fired only when ZERO tokens were checked. The unverifiable half
+    now drives its own exit code whatever the checked count."""
+    import json as _json
+    from types import SimpleNamespace
+
+    from verifier import verifier as vmod
+
+    store = EventStore(str(tmp_path / "m.db"))
+    key = KeyPair.load_or_create(str(tmp_path / "m.key"))
+    store.append("test", {"i": 0}, key)
+    head_hash = store.all()[-1]["event_hash"]
+    # one RFC 3161 anchor (verifiable where openssl exists)…
+    store.append("anchor", {
+        "head_seq": 1, "head_hash": head_hash,
+        "tsa": "freetsa", "tsr": "AAAA", "tsa_cert_pem": "-----BEGIN CERTIFICATE-----\n",
+    }, key)
+    # …and one OpenTimestamps anchor, unverifiable without the `ots` CLI.
+    import base64 as _b64
+
+    manifest = _json.dumps({"head_seq": 1, "head_hash": head_hash,
+                            "witness": "bitcoin"}).encode()
+    store.append("anchor", {
+        "head_seq": 1, "head_hash": head_hash, "tokens": [
+            {"tsa": "bitcoin", "kind": "ots",
+             "manifest_b64": _b64.b64encode(manifest).decode(),
+             "ots_b64": _b64.b64encode(b"fake receipt").decode()}],
+    }, key)
+    export = {
+        "format_version": 1, "public_key": key.public_hex(),
+        "events": store.all(), "attestation": build_attestation(store, key),
+    }
+    # openssl present and "working" (the stub signs nothing — the point is
+    # the COUNT), ots missing: exactly the masking shape. Patched BEFORE the
+    # verification so the machine's real openssl never touches the fake tsr.
+    monkeypatch.setattr(vmod.shutil, "which",
+                        lambda name: "/usr/bin/openssl" if name == "openssl" else None)
+    monkeypatch.setattr(vmod.subprocess, "run",
+                        lambda *a, **k: SimpleNamespace(returncode=0, stdout=b"", stderr=b""))
+    report = vmod.verify_export(export)
+    assert report["valid"] is True
+    assert report["anchors_checked"] == 1                # the RFC 3161 half "checked"
+    assert report["anchors_unverifiable"] == 1           # the OTS half is not
+    assert report["unverifiable_witnesses"] is True
+
+    path = tmp_path / "export.json"
+    path.write_text(_json.dumps(export), encoding="utf-8")
+    monkeypatch.setattr(vmod.sys, "argv", ["verifier.py", str(path)])
+    assert vmod.main() == 2
+    out = capsys.readouterr().out
+    assert "UNPROVEN" in out                             # no silent pass with 1-of-2 checked
 
 
 def test_fleet_anchor_root_token_is_verified(tmp_path, monkeypatch):
