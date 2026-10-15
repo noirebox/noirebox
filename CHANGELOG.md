@@ -10,7 +10,7 @@ versioning according to [Semantic Versioning](https://semver.org/).
 The full external audit of 0.20.0 — ten findings, none breaking the
 cryptography, several landing on the verification LOGIC the product
 exists to enforce. Eight are closed here, each with its own named test
-(350 → 378); two are assessed and deferred, stated below rather than
+(350 → 379); two are assessed and deferred, stated below rather than
 silently dropped.
 
 - **NB-01 (high)** — a SET-but-unparseable `NOIREBOX_CLIENTS` silently

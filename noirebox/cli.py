@@ -372,7 +372,15 @@ def main(argv: list[str] | None = None) -> int:
               f"({report['anchors_pinned']} pinned)")
         print(f"[✓] pack written to {args.outdir}/ — export.json, "
               f"verifier_report.json, ANNEXE-IV-2f.md")
-        return 0 if report["valid"] else 1
+        if not report["valid"]:
+            return 1
+        # NB-02, same contract as the standalone verifier: a chain verdict
+        # never vouches for witnesses this machine could not check.
+        if report["unverifiable_witnesses"]:
+            print("[!] unverifiable witness tokens in the pack — the "
+                  "anchoring is UNPROVEN here (install openssl/ots)")
+            return 2
+        return 0
 
     if args.command == "seal-trajectory":
         import sys

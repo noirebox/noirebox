@@ -88,6 +88,33 @@ def test_audit_pack_end_to_end(tmp_path):
     assert "none yet" in annexe             # honest: no anchors configured here
 
 
+def test_audit_pack_exit_2_on_unverifiable_witnesses(tmp_path, monkeypatch):
+    """NB-02, the second consumer: the pack CLI's exit code holds the same
+    contract as the standalone verifier — a chain verdict never vouches
+    for witnesses this machine could not check."""
+    from noirebox.cli import main as cli_main
+    from verifier import verifier as vmod
+
+    db = str(tmp_path / "witness.db")
+    key = KeyPair.load_or_create(db + ".key")
+    store = EventStore(db)
+    store.append("ai_use", use_event(use_start="2026-09-26T10:00:00Z",
+                                     use_end="2026-09-26T10:00:02Z",
+                                     system_ref="cv-screening#v2",
+                                     input_digest="cd" * 32), key)
+    head = store.all()[-1]["event_hash"]
+    # a well-formed anchor nobody can verify here (tsr is a stub, no openssl)
+    store.append("anchor", {"head_seq": 1, "head_hash": head,
+                            "tsa": "freetsa", "tsr": "AAAA",
+                            "tsa_cert_pem": "-----BEGIN CERTIFICATE-----\n"}, key)
+    monkeypatch.setattr(vmod.shutil, "which", lambda _: None)
+    outdir = tmp_path / "pack"
+    rc = cli_main(["audit-pack", "--db", db, str(outdir)])
+    assert rc == 2
+    rep = json.loads((outdir / "verifier_report.json").read_text())
+    assert rep["valid"] is True and rep["unverifiable_witnesses"] is True
+
+
 def test_annexe_reports_witnesses_when_anchored(tmp_path):
     db = str(tmp_path / "j2.db")
     key = KeyPair.load_or_create(db + ".key")
