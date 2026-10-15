@@ -234,3 +234,108 @@ def test_metadata_routes_open_by_default(monkeypatch, tmp_path):
     api = TestClient(create_app(str(tmp_path / "open-meta.db")))
     for path in ("/api/v1/activity", "/api/v1/attestation"):
         assert api.get(path).status_code == 200, path
+
+
+# --- NB-01 — the fail-closed credential config --------------------------------
+
+def test_malformed_clients_env_refuses_to_start(monkeypatch, tmp_path):
+    """NB-01: a SET-but-unparseable NOIREBOX_CLIENTS means the operator
+    believes their credentials are live — silently falling back to the
+    publicly-known demo pair was the fail-open. The app refuses to build."""
+    monkeypatch.delenv("NOIREBOX_JWT_SECRET", raising=False)
+    monkeypatch.setenv("NOIREBOX_CLIENTS", "prod_client")  # no colon, no pair
+    with pytest.raises(RuntimeError, match="no valid id:secret pair"):
+        create_app(str(tmp_path / "bad.db"))
+
+
+def test_whitespace_clients_env_behaves_like_unset(monkeypatch):
+    """Whitespace-only: nothing was configured — the demo default, with
+    auth off (the route counts on the same strip rule)."""
+    from noirebox.auth import load_clients
+
+    monkeypatch.setenv("NOIREBOX_CLIENTS", "   ")
+    assert load_clients() == {"demo": "demo-secret"}
+
+
+def test_valid_pairs_survive_a_malformed_neighbour(monkeypatch):
+    """One malformed entry among valid ones: the valid survive — the raise
+    fires only when NOTHING valid remains."""
+    from noirebox.auth import load_clients
+
+    monkeypatch.setenv("NOIREBOX_CLIENTS", "oops-no-colon, acme:s3cret")
+    assert load_clients() == {"acme": "s3cret"}
+
+
+def test_jwt_secret_is_cached_per_key_path(monkeypatch, tmp_path):
+    """NB-01: the derived secret is resolved ONCE per key path — every
+    token issue and every authenticated request used to re-read (and, for
+    embedders, re-create) the key file on the hot path."""
+    from noirebox import auth as auth_mod
+    from noirebox import chain as chain_mod
+
+    monkeypatch.delenv("NOIREBOX_JWT_SECRET", raising=False)
+    monkeypatch.setenv("NOIREBOX_DB", str(tmp_path / "cached.db"))
+    real_load = chain_mod.KeyPair.load_or_create
+    calls = {"n": 0}
+
+    def counting(path):
+        calls["n"] += 1
+        return real_load(path)
+
+    monkeypatch.setattr(chain_mod.KeyPair, "load_or_create",
+                        staticmethod(counting))
+    first = auth_mod._jwt_secret()
+    second = auth_mod._jwt_secret()
+    assert first == second
+    assert calls["n"] == 1  # one disk derivation, then the cache
+
+
+def test_app_signs_with_its_own_key_not_the_env_path(tmp_path, monkeypatch):
+    """NB-01: an app built with a db_path of its own issues tokens backed
+    by THAT key's derivation — verifiable from the instance key alone,
+    whatever NOIREBOX_DB says."""
+    from noirebox.auth import jwt_secret_from_key, verify_token
+    from noirebox.chain import load_instance_key
+
+    monkeypatch.delenv("NOIREBOX_JWT_SECRET", raising=False)
+    monkeypatch.delenv("NOIREBOX_CLIENTS", raising=False)
+    app = create_app(str(tmp_path / "embed.db"))
+    api = TestClient(app)
+    r = api.post("/api/v1/token",
+                 json={"client_id": "demo", "client_secret": "demo-secret"})
+    assert r.status_code == 200
+    token = r.json()["access_token"]
+    assert verify_token(token, jwt_secret=jwt_secret_from_key(
+        load_instance_key(str(tmp_path / "embed.db")))) == "demo"
+    # and no parasite key file was created for the default env path
+    assert not (tmp_path / "data.noirebox.db.key").exists()
+
+
+# --- NB-07 — the token route gets a ceiling, the limiter gets a broom ----------
+
+def test_token_endpoint_rate_limits_attempts(client_with_auth):
+    """NB-07: the token route is the ONE endpoint an unauthenticated peer
+    can hammer — require_auth's limiter only guards routes BEHIND a valid
+    token. 10 attempts/min per (peer, client_id), wrong or right."""
+    for _ in range(10):
+        r = client_with_auth.post("/api/v1/token",
+                                  json={"client_id": "acme", "client_secret": "wrong"})
+        assert r.status_code == 401
+    r = client_with_auth.post("/api/v1/token",
+                              json={"client_id": "acme", "client_secret": "s3cret"})
+    assert r.status_code == 429
+    assert r.headers["Retry-After"] == "60"
+
+
+def test_rate_limiter_purges_stale_identities():
+    """NB-07: identities that never come back held their buckets forever;
+    past 1000 keys, inserting sweeps every expired bucket out."""
+    from noirebox.auth import RateLimiter
+
+    rl = RateLimiter(max_requests=1, window_seconds=60)
+    for i in range(1500):
+        rl.allow(f"ghost-{i}", now=0.0)
+    assert len(rl._hits) > 1000
+    ok, _ = rl.allow("alive", now=61.0)  # one window later: insert → sweep
+    assert ok is True
+    assert list(rl._hits) == ["alive"]   # the ghosts expired out

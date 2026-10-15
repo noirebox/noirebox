@@ -4,12 +4,12 @@ import os
 import threading
 
 from fastapi.responses import JSONResponse
-from fastapi import Depends, FastAPI, HTTPException, Query, Response
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import HTMLResponse
 
 from . import __version__
 from .attestation import build_attestation, verify_attestation
-from .auth import build_auth_dependency, issue_token
+from .auth import RateLimiter, build_auth_dependency, issue_token, jwt_secret_from_key
 from .chain import load_instance_key, verify_chain
 from .dashboard import DASHBOARD_HTML
 from .guardrail import scan_transcript
@@ -65,8 +65,13 @@ def create_app(db_path: str | None = None) -> FastAPI:
     app.state.store = store
     app.state.key = key
 
-    auth_enabled = bool(os.environ.get("NOIREBOX_CLIENTS"))
-    require_auth = build_auth_dependency(enabled=auth_enabled)
+    # NB-01: the JWT secret is derived ONCE from the key this app actually
+    # loaded — issue and verification never race ahead to env-resolve (and
+    # load_or_create) a key file the app did not choose.
+    jwt_secret = jwt_secret_from_key(key)
+
+    auth_enabled = bool(os.environ.get("NOIREBOX_CLIENTS", "").strip())
+    require_auth = build_auth_dependency(enabled=auth_enabled, jwt_secret=jwt_secret)
     app.state.require_auth = require_auth
     # Metadata routes (activity, attestation, attestation.pdf) stay OPEN by
     # default: they expose aggregates and digests only — never payload
@@ -79,17 +84,34 @@ def create_app(db_path: str | None = None) -> FastAPI:
     # verification.
     metadata_locked = auth_enabled and os.environ.get(
         "NOIREBOX_METADATA_AUTH", "").strip().lower() in ("1", "true", "yes")
-    require_metadata_auth = build_auth_dependency(enabled=metadata_locked)
+    require_metadata_auth = build_auth_dependency(enabled=metadata_locked,
+                                                  jwt_secret=jwt_secret)
     app.state.require_metadata_auth = require_metadata_auth
 
     @app.get("/health")
     def health() -> dict:
         return {"status": "ok", "service": "noirebox", "version": __version__}
 
+    # NB-07: the token route is the ONE endpoint an unauthenticated peer
+    # can hammer — require_auth's limiter only guards the routes BEHIND a
+    # valid token. Client-credential attempts are throttled per (peer,
+    # client_id): 10/min, a ceiling no honest integration approaches.
+    token_limiter = RateLimiter(max_requests=10, window_seconds=60)
+    app.state.token_limiter = token_limiter
+
     @app.post("/api/v1/token")
-    def token(body: TokenIn) -> dict:
-        """Exchanges client_id/client_secret for a JWT (1 h). 401 if invalid."""
-        jwt_token = issue_token(body.client_id, body.client_secret)
+    def token(body: TokenIn, request: Request) -> dict:
+        """Exchanges client_id/client_secret for a JWT (1 h). 401 if invalid,
+        429 past 10 attempts/min per (peer, client_id) — the brute-force
+        ceiling (NB-07)."""
+        peer = request.client.host if request.client else "unknown"
+        allowed, _ = token_limiter.allow(f"{peer}:{body.client_id}")
+        if not allowed:
+            raise HTTPException(status_code=429,
+                                detail="too many token attempts (10/min)",
+                                headers={"Retry-After": "60"})
+        jwt_token = issue_token(body.client_id, body.client_secret,
+                                jwt_secret=jwt_secret)
         if jwt_token is None:
             raise HTTPException(status_code=401, detail="invalid credentials")
         return {"access_token": jwt_token, "token_type": "bearer", "expires_in": 3600}
@@ -118,10 +140,28 @@ def create_app(db_path: str | None = None) -> FastAPI:
             return store.since(since_seq, limit)
         return store.page(offset, limit)
 
+    # NB-06: /verify is open ALWAYS (ADR 004) and a full-chain check is
+    # O(N) Ed25519 — an open route must not recompute the whole chain per
+    # poll. The response is cached against the chain HEAD (seq + hash +
+    # key): any append changes the head and invalidates it, so a verdict is
+    # never served for a chain it does not describe. build_attestation is
+    # left uncached on purpose: `generated_at` is part of its SIGNED
+    # payload, and a cached attestation would freeze that timestamp — a
+    # freshness lie for the hand-over document.
+    verify_cache: dict = {"key": None, "report": None}
+
     @app.get("/api/v1/verify")
     def verify() -> dict:
-        """On-the-spot chain verification (internal diagnostic)."""
-        return verify_chain(key.public_hex(), store.all())
+        """On-the-spot chain verification (internal diagnostic).
+
+        Head-keyed cache (NB-06): identical verdict for an unchanged
+        journal, recomputed the moment the head moves."""
+        head = store.head()
+        cache_key = (head[0], head[1], key.public_hex())
+        if verify_cache["key"] != cache_key:
+            verify_cache["report"] = verify_chain(key.public_hex(), store.all())
+            verify_cache["key"] = cache_key
+        return verify_cache["report"]
 
     @app.get("/api/v1/activity")
     def activity(client_id: str = Depends(require_metadata_auth)) -> list[dict]:
