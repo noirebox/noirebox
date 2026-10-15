@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import argparse
 import base64
 import json
 import os
@@ -213,20 +214,35 @@ def verify_export(export: dict) -> dict:
         "fleet_anchors_in_journal": fleet_in_journal,
         "fleet_anchors_checked": fleet_checked,
         "fleet_anchors_unverifiable": fleet_unverifiable,
+        # NB-02: "valid" stays a statement about the CHAIN; witness tokens
+        # that could not be verified here (tooling missing, timeout) are a
+        # separate, named state — undecidable is never clean, so a consumer
+        # must be able to see the gap without parsing prose.
+        "unverifiable_witnesses": (anchors_unverifiable + fleet_unverifiable) > 0,
         "errors": errors,
         "head_hash": events[-1]["event_hash"] if events else None,
     }
 
 
-def main() -> int:
-    if len(sys.argv) != 2:
-        print(__doc__)
-        return 2
-    export = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Third-party verifier: recompute the whole chain from an "
+                    "export, without trusting the server.")
+    parser.add_argument("export", help="path to export.json (the /api/v1/export file)")
+    parser.add_argument(
+        "--allow-unverified-witnesses", action="store_true",
+        default=os.environ.get("NOIREBOX_ALLOW_UNVERIFIED_WITNESSES", "")
+        .strip().lower() in ("1", "true", "yes"),
+        help="accept unverifiable witness tokens EXPLICITLY (exit 0) instead "
+             "of the default UNPROVEN verdict (exit 2) — undecidable is "
+             "never clean, so accepting it must be a decision, not a default "
+             "(settable as NOIREBOX_ALLOW_UNVERIFIED_WITNESSES=1 for CI)")
+    args = parser.parse_args(argv)
+    export = json.loads(Path(args.export).read_text(encoding="utf-8"))
     report = verify_export(export)
 
     if report["valid"]:
-        unverified = report["anchors_unverifiable"]
+        unverified = report["anchors_unverifiable"] + report["fleet_anchors_unverifiable"]
         fleet_part = (f", {report['fleet_anchors_checked']} fleet root tokens"
                       if report["fleet_anchors_in_journal"] else "")
         print(f"[✓] INTACT — {report['nb_events_checked']} events verified, "
@@ -243,6 +259,24 @@ def main() -> int:
             print("[!] no witness token was cryptographically checked — "
                   "the chain is intact, the anchoring is UNPROVEN on this "
                   "machine (missing openssl/ots?)")
+        if unverified:
+            if args.allow_unverified_witnesses:
+                print(f"[!] {unverified} witness token(s) could NOT be "
+                      f"verified here — accepted explicitly "
+                      f"(--allow-unverified-witnesses)")
+                return 0
+            # NB-02: a missing or timing-out verification tool used to leave
+            # the exit code at 0 — a CI gate in a slim container read a
+            # forged-token journal as INTACT. One checked token among others
+            # also silenced the old zero-checked warning (partial masking).
+            # The unproven anchoring now has its own exit code: the report
+            # already named it, the exit code finally agrees.
+            print(f"[!] {unverified} witness token(s) could NOT be verified "
+                  f"on this machine — the anchoring is UNPROVEN "
+                  f"(undecidable is never clean)")
+            print("    exit 2 — install openssl/ots, or re-run with "
+                  "--allow-unverified-witnesses to accept it explicitly")
+            return 2
         return 0
 
     print("[✗] TAMPERING DETECTED")

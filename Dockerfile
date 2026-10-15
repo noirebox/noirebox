@@ -16,6 +16,13 @@ COPY models/ models/
 # Le vérificateur tiers voyage avec l'image : l'auditeur peut vérifier
 # un export avec le même outil que le producteur.
 COPY verifier/ verifier/
+# NB-09 : uvicorn ne tourne pas en root. Utilisateur système dédié, sans
+# shell, propriétaire de /srv (le journal et sa clé y vivent en 0600 —
+# root de moins dans la chaîne, pas un de plus).
+RUN useradd -r -u 10001 -m noirebox \
+    && mkdir -p /srv/data \
+    && chown -R noirebox:noirebox /srv
+USER noirebox
 EXPOSE 8768
 HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8768/api/v1/verify')" || exit 1

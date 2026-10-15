@@ -1,6 +1,15 @@
+import json
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+# NB-06: an event payload is sealed FOREVER — and POST /api/v1/events is
+# reachable by any authenticated client. 256 KiB of canonical JSON is two
+# orders of magnitude above every legitimate payload the product emits
+# (transcript digests, incident lists, anchor tokens) and far below the
+# multi-megabyte bodies a hostile client would use to bloat the journal
+# and every future export. ScanIn.text carries the same spirit at 200k.
+MAX_PAYLOAD_BYTES = 262_144
 
 
 class EventIn(BaseModel):
@@ -8,6 +17,17 @@ class EventIn(BaseModel):
 
     type: str = Field(min_length=1, max_length=64, examples=["llm_call"])
     payload: dict = Field(default_factory=dict)
+
+    @field_validator("payload")
+    @classmethod
+    def _bounded(cls, v: dict) -> dict:
+        size = len(json.dumps(v, ensure_ascii=False, sort_keys=True).encode("utf-8"))
+        if size > MAX_PAYLOAD_BYTES:
+            raise ValueError(
+                f"payload exceeds the {MAX_PAYLOAD_BYTES}-byte seal budget "
+                f"({size} bytes of JSON) — a payload is sealed forever, "
+                f"the journal is not a dumping ground")
+        return v
 
 
 class ScanIn(BaseModel):

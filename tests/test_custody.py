@@ -17,13 +17,18 @@ def _store(tmp_path, name="custody.db"):
 
 
 def _anchored(store, key, head_seq, ts=None):
-    payload = {"head_seq": head_seq, "head_hash": f"hash-{head_seq}"}
-    if ts:
-        payload = {"head_seq": head_seq, "head_hash": f"hash-{head_seq}"}
-    ev = store.append("anchor", payload, key)
-    if ts:  # rewrite the timestamp post-hoc would break the hash — instead
-        pass  # cadence tests inject `now` into the check, never the event
-    return ev
+    """Seals a REAL witness over `head_seq`: the cited hash recomputes to
+    the chain's event at that seq, and a token rides the payload — the
+    shape `_newest_anchor` has required since NB-03 (the old fixtures
+    carried `hash-{head_seq}`, a fake the tightened checker now refuses,
+    which is exactly the point of the tightening). Cadence tests never
+    rewrite event timestamps — they inject `now` into the check."""
+    events = store.all()
+    head_hash = events[head_seq - 1]["event_hash"] if head_seq else "0" * 64
+    return store.append("anchor", {
+        "head_seq": head_seq, "head_hash": head_hash,
+        "tsr": "AAAA", "tsa_cert_pem": "-----BEGIN CERTIFICATE-----\n",
+    }, key)
 
 
 def test_seal_retention_validates_and_seals(tmp_path):
@@ -53,6 +58,44 @@ def test_unanchored_journal_is_a_named_state(tmp_path):
     assert [f.status for f in findings] == ["custody_unanchored"]
     assert "grade-3 by retention" in findings[0].note
     assert "min(authoring, retention)" in findings[0].note
+
+
+def test_fake_anchor_hash_does_not_witness(tmp_path):
+    """NB-03: an anchor whose cited head_hash does NOT recompute to the
+    chain's event is prose, not custody — before the tightening, this
+    event walked `custody_grade` to grade 2 and silenced drift checks."""
+    store, key = _store(tmp_path)
+    store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "r1"}, key)
+    store.append("anchor", {"head_seq": 1, "head_hash": "hash-1",
+                            "tsr": "AAAA"}, key)
+    assert [f.status for f in check_custody_drift(store.all(),
+                                                  max_tail_events=10)] == ["custody_unanchored"]
+    d = custody_grade(store.all())
+    assert d["grade"] == 3 and d["mode"] == "unanchored"
+
+
+def test_tokenless_anchor_does_not_witness(tmp_path):
+    """NB-03: the hash matches but no token rides the payload — a witness
+    claim without a witness. Custody stays unanchored; the grade cannot be
+    bought with an anchor-shaped event."""
+    store, key = _store(tmp_path)
+    store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "r1"}, key)
+    head = store.all()[-1]["event_hash"]
+    store.append("anchor", {"head_seq": 1, "head_hash": head}, key)
+    assert [f.status for f in check_custody_drift(store.all(),
+                                                  max_tail_events=10)] == ["custody_unanchored"]
+    assert custody_grade(store.all())["mode"] == "unanchored"
+
+
+def test_out_of_range_head_seq_is_ignored(tmp_path):
+    """NB-03: head_seq beyond the chain's length cites an event that does
+    not exist — not a witness, whatever the number promises."""
+    store, key = _store(tmp_path)
+    store.append("receipt", {"schema": "receipt/0.2.2", "run_id": "r1"}, key)
+    store.append("anchor", {"head_seq": 999, "head_hash": "f" * 64,
+                            "tsr": "AAAA"}, key)
+    assert [f.status for f in check_custody_drift(store.all(),
+                                                  max_tail_events=10)] == ["custody_unanchored"]
 
 
 def test_anchored_tail_within_bounds_is_clean(tmp_path):

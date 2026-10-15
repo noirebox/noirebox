@@ -7,7 +7,7 @@ import threading
 import time
 from datetime import UTC, datetime
 
-from .chain import Event, KeyPair, compute_event_hash
+from .chain import GENESIS, Event, KeyPair, compute_event_hash
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS events (
@@ -121,6 +121,17 @@ class EventStore:
                 "FROM events ORDER BY seq ASC"
             ).fetchall()
         return [self._row(r) for r in rows]
+
+    def head(self) -> tuple[int, str]:
+        """(seq, event_hash) of the LAST event — O(1) through the PK index,
+        (0, GENESIS) for an empty journal. The cheap dirty-check behind the
+        /verify response cache (NB-06): consumers compare heads instead of
+        replaying the chain to learn whether anything moved."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT seq, event_hash FROM events ORDER BY seq DESC LIMIT 1"
+            ).fetchone()
+        return (row[0], row[1]) if row else (0, GENESIS)
 
     def since(self, seq: int, limit: int = 500) -> list[dict]:
         """Events with `seq` strictly greater than the given one, oldest to

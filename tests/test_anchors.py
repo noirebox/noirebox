@@ -315,13 +315,17 @@ def test_pinned_connection_targets_the_validated_ip(tmp_path_factory, monkeypatc
                 break
             except OSError:
                 time.sleep(0.05)
-        monkeypatch.setenv("NOIREBOX_TSA_ALLOWED_HOSTS", "tsa.example")
+        # NB-04: an external-sounding host must resolve to a GLOBAL address,
+        # so the pinned-connection proof runs on `localhost` (default set,
+        # loopback allowed) pinned to the loopback TSA — the property under
+        # test is unchanged: the connection targets the RESOLVED address.
+        monkeypatch.setenv("NOIREBOX_TSA_ALLOWED_HOSTS", "localhost")
         seen_dns, seen_connect = [], []
         real_getaddrinfo, real_create = socket.getaddrinfo, socket.create_connection
 
         def fake_getaddrinfo(host, port, *a, **k):
             seen_dns.append(host)
-            if host == "tsa.example":
+            if host == "localhost":
                 return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", port))]
             return real_getaddrinfo(host, port, *a, **k)
 
@@ -333,14 +337,14 @@ def test_pinned_connection_targets_the_validated_ip(tmp_path_factory, monkeypatc
         monkeypatch.setattr(anchors_mod.socket, "create_connection", fake_create_connection)
 
         head = "a" * 64
-        token = anchors_mod.request_token_at(head, f"http://tsa.example:{port}/tsa")
+        token = anchors_mod.request_token_at(head, f"http://localhost:{port}/tsa")
         assert token[:20], "a token must come back over the pinned connection"
         # the DNS name never touched the wire: the wire saw the resolved IP
         assert seen_connect == [("127.0.0.1", port)]
         # exactly two in-process resolutions of the NAME (pre-flight check +
         # pinned resolve); the extra lookup of the literal comes from
         # create_connection itself — the connection still targets the IP
-        assert seen_dns.count("tsa.example") == 2
+        assert seen_dns.count("localhost") == 2
     finally:
         server.terminate()
 

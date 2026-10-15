@@ -88,3 +88,65 @@ def test_global_disable(tmp_path, monkeypatch):
     monkeypatch.setenv("NOIREBOX_HOOK_DISABLE", "1")
     assert hookcli.run("tool-use", stdin=io.StringIO("{}")) == 0
     assert not (tmp_path / ".noirebox").exists()
+
+
+# --- NB-10 — a secret in a tool input never reaches the immutable journal -----
+
+def test_preview_redacts_bearer_and_keys(tmp_path, monkeypatch):
+    """NB-10: the preview is sealed immutably and leaves in every export —
+    a curl with an Authorization header or a written .env must not become
+    permanent, third-party-readable secret material."""
+    monkeypatch.delenv("NOIREBOX_DB", raising=False)
+    monkeypatch.delenv("NOIREBOX_PREVIEW_MODE", raising=False)
+    hook = _tool_hook(tmp_path, command='curl -H "Authorization: Bearer sk-live-abcdef123456"')
+    hookcli.tool_use(hook)
+    preview = _events(tmp_path)[0]["payload"]["input_preview"]
+    assert "sk-live-abcdef123456" not in preview
+    assert "Bearer [REDACTED]" in preview
+
+
+def test_preview_redacts_env_and_json_secret_shapes(tmp_path, monkeypatch):
+    monkeypatch.delenv("NOIREBOX_DB", raising=False)
+    monkeypatch.delenv("NOIREBOX_PREVIEW_MODE", raising=False)
+    hook = _tool_hook(
+        tmp_path,
+        command="export AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMIandmore00 --token ghp_0123456789abcdefghijklmnop")
+    hookcli.tool_use(hook)
+    preview = _events(tmp_path)[0]["payload"]["input_preview"]
+    assert "wJalrXUtnFEMIandmore00" not in preview
+    assert "ghp_0123456789" not in preview
+    assert "[REDACTED]" in preview
+
+    hook2 = _tool_hook(tmp_path, command='echo ok')  # second event: JSON shape
+    hook2["tool_input"] = {"file": ".env", "content": '{"api_key": "super-secret-value-42"}'}
+    hookcli.tool_use(hook2)
+    preview2 = _events(tmp_path)[-1]["payload"]["input_preview"]
+    assert "super-secret-value-42" not in preview2
+
+
+def test_redaction_runs_before_truncation(tmp_path, monkeypatch):
+    """NB-10: a secret cut in half at char 800 is still half a secret —
+    redact first, truncate after: nothing raw of it survives the cap."""
+    monkeypatch.delenv("NOIREBOX_DB", raising=False)
+    monkeypatch.delenv("NOIREBOX_PREVIEW_MODE", raising=False)
+    padding = "z" * 700
+    hook = _tool_hook(tmp_path,
+                      command=f"{padding} && curl -H 'Authorization: Bearer sk-tail-secret-999999'")
+    hookcli.tool_use(hook)
+    preview = _events(tmp_path)[0]["payload"]["input_preview"]
+    assert len(preview) <= hookcli.MAX_PREVIEW_CHARS  # redaction shrinks, never grows
+    assert "sk-tail-secret-999999" not in preview     # past the cap, still redacted
+
+
+def test_preview_hash_mode_seals_zero_content(tmp_path, monkeypatch):
+    """NOIREBOX_PREVIEW_MODE=hash: deployments that want NOTHING of the
+    input in the journal get the digest, and it verifies."""
+    import hashlib
+
+    monkeypatch.delenv("NOIREBOX_DB", raising=False)
+    monkeypatch.setenv("NOIREBOX_PREVIEW_MODE", "hash")
+    detail = _tool_hook(tmp_path, command="sensitive but hashed")["tool_input"]
+    hookcli.tool_use(_tool_hook(tmp_path, command="sensitive but hashed"))
+    preview = _events(tmp_path)[0]["payload"]["input_preview"]
+    assert preview == "sha256:" + hashlib.sha256(
+        json.dumps(detail, ensure_ascii=False).encode("utf-8")).hexdigest()

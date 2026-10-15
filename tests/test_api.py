@@ -170,3 +170,58 @@ def test_auto_anchor_timer_fires_and_survives_failures(tmp_path, monkeypatch):
     stop = threading.Event()
     threading.Timer(0.3, stop.set).start()
     real_loop(Boom(), object(), 0.001, stop)  # every tick fails — exits anyway
+
+
+# --- NB-06 — bounded payloads, head-keyed verification -------------------------
+
+def test_oversized_payload_is_refused(tmp_path):
+    """NB-06: a payload is sealed FOREVER and the journal is not a dumping
+    ground — past the 256 KiB seal budget the API refuses (422) instead of
+    letting a client bloat the journal and every future export."""
+    client = _client(tmp_path)
+    r = client.post("/api/v1/events",
+                    json={"type": "llm_call", "payload": {"blob": "x" * 300_000}})
+    assert r.status_code == 422
+    assert "seal budget" in r.text
+    # a legitimate payload sails through
+    ok = client.post("/api/v1/events", json={"type": "llm_call", "payload": {"i": 1}})
+    assert ok.status_code == 201
+
+
+def test_verify_response_is_cached_against_the_head(tmp_path, monkeypatch):
+    """NB-06: /verify is open ALWAYS (ADR 004) and a full-chain check is
+    O(N) Ed25519 — an open route must not recompute the chain per poll.
+    The verdict is cached against the chain head; any append invalidates."""
+    import noirebox.main as main_mod
+
+    calls = {"n": 0}
+    real = main_mod.verify_chain
+
+    def counting(*a, **k):
+        calls["n"] += 1
+        return real(*a, **k)
+
+    monkeypatch.setattr(main_mod, "verify_chain", counting)
+    client = _client(tmp_path)
+    client.post("/api/v1/events", json={"type": "llm_call", "payload": {}})
+    first = client.get("/api/v1/verify").json()
+    second = client.get("/api/v1/verify").json()
+    assert calls["n"] == 1                        # the second poll hit the cache
+    assert first == second == {"valid": True, "nb_events": 1, "first_error": None}
+    client.post("/api/v1/events", json={"type": "llm_call", "payload": {}})
+    third = client.get("/api/v1/verify").json()
+    assert calls["n"] == 2                        # the head moved: recomputed
+    assert third["nb_events"] == 2
+
+
+def test_store_head_is_the_cheap_dirty_check(tmp_path):
+    """NB-06: head() answers (seq, hash) in one indexed lookup — the O(1)
+    question behind the /verify cache."""
+    from noirebox.store import EventStore
+
+    store = EventStore(str(tmp_path / "head.db"))
+    assert store.head() == (0, "0" * 64)
+    key = __import__("noirebox.chain", fromlist=["KeyPair"]).KeyPair.generate()
+    store.append("test", {"i": 0}, key)
+    seq, digest = store.head()
+    assert seq == 1 and digest == store.all()[-1]["event_hash"]

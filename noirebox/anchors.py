@@ -61,17 +61,61 @@ def load_profiles() -> list[dict]:
     return []
 
 
+# NB-04: a TimeStampResp or a PEM chain is KBs — a response read without a
+# cap lets a compromised endpoint stream the process into an OOM.
+MAX_TSA_RESPONSE_BYTES = 1_048_576
+
+_LOOPBACK_HOSTS = frozenset(DEFAULT_ALLOWED_HOSTS)
+
+
+def _as_v4(ip: ipaddress.IPv4Address | ipaddress.IPv6Address):
+    """Unwraps IPv4-MAPPED IPv6 addresses first (NB-04): ::ffff:169.254.169.254
+    is NOT link-local as a v6 object (fe80::/10 is where v6 looks), but the
+    mapped 169.254.x.x is exactly the cloud-metadata prize. Every range
+    check below runs on the mapped v4 when one is present."""
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
+        return ip.ipv4_mapped
+    return ip
+
+
+def _address_allowed(host: str, ip) -> bool:
+    """NB-04: the per-address egress rule. A host in the DEFAULT loopback
+    set (`make tsa` lives there) only has to stay off link-local; any OTHER
+    allowlisted host must resolve to a GLOBAL address — private ranges,
+    loopback, link-local, reserved, multicast and unspecified are all
+    refused. An external hostname that quietly resolves into the internal
+    network is the SSRF pivot this refuses to be."""
+    ip = _as_v4(ip)
+    if host in _LOOPBACK_HOSTS:
+        return not ip.is_link_local
+    return not (ip.is_private or ip.is_loopback or ip.is_link_local
+                or ip.is_reserved or ip.is_multicast or ip.is_unspecified)
+
+
+def _reject_bad_resolution(host: str, infos) -> None:
+    """Fails when ANY resolved address breaks the host's egress rule."""
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if not _address_allowed(host, ip):
+            raise RuntimeError(
+                f"allowlisted TSA host {host!r} resolves to a non-routable "
+                f"or link-local address ({ip}) — the egress control refuses "
+                f"it (ADR 008, NB-04)")
+
+
 def _checked_endpoint(url: str) -> str:
     """Egress control on TSA endpoints before any request (ADR 008).
 
     Fail-closed allowlist: the host must be in NOIREBOX_TSA_ALLOWED_HOSTS
     (default: loopback only, for `make tsa`). The URL must be a plain
     http(s) endpoint without embedded credentials. After the allowlist, the
-    host is DNS-resolved and EVERY resolved address must be off the
-    link-local ranges (169.254.0.0/16 — the cloud-metadata SSRF prize,
-    fe80::/10): no legitimate TSA lives there. Redirects are never followed
-    (shared client, follow_redirects=False), so an endpoint cannot bounce
-    the request elsewhere.
+    host is DNS-resolved and EVERY resolved address must pass the egress
+    rule (`_address_allowed`): off the link-local ranges (169.254.0.0/16 —
+    the cloud-metadata SSRF prize, fe80::/10) — and, since NB-04, off the
+    private/reserved/multicast ranges too, with IPv4-mapped IPv6 unwrapped
+    before the checks. Redirects are never followed (shared client,
+    follow_redirects=False), so an endpoint cannot bounce the request
+    elsewhere.
 
     This is the pre-flight half of the egress control; the transport half
     (`_pinned_request`) resolves once more and connects to THAT address
@@ -90,11 +134,7 @@ def _checked_endpoint(url: str) -> str:
         infos = socket.getaddrinfo(host, None)
     except socket.gaierror as exc:
         raise RuntimeError(f"TSA endpoint does not resolve: {host}") from exc
-    for info in infos:
-        ip = ipaddress.ip_address(info[4][0])
-        if ip.is_link_local:
-            raise RuntimeError(f"allowlisted TSA host {host!r} resolves to a "
-                               f"link-local address (cloud-metadata range)")
+    _reject_bad_resolution(host, infos)
     return url
 
 
@@ -135,15 +175,11 @@ class _PinnedHTTPSConnection(http.client.HTTPSConnection):
 
 def _resolve_pinned(host: str, port: int) -> str:
     """Resolves the host ONCE and returns the only address the request will
-    ever touch; every resolved address is link-local-checked on the way."""
+    ever touch; every resolved address passes the egress rule on the way."""
     infos = socket.getaddrinfo(host, port)
     if not infos:
         raise RuntimeError(f"TSA endpoint does not resolve: {host}")
-    for info in infos:
-        ip = ipaddress.ip_address(info[4][0])
-        if ip.is_link_local:
-            raise RuntimeError(f"allowlisted TSA host {host!r} resolves to a "
-                               f"link-local address (cloud-metadata range)")
+    _reject_bad_resolution(host, infos)
     return infos[0][4][0]
 
 
@@ -176,9 +212,14 @@ def _pinned_request(method: str, url: str, body: bytes | None = None,
         headers["Content-Length"] = str(len(body))
     conn.request(method, path, body=body, headers=headers)
     response = conn.getresponse()
-    data = response.read()
+    # NB-04: bounded read — one byte past the cap means the endpoint is
+    # streaming something no legitimate TSA response looks like.
+    data = response.read(MAX_TSA_RESPONSE_BYTES + 1)
     status = response.status
     conn.close()
+    if len(data) > MAX_TSA_RESPONSE_BYTES:
+        raise RuntimeError(f"TSA {url} response exceeds {MAX_TSA_RESPONSE_BYTES} "
+                           f"bytes — refusing an unbounded read (NB-04)")
     if status in _REDIRECT_STATUS:
         raise RuntimeError(f"TSA {url} responded with a redirect ({status}) — "
                            f"redirects are never followed (ADR 008)")

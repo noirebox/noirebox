@@ -116,6 +116,11 @@ class Finding:
                            different verdict — the mid-flight forgery
                            surfaced (SCAR-PROC-110, issue #53; "the scar
                            becomes the spec")
+        post_terminal_activity — a NON-terminal record of a run's terminal
+                           type, sealed AFTER the run's terminal: the record
+                           continued past the sealed end. Surfaced, never
+                           allowed to overwrite the terminal it follows —
+                           the §23 VTA swallow is closed (NB-03b)
         label_llm_call_mismatch — a receipt declaring judged_by=
                            "deterministic" while the journal contains an
                            llm_call for the same key: the label vs the
@@ -274,18 +279,38 @@ def _signer_key(event: dict, signers: list[tuple[str, str]]) -> str | None:
     return None
 
 
+def _carries_witness_token(payload: dict) -> bool:
+    """True when an anchor payload actually carries a witness token — a tsr
+    (RFC 3161), an ots_b64 receipt, or a multi-witness `tokens` list. An
+    anchor CLAIM without one is prose, not custody (NB-03: a writer cannot
+    grade its own retention up by sealing an anchor-shaped event)."""
+    return bool(payload.get("tsr") or payload.get("ots_b64")
+                or payload.get("tokens"))
+
+
 def _anchored_upto(events: list[dict], seq: int) -> bool:
     """True when an anchor event provably covers `seq` — head_seq >= seq
     AND the cited head_hash recomputes to the chain's event at that seq
-    (the same verification the third-party verifier performs)."""
+    (the same verification the third-party verifier performs), AND the
+    anchor carries a witness token: a hash match without a token proves
+    nothing external."""
+    from .chain import GENESIS
+
     by_seq = {e["seq"]: e for e in events}
     for e in events:
         if e["type"] != "anchor":
             continue
-        head_seq = e.get("payload", {}).get("head_seq")
-        head_hash = e.get("payload", {}).get("head_hash")
-        if isinstance(head_seq, int) and head_seq >= seq and head_seq in by_seq \
-                and by_seq[head_seq]["event_hash"] == head_hash:
+        payload = e.get("payload", {})
+        head_seq = payload.get("head_seq")
+        head_hash = payload.get("head_hash")
+        if not isinstance(head_seq, int) or head_seq < 0 or head_seq > len(events):
+            continue
+        expected = by_seq[head_seq]["event_hash"] if head_seq else GENESIS
+        if head_hash != expected:
+            continue
+        if not _carries_witness_token(payload):
+            continue
+        if head_seq >= seq:
             return True
     return False
 
@@ -357,6 +382,7 @@ def reconcile(events: list[dict], invariants: list[Invariant],
         outcomes: dict[str, dict] = {}
         attempts: dict[str, dict] = {}
         terminals: dict[str, dict] = {}
+        reopened: dict[str, dict] = {}
         for e in events:
             key = e.get("payload", {}).get(inv.correlation_key)
             if key is None:
@@ -369,10 +395,18 @@ def reconcile(events: list[dict], invariants: list[Invariant],
             elif inv.attempt_type and e.get("type") == inv.attempt_type:
                 attempts.setdefault(key, e)
             elif inv.terminal_type and e.get("type") == inv.terminal_type:
-                # a run's terminal state: the LAST sealed terminal event wins —
-                # the end of a run is where the run ended, not where it first
-                # claimed to end.
-                terminals[key] = e
+                if e.get("payload", {}).get("terminal", True):
+                    # a run's terminal state: the LAST sealed terminal event
+                    # wins — the end of a run is where the run ended, not
+                    # where it first claimed to end.
+                    terminals[key] = e
+                elif key in terminals:
+                    # NB-03b (the §23 VTA residue, closed): a NON-terminal
+                    # record of the terminal type, sealed AFTER the run's
+                    # terminal. It used to overwrite the terminal and
+                    # swallow a proven verdict_predates_terminal race; it
+                    # reopens nothing now — it is surfaced instead.
+                    reopened[key] = e
         # ADR 020 — the denominator: an outcome whose attempt was never
         # sealed is the lie by omission, surfaced structurally. The attempt
         # must be sealed EARLIER: an attempt appended after the fact does not
@@ -470,6 +504,22 @@ def reconcile(events: list[dict], invariants: list[Invariant],
                         note=f"outcome at seq {outcome['seq']} contradicted by a "
                              f"LATER terminal event (seq {terminal['seq']}) — "
                              f"{detail}; the race the receipt died in"))
+
+            # NB-03b — the reopen attempt itself is evidence: activity past a
+            # run's sealed end is surfaced wherever it falls, sound or forged
+            # orders alike (the matrix keeps the classes separable — this
+            # status never rides a verdict_predates_terminal alone).
+            for cid, e in reopened.items():
+                terminal = terminals[cid]
+                findings.append(Finding(
+                    inv.name, "post_terminal_activity", cid,
+                    decision_seq=terminal["seq"],
+                    outcome_seq=e["seq"],
+                    note=f"a non-terminal {inv.terminal_type} was sealed at "
+                         f"seq {e['seq']}, AFTER the run's terminal (seq "
+                         f"{terminal['seq']}) — the record continued past "
+                         f"the sealed end; the terminal stays the pairing's "
+                         f"anchor (the §23 VTA swallow is closed)"))
 
         for cid, outcome in outcomes.items():
             if cid in decisions:
@@ -1401,15 +1451,34 @@ def seal_retention(store, key, *, action: str, scope: str | None = None,
 def _newest_anchor(events: list[dict]) -> dict | None:
     """The newest external witness: the anchor event with the highest
     anchored head_seq (fluffydesk's retention half — the head hash is
-    provable to a TSA the operator key cannot rewrite)."""
+    provable to a TSA the operator key cannot rewrite).
+
+    NB-03: "newest anchor" means an anchor that WITNESSES — the cited
+    head_hash must recompute to the chain's event at that seq (head_seq 0
+    anchoring the empty chain against GENESIS), and the payload must carry
+    a token (`_carries_witness_token`). `_anchored_upto` always checked the
+    hash and the third-party verifier checks both; this path checked
+    neither, so an anchor-shaped event with a fake hash and no token could
+    walk `custody_grade` up to grade 2. A claim is not a witness."""
+    from .chain import GENESIS
+
+    by_seq = {e["seq"]: e for e in events}
     newest = None
     for e in events:
-        if e.get("type") == "anchor":
-            seq = e.get("payload", {}).get("head_seq")
-            if seq is not None and (newest is None
-                                    or seq > newest["head_seq"]):
-                newest = {"head_seq": int(seq), "ts": e.get("ts"),
-                          "event_seq": e["seq"]}
+        if e.get("type") != "anchor":
+            continue
+        payload = e.get("payload", {})
+        seq = payload.get("head_seq")
+        if not isinstance(seq, int) or seq < 0 or seq > len(events):
+            continue
+        expected = by_seq[seq]["event_hash"] if seq else GENESIS
+        if payload.get("head_hash") != expected:
+            continue
+        if not _carries_witness_token(payload):
+            continue
+        if newest is None or seq > newest["head_seq"]:
+            newest = {"head_seq": seq, "ts": e.get("ts"),
+                      "event_seq": e["seq"]}
     return newest
     # the anchor EVENT is the trusted prefix's last member (it carries the
     # external token): the unanchored tail starts AFTER it, so every

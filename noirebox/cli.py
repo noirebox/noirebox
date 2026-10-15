@@ -3,6 +3,48 @@ from __future__ import annotations
 import argparse
 
 
+def _webhook_url_ok(url: str) -> None:
+    """Egress check for a fleet-watch alarm webhook (NB-04, symmetric with
+    the TSA path): a plain http(s) URL, and — unless NOIREBOX_WEBHOOK_ALLOW_PRIVATE
+    opts in — every resolved address must be routable. Loopback stays
+    allowed by default (a self-hosted alarm receiver is a legitimate
+    target, same convention as the TSA allowlist); the RFC 1918 /
+    link-local / reserved ranges are where a typo'd or hostile webhook
+    pivots. Best-effort egress check: httpx re-resolves at connect time,
+    the same pinned-transport bar as the TSA path does not apply here
+    (the URL is the operator's own CLI argument, not artifact-borne)."""
+    import ipaddress
+    import os
+    import socket
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"webhook must be a plain http(s) URL: {url[:80]}")
+    if os.environ.get("NOIREBOX_WEBHOOK_ALLOW_PRIVATE", "").strip().lower() \
+            in ("1", "true", "yes"):
+        return
+    host = (parsed.hostname or "").lower()
+    if not host:
+        raise ValueError(f"webhook URL has no host: {url[:80]}")
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except socket.gaierror as exc:
+        raise ValueError(f"webhook host does not resolve: {host}") from exc
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
+            ip = ip.ipv4_mapped
+        if ip.is_loopback:
+            continue
+        if (ip.is_private or ip.is_link_local or ip.is_reserved
+                or ip.is_multicast or ip.is_unspecified):
+            raise ValueError(
+                f"webhook host {host!r} resolves to a non-routable address "
+                f"({ip}) — internal alarm receivers need "
+                f"NOIREBOX_WEBHOOK_ALLOW_PRIVATE=1 (NB-04)")
+
+
 def _version() -> str:
     from . import __version__
 
@@ -330,7 +372,15 @@ def main(argv: list[str] | None = None) -> int:
               f"({report['anchors_pinned']} pinned)")
         print(f"[✓] pack written to {args.outdir}/ — export.json, "
               f"verifier_report.json, ANNEXE-IV-2f.md")
-        return 0 if report["valid"] else 1
+        if not report["valid"]:
+            return 1
+        # NB-02, same contract as the standalone verifier: a chain verdict
+        # never vouches for witnesses this machine could not check.
+        if report["unverifiable_witnesses"]:
+            print("[!] unverifiable witness tokens in the pack — the "
+                  "anchoring is UNPROVEN here (install openssl/ots)")
+            return 2
+        return 0
 
     if args.command == "seal-trajectory":
         import sys
@@ -448,12 +498,7 @@ def main(argv: list[str] | None = None) -> int:
             if args.webhook:
                 import httpx
 
-                from urllib.parse import urlparse
-
-                parsed = urlparse(args.webhook)
-                if parsed.scheme not in ("http", "https"):
-                    raise ValueError(
-                        f"webhook must be a plain http(s) URL: {args.webhook[:80]}")
+                _webhook_url_ok(args.webhook)
                 httpx.post(args.webhook, json=alarm, timeout=10,
                            follow_redirects=False)
             else:

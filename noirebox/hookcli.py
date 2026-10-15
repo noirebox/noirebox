@@ -6,9 +6,12 @@ seals one event into the per-project journal. This module holds the two
 generic handlers — they know nothing about any specific agent:
 
   `tool-use`     one agent tool action (file write, shell command…)
-                 → `agent_tool_use` event, with a truncated preview of the
-                 tool input only (data minimization: the journal proves
-                 what was done, it is not a log dump).
+                 → `agent_tool_use` event, with a redacted, truncated
+                 preview of the tool input only (data minimization: the
+                 journal proves what was done, it is not a log dump, and
+                 since NB-10 a secret in the command never reaches the
+                 immutable journal — or set NOIREBOX_PREVIEW_MODE=hash for
+                 digests only).
   `session-end`  the session's transcript file (path comes from the hook
                  payload) → one `model_trajectory` event over its digests
                  (ADR 012/013), format sniffed by shape.
@@ -21,8 +24,10 @@ per-project one (ADR 013's discovery: NOIREBOX_DB, then the nearest
 from __future__ import annotations
 
 import datetime
+import hashlib
 import json
 import os
+import re
 import sys
 
 from . import __version__
@@ -31,6 +36,53 @@ from .chain import KeyPair
 from .store import EventStore
 
 MAX_PREVIEW_CHARS = 800
+
+# NB-10: the preview is sealed IMMUTABLY and leaves in every export — a
+# `curl -H "Authorization: Bearer sk-…"` or a written .env must not become
+# permanent, third-party-readable secret material. Redaction runs BEFORE
+# truncation (a secret cut in half at char 800 is still half a secret);
+# NOIREBOX_PREVIEW_MODE=hash replaces the preview with the input's digest
+# for deployments that want zero content in the journal.
+_REDACTIONS = [
+    # transport credentials, the shapes seen in the wild
+    (re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]{8,}"), "Bearer [REDACTED]"),
+    (re.compile(r"\bsk-[A-Za-z0-9_-]{8,}"), "sk-[REDACTED]"),
+    (re.compile(r"\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{16,}\b"), "gh_[REDACTED]"),
+    (re.compile(r"\bgithub_pat_[A-Za-z0-9_]{16,}\b"), "github_pat_[REDACTED]"),
+    (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "[REDACTED-AWS-KEY]"),
+    # JSON shapes (tool_input is json.dumps'ed): "password": "value" — the
+    # quotes may be BACKSLASH-ESCAPED when that JSON traveled inside a shell
+    # string (a written .env is exactly that shape), so \? precedes each.
+    (re.compile(r'(?i)(\\?"(?:pass(?:w(?:or)?d)?|passwd|token|api[_-]?key|apikey|'
+                r'secret|authorization|access[_-]?token)\\?"\s*:\s*\\?")'
+                r'((?:[^"\\]|\\.){4,}?)(\\?")'),
+     r"\1[REDACTED]\3"),
+    # shell shapes: KEY=value / KEY: value (env exports, header strings);
+    # the left boundary tolerates the underscores of SECRET_ACCESS_KEY-style
+    # names, and an already-redacted or "Bearer" value is never re-eaten
+    (re.compile(r"(?i)(?<![A-Za-z0-9])(pass(?:w(?:or)?d)?|passwd|token|"
+                r"api[_-]?key|apikey|secret[_-]?access[_-]?key|secret|"
+                r"authorization)(\s*[=:]\s*)(?!\[REDACTED\])(?!Bearer\b)\S{6,}"),
+     r"\1\2[REDACTED]"),
+]
+
+
+def _redact(text: str) -> str:
+    for pattern, replacement in _REDACTIONS:
+        text = pattern.sub(replacement, text)
+    return text
+
+
+def _preview(detail) -> str:
+    """The sealed preview of a tool input: redacted, then truncated —
+    or a bare digest under NOIREBOX_PREVIEW_MODE=hash."""
+    try:
+        dumped = json.dumps(detail, ensure_ascii=False)
+    except (TypeError, ValueError):
+        return "<unserializable tool input>"
+    if os.environ.get("NOIREBOX_PREVIEW_MODE", "").strip().lower() == "hash":
+        return "sha256:" + hashlib.sha256(dumped.encode("utf-8")).hexdigest()
+    return _redact(dumped)[:MAX_PREVIEW_CHARS]
 
 
 def _journal(hook: dict) -> str:
@@ -45,10 +97,7 @@ def tool_use(hook: dict) -> str:
     """Seals one agent tool action. Returns a one-line description."""
     tool = str(hook.get("tool_name") or "unknown")
     detail = hook.get("tool_input") or {}
-    try:
-        preview = json.dumps(detail, ensure_ascii=False)[:MAX_PREVIEW_CHARS]
-    except (TypeError, ValueError):
-        preview = "<unserializable tool input>"
+    preview = _preview(detail)
     db = _journal(hook)
     store, key = _store_and_key(db)
     payload: dict = {
