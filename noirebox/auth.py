@@ -46,6 +46,12 @@ TOKEN_TTL_SECONDS = 3600
 # on the hot path and a parasite-file creator for embedders.
 _jwt_secret_cache: dict[str, str] = {}
 
+# NB-07: the limiter's identity table is bounded even against a flood of
+# FRESH ids (each attacker-chosen client_id opens a new bucket inside the
+# window, which no expiry sweep can drop): past 2048 identities the
+# insertion-order oldest loses its bucket first.
+_MAX_TRACKED_IDENTITIES = 2048
+
 
 def jwt_secret_from_key(key) -> str:
     """Derives the JWT signing secret from an ALREADY-LOADED instance key —
@@ -125,12 +131,15 @@ class RateLimiter:
 
         NB-07: when the table grows past 1000 identities (a limiter keyed by
         IP or by ephemeral ids), identities that never come back held their
-        buckets forever — an opportunistic sweep drops every expired bucket
-        before inserting the new one."""
+        buckets forever — an opportunistic sweep drops every expired bucket;
+        a hard cap evicts the insertion-order oldest when a fresh-id flood
+        keeps the table above the bound anyway."""
         now = now if now is not None else time.monotonic()
         if len(self._hits) > 1000:
             self._hits = {cid: hits for cid, hits in self._hits.items()
                           if any(now - t < self.window for t in hits)}
+        while len(self._hits) >= _MAX_TRACKED_IDENTITIES:
+            self._hits.pop(next(iter(self._hits)))
         bucket = [t for t in self._hits.get(client_id, []) if now - t < self.window]
         if len(bucket) >= self.max:
             self._hits[client_id] = bucket

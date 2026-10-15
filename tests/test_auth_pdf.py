@@ -339,3 +339,16 @@ def test_rate_limiter_purges_stale_identities():
     ok, _ = rl.allow("alive", now=61.0)  # one window later: insert → sweep
     assert ok is True
     assert list(rl._hits) == ["alive"]   # the ghosts expired out
+
+
+def test_rate_limiter_is_bounded_under_a_fresh_id_flood():
+    """NB-07 (grafted from the parallel audit patch): expired buckets are
+    swept, but a flood of FRESH attacker-chosen ids opens new buckets
+    inside the window faster than any expiry — the hard cap evicts the
+    insertion-order oldest so the table stays bounded."""
+    from noirebox.auth import _MAX_TRACKED_IDENTITIES, RateLimiter
+
+    rl = RateLimiter(max_requests=60, window_seconds=60)
+    for i in range(_MAX_TRACKED_IDENTITIES + 500):
+        rl.allow(f"flood-{i}", now=1.0)
+    assert len(rl._hits) < _MAX_TRACKED_IDENTITIES + 10  # bounded, not unbounded

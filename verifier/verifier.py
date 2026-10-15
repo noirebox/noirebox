@@ -231,9 +231,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("export", help="path to export.json (the /api/v1/export file)")
     parser.add_argument(
         "--allow-unverified-witnesses", action="store_true",
+        default=os.environ.get("NOIREBOX_ALLOW_UNVERIFIED_WITNESSES", "")
+        .strip().lower() in ("1", "true", "yes"),
         help="accept unverifiable witness tokens EXPLICITLY (exit 0) instead "
              "of the default UNPROVEN verdict (exit 2) — undecidable is "
-             "never clean, so accepting it must be a decision, not a default")
+             "never clean, so accepting it must be a decision, not a default "
+             "(settable as NOIREBOX_ALLOW_UNVERIFIED_WITNESSES=1 for CI)")
     args = parser.parse_args(argv)
     export = json.loads(Path(args.export).read_text(encoding="utf-8"))
     report = verify_export(export)

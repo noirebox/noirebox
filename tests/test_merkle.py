@@ -129,3 +129,26 @@ def test_fleet_scenario_three_boxes_one_seal(tmp_path):
         tree.proof(new_head)
     assert not verify_inclusion(new_head, proofs[heads[1]], root)
     assert verify_inclusion(heads[0], proofs[heads[0]], root)
+
+
+# --- NB-05 — the compatible half: every proof input is shape-checked ----------
+
+def test_verify_inclusion_refuses_malformed_inputs():
+    """NB-05 (grafted from the parallel audit patch): the tournament
+    concatenates strings, so arbitrary-length look-alikes must never reach
+    _pair_hash — a non-hex sibling, a bad side, or a malformed leaf/root
+    reads as NOT included (fail-closed), never as arithmetic on junk."""
+    h = "a" * 64
+    assert not verify_inclusion(h, [ProofStep(sibling="not-a-hash", side="left")], h)
+    assert not verify_inclusion(h, [ProofStep(sibling=h, side="up")], h)
+    assert not verify_inclusion("short", [], h)
+    assert not verify_inclusion(h, [], "zz" * 32)
+
+
+def test_verify_inclusion_still_accepts_real_proofs(tmp_path):
+    """The shape check changes nothing for honest proofs — a real 3-leaf
+    tree still verifies (the compatibility guarantee of the graft)."""
+    heads = _heads(3, tmp_path)
+    tree = build_tree(heads)
+    for h in heads:
+        assert verify_inclusion(h, tree.proof(h), tree.root)

@@ -95,10 +95,19 @@ def build_tree(heads: list[str]) -> MerkleTree:
 def verify_inclusion(leaf: str, proof: list[ProofStep], root: str) -> bool:
     """Recomputes the leaf → root branch and compares it with the seal.
 
-    Purely local: no network, no trust — arithmetic decides.
+    Purely local: no network, no trust — arithmetic decides. Every input is
+    shape-checked first (NB-05, the compatible half of the finding): leaves,
+    siblings and the root must be 64-char sha256 hex, sides must be exactly
+    left/right — the tournament concatenates strings, so arbitrary-length
+    look-alikes must never reach `_pair_hash`. Malformed proof → False
+    (fail-closed), never an exception from attacker-shaped bytes.
     """
+    if not (_is_hash(leaf) and _is_hash(root)):
+        return False
     node = leaf
     for step in proof:
+        if not _is_hash(step.sibling) or step.side not in ("left", "right"):
+            return False
         node = (
             _pair_hash(step.sibling, node) if step.side == "left"
             else _pair_hash(node, step.sibling)

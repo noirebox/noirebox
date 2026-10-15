@@ -247,3 +247,33 @@ def test_local_witness_fleet_seal_is_not_counted_as_checked(tmp_path):
     assert report["valid"] is True
     assert report["fleet_anchors_in_journal"] == 1
     assert report["fleet_anchors_checked"] == 0   # nothing pretended
+
+
+def test_allow_unverified_witnesses_env_var(tmp_path, monkeypatch, capsys):
+    """The CI-facing opt-in (grafted from the parallel audit patch's env
+    idea, inverted to the fail-closed default): the env var carries the
+    same explicit acceptance as the flag — and without either, exit 2."""
+    import json as _json
+
+    from verifier import verifier as vmod
+
+    store = EventStore(str(tmp_path / "env.db"))
+    key = KeyPair.load_or_create(str(tmp_path / "env.key"))
+    store.append("test", {"i": 0}, key)
+    store.append("anchor", {
+        "head_seq": 1, "head_hash": store.all()[-1]["event_hash"],
+        "tsa": "freetsa", "tsr": "AAAA", "tsa_cert_pem": "-----BEGIN CERTIFICATE-----\n",
+    }, key)
+    export = {"format_version": 1, "public_key": key.public_hex(),
+              "events": store.all(), "attestation": build_attestation(store, key)}
+    monkeypatch.setattr(vmod.shutil, "which", lambda _: None)
+    path = tmp_path / "export.json"
+    path.write_text(_json.dumps(export), encoding="utf-8")
+
+    monkeypatch.delenv("NOIREBOX_ALLOW_UNVERIFIED_WITNESSES", raising=False)
+    monkeypatch.setattr(vmod.sys, "argv", ["verifier.py", str(path)])
+    assert vmod.main() == 2                       # default stays fail-closed
+
+    monkeypatch.setenv("NOIREBOX_ALLOW_UNVERIFIED_WITNESSES", "1")
+    assert vmod.main() == 0                       # env = the explicit acceptance
+    assert "accepted explicitly" in capsys.readouterr().out

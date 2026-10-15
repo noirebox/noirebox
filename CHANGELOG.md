@@ -9,9 +9,13 @@ versioning according to [Semantic Versioning](https://semver.org/).
 
 The full external audit of 0.20.0 — ten findings, none breaking the
 cryptography, several landing on the verification LOGIC the product
-exists to enforce. Eight are closed here, each with its own named test
-(350 → 379); two are assessed and deferred, stated below rather than
-silently dropped.
+exists to enforce. Ten of ten addressed here, each with its own named
+test: eight fixed outright, NB-05 closed in its compatible half (the
+re-hash half stays a versioned-format decision), NB-08 closed the light
+way (permissions by default, hash pinning opt-in). A few grafts come
+from the parallel fix branch reviewed against this one — adopted where
+the shape was right, rejected where it bent production code around test
+fixtures.
 
 - **NB-01 (high)** — a SET-but-unparseable `NOIREBOX_CLIENTS` silently
   fell back to the publicly-known `demo:demo-secret` while the operator
@@ -74,21 +78,25 @@ silently dropped.
   truncation (bearer/`sk-`/`ghp_`/AKIA shapes, `KEY=value` and
   `"key": "value"`, escaped quotes included), and
   `NOIREBOX_PREVIEW_MODE=hash` seals the digest alone.
-
-**Assessed, deferred on purpose:**
-
-- **NB-05 (medium)** — the Merkle tree lacks RFC 6962 domain separation
-  and deduplicates leaves silently. No practical attack in the current
-  threat model (fixed-width hash leaves, side-bound proofs), and the
-  honest fix — prefixed node hashing — changes every root: sealed fleet
-  anchors and their proofs would stop verifying. It wants a versioned
-  tree format (`merkle/0.2` + dual verification), not a patch; decision
-  deliberately left open.
-- **NB-08 (medium)** — `joblib.load` without an integrity check is real,
-  but the audit's fix (pinning three SHA-256 hashes) contradicts
-  `make train`, which regenerates the models per machine. The right
-  shape is a build-time manifest signed at package build — tracked, not
-  patched ad hoc.
+- **NB-05 (medium, compatible half — grafted)** — the audit's headline
+  concerns (no RFC 6962 domain separation, silent leaf dedup) remain a
+  versioned-format decision: prefixed node hashing changes every root,
+  so sealed fleet anchors and their proofs would stop verifying. But
+  `verify_inclusion` now shape-checks EVERY input — leaves, siblings and
+  root must be 64-char sha256 hex, sides exactly left/right — the
+  tournament concatenates strings, and malformed or arbitrary-length
+  look-alikes read as NOT included (fail-closed) instead of doing
+  arithmetic on junk. Zero compatibility cost; the re-hash stays open as
+  `merkle/0.2`.
+- **NB-08 (medium, the light way — grafted)** — `joblib.load` executes
+  pickle, so `_verify_model_file` gates every load: a world-writable
+  model file is refused by default (another local account must not be
+  able to rewrite code the server will execute), and
+  `NOIREBOX_MODEL_SHA256_<LANG>` pins a digest when the deployment
+  trains elsewhere and copies the artifacts. Opt-in on purpose: the
+  audit's hard-coded hashes would have broken `make train`, which
+  regenerates models per machine. A signed build-time manifest remains
+  the deeper answer.
 
 ## [0.20.0] — 2026-10-14
 

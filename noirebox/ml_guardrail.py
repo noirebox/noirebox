@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hashlib
+import os
+import stat
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -50,6 +53,28 @@ def model_available(lang: str = "fr") -> bool:
     return path is not None and path.exists()
 
 
+def _verify_model_file(path: Path, lang: str) -> None:
+    """The integrity gate before joblib.load (NB-08): a model file is
+    PICKLE — loading it executes code, so the load refuses a file another
+    local account could have rewritten (world-writable), and honors an
+    optional operator pin, NOIREBOX_MODEL_SHA256_<LANG> (upper-cased lang).
+    The pin is opt-in on purpose: `make train` regenerates the models per
+    machine, so a hard-coded hash would break the documented workflow —
+    deployments that train elsewhere and copy the artifacts pin them."""
+    st = path.stat()
+    if os.name != "nt" and st.st_mode & stat.S_IWOTH:
+        raise RuntimeError(
+            f"refusing to load a world-writable model file: {path} "
+            f"(chmod o-w required — joblib.load executes code)")
+    expected = os.environ.get(f"NOIREBOX_MODEL_SHA256_{lang.upper()}")
+    if expected:
+        actual = hashlib.sha256(path.read_bytes()).hexdigest()
+        if actual != expected.strip().lower():
+            raise RuntimeError(
+                f"model integrity check failed for {path.name}: "
+                f"expected {expected.strip().lower()}, got {actual}")
+
+
 def _load(lang: str):
     if lang in _pipelines:
         return _pipelines[lang]
@@ -61,6 +86,7 @@ def _load(lang: str):
             f"models/detector{'' if lang == 'fr' else '_en'}.joblib missing — "
             f"run `make train{'-en' if lang == 'en' else ''}`"
         )
+    _verify_model_file(path, lang)
     _pipelines[lang] = joblib.load(path)
     return _pipelines[lang]
 

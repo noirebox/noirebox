@@ -149,3 +149,43 @@ def test_es_scan_api_accepts_the_third_language(tmp_path):
                        "engine": "ml", "lang": "es"})
     assert r.status_code == 201
     assert r.json()["nb_incidents"] >= 1
+
+
+# --- NB-08 — the pickle gate: permissions and the opt-in pin -------------------
+
+def test_model_loader_refuses_world_writable_file(tmp_path, monkeypatch):
+    """NB-08 (grafted from the parallel audit patch): a .joblib is PICKLE —
+    loading it executes code, so a file another local account could have
+    rewritten is refused before joblib ever touches it."""
+    import os
+
+    import pytest
+
+    from noirebox.ml_guardrail import _verify_model_file
+
+    model = tmp_path / "detector.joblib"
+    model.write_bytes(b"payload")
+    os.chmod(model, 0o666)
+    with pytest.raises(RuntimeError, match="world-writable"):
+        _verify_model_file(model, "fr")
+    os.chmod(model, 0o644)
+    _verify_model_file(model, "fr")  # o-w clean → the gate passes
+
+
+def test_model_loader_honors_the_opt_in_sha_pin(tmp_path, monkeypatch):
+    """The pin is OPT-IN (hard-coded hashes would break `make train`, which
+    regenerates models per machine): set, it must match; wrong pin, no load."""
+    import hashlib
+
+    import pytest
+
+    from noirebox.ml_guardrail import _verify_model_file
+
+    model = tmp_path / "detector_en.joblib"
+    model.write_bytes(b"trained bytes")
+    digest = hashlib.sha256(b"trained bytes").hexdigest()
+    monkeypatch.setenv("NOIREBOX_MODEL_SHA256_EN", digest)
+    _verify_model_file(model, "en")
+    monkeypatch.setenv("NOIREBOX_MODEL_SHA256_EN", "f" * 64)
+    with pytest.raises(RuntimeError, match="integrity check failed"):
+        _verify_model_file(model, "en")
