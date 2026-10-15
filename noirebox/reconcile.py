@@ -116,6 +116,11 @@ class Finding:
                            different verdict — the mid-flight forgery
                            surfaced (SCAR-PROC-110, issue #53; "the scar
                            becomes the spec")
+        post_terminal_activity — a NON-terminal record of a run's terminal
+                           type, sealed AFTER the run's terminal: the record
+                           continued past the sealed end. Surfaced, never
+                           allowed to overwrite the terminal it follows —
+                           the §23 VTA swallow is closed (NB-03b)
         label_llm_call_mismatch — a receipt declaring judged_by=
                            "deterministic" while the journal contains an
                            llm_call for the same key: the label vs the
@@ -377,6 +382,7 @@ def reconcile(events: list[dict], invariants: list[Invariant],
         outcomes: dict[str, dict] = {}
         attempts: dict[str, dict] = {}
         terminals: dict[str, dict] = {}
+        reopened: dict[str, dict] = {}
         for e in events:
             key = e.get("payload", {}).get(inv.correlation_key)
             if key is None:
@@ -389,10 +395,18 @@ def reconcile(events: list[dict], invariants: list[Invariant],
             elif inv.attempt_type and e.get("type") == inv.attempt_type:
                 attempts.setdefault(key, e)
             elif inv.terminal_type and e.get("type") == inv.terminal_type:
-                # a run's terminal state: the LAST sealed terminal event wins —
-                # the end of a run is where the run ended, not where it first
-                # claimed to end.
-                terminals[key] = e
+                if e.get("payload", {}).get("terminal", True):
+                    # a run's terminal state: the LAST sealed terminal event
+                    # wins — the end of a run is where the run ended, not
+                    # where it first claimed to end.
+                    terminals[key] = e
+                elif key in terminals:
+                    # NB-03b (the §23 VTA residue, closed): a NON-terminal
+                    # record of the terminal type, sealed AFTER the run's
+                    # terminal. It used to overwrite the terminal and
+                    # swallow a proven verdict_predates_terminal race; it
+                    # reopens nothing now — it is surfaced instead.
+                    reopened[key] = e
         # ADR 020 — the denominator: an outcome whose attempt was never
         # sealed is the lie by omission, surfaced structurally. The attempt
         # must be sealed EARLIER: an attempt appended after the fact does not
@@ -490,6 +504,22 @@ def reconcile(events: list[dict], invariants: list[Invariant],
                         note=f"outcome at seq {outcome['seq']} contradicted by a "
                              f"LATER terminal event (seq {terminal['seq']}) — "
                              f"{detail}; the race the receipt died in"))
+
+            # NB-03b — the reopen attempt itself is evidence: activity past a
+            # run's sealed end is surfaced wherever it falls, sound or forged
+            # orders alike (the matrix keeps the classes separable — this
+            # status never rides a verdict_predates_terminal alone).
+            for cid, e in reopened.items():
+                terminal = terminals[cid]
+                findings.append(Finding(
+                    inv.name, "post_terminal_activity", cid,
+                    decision_seq=terminal["seq"],
+                    outcome_seq=e["seq"],
+                    note=f"a non-terminal {inv.terminal_type} was sealed at "
+                         f"seq {e['seq']}, AFTER the run's terminal (seq "
+                         f"{terminal['seq']}) — the record continued past "
+                         f"the sealed end; the terminal stays the pairing's "
+                         f"anchor (the §23 VTA swallow is closed)"))
 
         for cid, outcome in outcomes.items():
             if cid in decisions:

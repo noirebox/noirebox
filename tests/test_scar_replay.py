@@ -470,21 +470,27 @@ def test_scar_110_critic_interrupted_the_permutation_matrix(tmp_path):
             makers[step]()
         return [f.status for f in reconcile(store.all(), [inv])]
 
-    # the partition, predicted by the theory of the pairing:
+    # the partition, predicted by the theory of the pairing — the theory
+    # the §23 residue left half-implemented, now held by the machinery
+    # (NB-03b): the pairing reads the last TERMINAL event, and a non-
+    # terminal record can neither overwrite it nor swallow the race it
+    # proves. A reopen attempt is surfaced as `post_terminal_activity`.
     predicted = {
-        # the forgery is readable only while the terminal is the run's
-        # LAST word: one order races, five do not
+        # forged: the approval precedes a contradicting terminal — in ALL
+        # three orders now, VTA included (the swallow is closed)
         "AVT": ["matched", "verdict_predates_terminal"],   # approval, then the truth
         "VAT": ["matched", "verdict_predates_terminal"],   # the terminal is the
                                 # run's last word: the race is on the record
-        "VTA": ["matched"],     # RESIDUE, named: a mid-run transcript sealed
-                                # AFTER the terminal reopens the run — the
-                                # same three events as VAT, one position
-                                # apart, and the race is swallowed by the
-                                # latest state
+        "VTA": ["matched", "verdict_predates_terminal",
+                "post_terminal_activity"],  # the RESIDUE, closed: the
+                                # mid-run transcript after the terminal no
+                                # longer overwrites it — the race survives,
+                                # and the reopen attempt is named
+        # sound: the terminal precedes or the claim never contradicts — a
+        # late mid-run record is still surfaced, but no race ever existed
         "ATV": ["matched"],     # terminal before the claim: nothing to contradict
-        "TAV": ["matched"],     # terminal first: nothing to contradict
-        "TVA": ["matched"],     # terminal first: nothing to contradict
+        "TAV": ["matched", "post_terminal_activity"],  # activity past the end
+        "TVA": ["matched", "post_terminal_activity"],  # activity past the end
     }
     readings = {}
     for order in ("AVT", "VAT", "VTA", "ATV", "TAV", "TVA"):
@@ -495,18 +501,18 @@ def test_scar_110_critic_interrupted_the_permutation_matrix(tmp_path):
             f"{order}: {readings[order]} != {expected} — two orderings collapsed"
 
     # no two theory-distinct classes share a reading: forged and sound
-    # are separable by the record alone
-    forged_readings = {readings[o] for o in ("AVT", "VAT")}
-    sound_readings = {readings[o] for o in ("VTA", "ATV", "TAV", "TVA")}
+    # are separable by the record alone — `verdict_predates_terminal` rides
+    # every forged order and no sound one, whatever reopens afterwards
+    forged_readings = {readings[o] for o in ("AVT", "VAT", "VTA")}
+    sound_readings = {readings[o] for o in ("ATV", "TAV", "TVA")}
     assert not (forged_readings & sound_readings), \
         "a forged ordering reads exactly like a sound one — the matrix collapsed"
-    # the residue the matrix EXPOSED (3ho4c's discipline: named, not
-    # hidden): a mid-run transcript sealed after a contradicting terminal
-    # reopens the run and swallows the race — VAT and VTA read exactly
-    # like the sound orders. The latest state wins; whether a reopened
-    # run should un-cancel a proven contradiction is the next receipt
-    # line's question, and this matrix is the evidence it will be argued
-    # from.
+    # the residue the matrix EXPOSED is CLOSED (NB-03b): the §23 question —
+    # "whether a reopened run should un-cancel a proven contradiction" — is
+    # answered NO. A mid-run transcript after a contradicting terminal no
+    # longer overwrites it: VTA reads forged, and the reopen itself is the
+    # separate, named `post_terminal_activity` — evidence wherever it
+    # falls, never a swallow.
 
     # THE INTERRUPTED CRITIC: the critic started, the terminal never came.
     store, orchestrator = _journal(tmp_path, "interrupted")
