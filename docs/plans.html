@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NoireBox — Plans &amp; services: witness hub, turnkey sprints, enterprise</title>
+<meta name="description" content="The NoireBox journal stays MIT and self-hosted, forever. Add the witness layer: managed anchoring (public TSAs + Bitcoin today, qualified eIDAS on the way), fleet seals, custody-drift alerting — and turnkey AI Act art. 12 sprints delivered by the engineer who wrote it.">
+<meta property="og:title" content="NoireBox — Plans &amp; services">
+<meta property="og:description" content="The journal stays MIT and self-hosted. You pay for the witness layer — only 32-byte hashes ever leave your infrastructure.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://noirebox.github.io/noirebox/assets/banner.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="style.css?v=27">
+<style>
+  /* plans-page local styles (pricing, flags, service cards) */
+  .plan { display: flex; flex-direction: column; gap: 10px; }
+  .plan .price { font-family: var(--mono); font-size: 1.75rem; font-weight: 800; color: #fff; line-height: 1; }
+  .plan .price small { font-size: .72rem; font-weight: 600; color: var(--dimmer); letter-spacing: .06em; }
+  .plan ul { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 7px; }
+  .plan li { color: var(--dim); font-size: .86rem; padding-left: 20px; position: relative; }
+  .plan li::before { content: "✓"; position: absolute; left: 0; color: var(--violet-soft); font-weight: 700; }
+  .plan li.no::before { content: "·"; color: var(--dimmer); font-weight: 400; }
+  .plan .cta-mini { margin-top: auto; padding-top: 14px; }
+  .flag { border: 1px solid rgba(245, 166, 35, .45); background: rgba(245, 166, 35, .07);
+    border-radius: 14px; padding: 18px 24px; margin-top: 26px; font-size: .95rem; color: var(--dim); }
+  .flag strong { color: var(--amber); }
+  .flag a { color: var(--amber); }
+  .svc { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-top: 34px; }
+  .svc .card h3 { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .svc .card .price-tag { font-family: var(--mono); font-size: .8rem; color: var(--violet-soft); white-space: nowrap; }
+  .svc .card .dur { font-family: var(--mono); font-size: .72rem; color: var(--dimmer); letter-spacing: .08em; margin-bottom: 10px; display: block; }
+  .svc .card ul { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 7px; }
+  .svc .card li { color: var(--dim); font-size: .86rem; padding-left: 20px; position: relative; }
+  .svc .card li::before { content: "→"; position: absolute; left: 0; color: var(--violet-soft); }
+  .cta-row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-top: 30px; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ NAV ═══════════════ -->
+<nav class="nav">
+  <a class="brand" href="index.html"><span class="brand-cube"></span>NOIRE<span>BOX</span></a>
+  <div class="nav-links">
+    <a href="#hub">Witness Hub</a>
+    <a href="#services">Services</a>
+    <a href="#enterprise">Enterprise</a>
+    <a href="#faq">FAQ</a>
+    <a href="https://github.com/noirebox/noirebox" target="_blank" class="nav-github">★ GitHub</a>
+    <a href="index.html" class="nav-flag" title="Back to the main site">↩</a>
+  </div>
+</nav>
+
+<!-- ═══════════════ HERO ═══════════════ -->
+<header class="hero" id="top">
+  <div class="hero-inner">
+    <p class="kicker">// PLANS &amp; SERVICES</p>
+    <h1 class="wordmark">Proof, <span class="wm-grad">as a service</span></h1>
+    <p class="tagline">The journal stays MIT and self-hosted. Forever.</p>
+
+    <p class="hero-sub">
+      Nothing about the core changes: one NoireBox per agent, on your infrastructure,
+      verified by anyone offline. What you can <em>add</em> is the layer the journal can't
+      be for itself: <strong>an external witness</strong> that timestamps your chain heads
+      at independent authorities, a hub that watches the cadence, and the engineer who
+      wrote it, in your stack. <strong>Only 32-byte hashes ever leave.</strong>
+    </p>
+
+    <div class="gh-badges">
+      <span class="gh-badge"><i>CORE</i><b>MIT forever</b></span>
+      <span class="gh-badge"><i>LEAVES</i><b>32 bytes max</b></span>
+      <span class="gh-badge"><i>made in</i><b>🇫🇷 Vosges, France</b></span>
+    </div>
+
+    <div class="cta-row">
+      <a class="btn btn-light" href="https://github.com/noirebox/noirebox/discussions" target="_blank">Join the witness waitlist →</a>
+      <a class="btn btn-ghost" href="#hub">See the plans ↓</a>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════ 01 WITNESS HUB ═══════════════ -->
+<section class="section" id="hub">
+  <div class="wrap">
+    <p class="kicker">01 · THE WITNESS HUB</p>
+    <h2>Your journals never leave.<br><span class="grad">Their anchors do.</span></h2>
+    <p class="lede">
+      A server announcing its own dates is the suspect writing its own report. The Witness
+      Hub receives <strong>only the 32-byte head</strong> of each journal, folds them into a
+      Merkle tree — one timestamp token covers thousands of journals — and anchors to
+      independent authorities on a cadence. If your fleet stops anchoring, you hear about
+      it the same day, not at audit time.
+    </p>
+
+    <div class="tiers">
+      <div class="tier plan">
+        <h4>Community</h4>
+        <span class="price">€0 <small>/ forever</small></span>
+        <p>The whole core, self-hosted — that's the product.</p>
+        <ul>
+          <li>Journal, guardrail plugin, verifier — MIT</li>
+          <li>Local witness: <code>make tsa</code> (OpenSSL)</li>
+          <li>Public TSAs (FreeTSA, DigiCert) by env var</li>
+          <li>Bitcoin anchoring via OpenTimestamps</li>
+        </ul>
+      </div>
+      <div class="tier hot plan">
+        <h4>Pro Witness</h4>
+        <span class="price">€39 <small>/ month · excl. VAT</small></span>
+        <p>For teams running agents in production.</p>
+        <ul>
+          <li>Up to 5 journals</li>
+          <li>Automatic hourly anchoring (public TSAs + Bitcoin)</li>
+          <li>Custody-drift alerting — email &amp; webhook</li>
+          <li>5-year token retention</li>
+          <li>Attestation portal</li>
+        </ul>
+      </div>
+      <div class="tier plan">
+        <h4>Fleet &amp; Scale</h4>
+        <span class="price">€149 <small>/ month · excl. VAT</small></span>
+        <p>Many agents, one seal.</p>
+        <ul>
+          <li>Up to 50 journals</li>
+          <li>10-minute anchoring cadence</li>
+          <li>Fleet Merkle seals — one witness token covers all</li>
+          <li>Real-time Slack / webhook alerting</li>
+          <li>Automated DPO reports (PDF)</li>
+          <li>5-year token retention</li>
+        </ul>
+      </div>
+      <div class="tier plan">
+        <h4>Institutional</h4>
+        <span class="price">€490 <small>/ month · excl. VAT</small></span>
+        <p>Banks, healthcare, defense, public sector.</p>
+        <ul>
+          <li>Unlimited journals</li>
+          <li>Dual redundant <em>qualified</em> TSAs</li>
+          <li>10-year probative archiving</li>
+          <li>SLA 99.9 %</li>
+          <li>Onboarding with your DPO</li>
+        </ul>
+        <p class="cta-mini">Available with the qualified tier — <a href="https://github.com/noirebox/noirebox/discussions" target="_blank">talk to us</a>.</p>
+      </div>
+    </div>
+
+    <div class="flag">
+      <strong>⏳ Qualified eIDAS timestamps — rolling out.</strong> A qualified timestamp
+      (art. 41) carries the only EU-level legal presumption of "when this existed, unmodified".
+      The engine ships today (<code>NOIREBOX_TSA_PROFILES</code>, <code>kind: "qualified"</code>);
+      the managed tier is opening with partner QTSTs (ANSSI-supervised: Universign,
+      Certigna, CertEurope…). Pro and Fleet run public TSAs + Bitcoin today —
+      <a href="https://github.com/noirebox/noirebox/discussions" target="_blank">join the qualified waitlist</a>.
+    </div>
+
+    <p class="note">Prices exclude VAT. NoireBox is not a QTST and gives no legal advice —
+    qualified timestamps are bought from qualified providers; we make them one config line away
+    (<a href="https://github.com/noirebox/noirebox/blob/main/docs/COMPLIANCE-EU.md" target="_blank">COMPLIANCE-EU.md</a>).</p>
+  </div>
+</section>
+
+<!-- ═══════════════ 02 SERVICES ═══════════════ -->
+<section class="section alt" id="services">
+  <div class="wrap">
+    <p class="kicker">02 · TURNKEY SERVICES</p>
+    <h2>Delivered by the engineer<br><span class="grad">who wrote it.</span></h2>
+    <p class="lede">
+      Fixed price, fixed scope, done in days — you leave with a running evidence
+      infrastructure and the dossier your auditor asks for. Remote or on-site (EU).
+    </p>
+
+    <div class="svc">
+      <div class="card">
+        <h3>Audit-Ready Sprint <span class="price-tag">€2,900 excl. VAT</span></h3>
+        <span class="dur">2 DAYS · FIXED SCOPE</span>
+        <ul>
+          <li>NoireBox deployed in your stack (Docker / VM) with split key custody (keyholder)</li>
+          <li>SDK or MCP server wired into 1–3 agent pipelines</li>
+          <li>MCP toolset pinning against instruction drift</li>
+          <li>First audit-pack handed over: export, verifier report, Annexe IV §2(f), signed attestation (FR/EN)</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>High-Risk &amp; Architecture Gate <span class="price-tag">€6,500 excl. VAT</span></h3>
+        <span class="dur">4–5 DAYS · EVERYTHING IN THE SPRINT, PLUS:</span>
+        <ul>
+          <li>Hardware key custody (PKCS#11 / HSM)</li>
+          <li>Business invariants under continuous reconciliation (crosschain coverage)</li>
+          <li>A domain-specific injection detector trained on your corpus</li>
+          <li>2-hour DevSecOps + DPO training</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>What you leave with <span class="price-tag">yours, forever</span></h3>
+        <span class="dur">THE DOSSIER, NOT A DEPENDENCY</span>
+        <ul>
+          <li>The complete auditor folder (MIT tools — no vendor lock)</li>
+          <li>An anchor cadence configured and first external anchor sealed</li>
+          <li>The runbook: rotation, retention, incident sealing</li>
+          <li>A standing downgrade path: everything keeps working self-hosted</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="note">We tool your evidence and prepare the dossier. Conformity assessment and
+    legal advice remain yours and your auditor's — NoireBox is not a certification body,
+    and says so in its own docs.</p>
+  </div>
+</section>
+
+<!-- ═══════════════ 03 ENTERPRISE ═══════════════ -->
+<section class="section" id="enterprise">
+  <div class="wrap">
+    <p class="kicker">03 · ENTERPRISE EDITION</p>
+    <h2>Same math.<br><span class="grad">Institutional scale.</span></h2>
+    <p class="lede">
+      The core and the verifier stay byte-for-byte identical — an Enterprise attestation
+      verifies with the same public tools. What the edition adds is scale and governance
+      on top, on request, on your infrastructure.
+    </p>
+    <div class="grid-4">
+      <div class="card"><h3>Postgres + WORM</h3><p>Swap the SQLite store for a PostgreSQL pool, with continuous export to S3 Object Lock (compliance mode) buckets.</p></div>
+      <div class="card"><h3>Cloud KMS signers</h3><p>Same <code>.sign()</code> interface as the core keypair: AWS KMS, GCP KMS, Azure Key Vault, HashiCorp Vault Transit.</p></div>
+      <div class="card"><h3>Redactable payloads</h3><p>GDPR art. 17, solved: payloads stored as salted commitments — purge a personal datum without breaking the chain, the signatures or the anchors.</p></div>
+      <div class="card"><h3>SSO + SIEM</h3><p>Okta / Entra ID / Keycloak on the fleet console; real-time export to Splunk, Datadog, QRadar, Sentinel.</p></div>
+    </div>
+    <p class="big-line">From <span class="grad">€4,800 / year</span> (up to 25 production agents) · €12,000 / year unlimited.</p>
+    <div class="cta-row">
+      <a class="btn btn-light" href="https://github.com/noirebox/noirebox/discussions" target="_blank">Request the Enterprise deck →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ 04 FAQ ═══════════════ -->
+<section class="section alt" id="faq">
+  <div class="wrap">
+    <p class="kicker">04 · STRAIGHT ANSWERS</p>
+    <h2>Before you ask —<br><span class="grad">the awkward ones.</span></h2>
+    <details class="faq"><summary>Does the core stay free?</summary><p>Yes — MIT, forever, verification included. That's not generosity, it's the trust guarantee: a proof tool whose math sits behind a paywall proves nothing. Paid things live in the witness layer, never in the cryptography.</p></details>
+    <details class="faq"><summary>What exactly leaves my infrastructure?</summary><p>32-byte chain heads — the fingerprints, never the events. The hub cannot reconstruct a single payload from a hash; there is nothing to leak, subpoena or mishandle. That's why the witness layer can be a service while the journal stays sovereign.</p></details>
+    <details class="faq"><summary>Do I need qualified timestamps?</summary><p>Not for most needs: public TSAs and Bitcoin anchoring are free and cryptographically strong. Qualified (eIDAS art. 41) adds a <em>legal</em> presumption — worth it for regulated and high-risk deployments. The configuration ships in the core today; the managed qualified tier is on the waitlist.</p></details>
+    <details class="faq"><summary>Is the Sprint a certification?</summary><p>No. NoireBox is not a notified body, not a QTST, and issues no certificate of conformity. The Sprint leaves you with the evidence infrastructure and the auditor dossier <em>for your own</em> assessment — the same perimeter its docs state everywhere else.</p></details>
+    <details class="faq"><summary>Why pay for anchoring at all?</summary><p>Because "when" is the weak link: a self-issued date is the suspect signing its own report, and an unanchored chain only proves integrity — never existence-at-a-date. Running that witness properly (cadence, rotation, multi-TSA redundancy, retention, drift alerting) is an operations discipline. You're paying for the discipline, not for the hash.</p></details>
+  </div>
+</section>
+
+<!-- ═══════════════ FOOTER ═══════════════ -->
+<footer class="footer">
+  <div><span class="brand-cube"></span> <strong>NoireBox</strong> — proof, not promises.</div>
+  <div class="foot-links">
+    <a href="index.html">Main site</a>
+    <a href="https://github.com/noirebox/noirebox" target="_blank">GitHub</a>
+    <a href="https://github.com/noirebox/noirebox/blob/main/docs/COMPLIANCE-EU.md" target="_blank">Compliance (EU)</a>
+    <span>MIT core</span>
+    <span>🇫🇷 Engineered in the Vosges</span>
+  </div>
+</footer>
+
+</body>
+</html>

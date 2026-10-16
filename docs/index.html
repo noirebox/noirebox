@@ -27,6 +27,7 @@
     <a href="#witness">Witness</a>
     <a href="#proof">Proof</a>
     <a href="#api">API</a>
+    <a href="plans.html">Plans</a>
     <a href="https://github.com/noirebox/noirebox" target="_blank" class="nav-github">★ GitHub</a>
     <a href="fr.html" class="nav-flag" title="Version française" lang="fr">🇫🇷</a>
   </div>
@@ -319,7 +320,7 @@ $ python verifier/verifier.py export.json
     <details class="faq"><summary>How is it different from Langfuse or Helicone?</summary><p>Those help developers debug what happened — the logs stay modifiable. NoireBox produces a dossier a third party verifies offline. Debug ≠ proof.</p></details>
     <details class="faq"><summary>Do I have to use the bundled guardrail?</summary><p>No — it's one event source among others. Keep Lakera, Llama Guard or your own LLM-judge and journal their verdicts with a single POST. The bundled detector is a working example of the plugin contract.</p></details>
     <details class="faq"><summary>Do I need a paid timestamp authority?</summary><p>No — <code>make tsa</code> runs a local OpenSSL witness with its own key chain: free, offline, sovereign. Pointing at any public or qualified TSA is one environment variable.</p></details>
-    <details class="faq"><summary>What does it cost?</summary><p>Core: MIT, $0 forever, verification included. No cloud tier — self-hosted is the product.</p></details>
+    <details class="faq"><summary>What does it cost?</summary><p>Core: MIT, $0 forever, verification included — self-hosted is the product. What's paid lives outside the math: witness anchoring, fleet hub, turnkey services (<a href="plans.html">Plans &amp; services</a>).</p></details>
   </div>
 </section>
 
@@ -336,7 +337,7 @@ $ python verifier/verifier.py export.json
       <div class="tier"><h4>Core</h4><span>$0 · MIT forever</span><p>Self-hosted. Unlimited events. Journal, plugin, verifier.</p></div>
       <div class="tier"><h4>Verification</h4><span>$0 · forever</span><p>The standalone verifier, pinned TSA roots and the GitHub Action — free for your auditors, clients and DPO.</p></div>
     </div>
-    <p class="note">No cloud tier, no upsell — if NoireBox ever stops being self-hostable, it stops being trustworthy.</p>
+    <p class="note">If NoireBox ever stops being self-hostable, it stops being trustworthy. The paid layer lives outside the journal — only 32-byte hashes ever leave (<a href="plans.html">Plans &amp; services</a>).</p>
   </div>
 </section>
 

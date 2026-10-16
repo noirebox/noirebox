@@ -27,6 +27,7 @@
     <a href="#witness">Témoin</a>
     <a href="#proof">Preuve</a>
     <a href="#api">API</a>
+    <a href="plans.html" lang="en">Plans</a>
     <a href="https://github.com/noirebox/noirebox" target="_blank" class="nav-github">★ GitHub</a>
     <a href="index.html" class="nav-flag" title="English version" lang="en">🇬🇧</a>
   </div>
@@ -324,7 +325,7 @@ $ python verifier/verifier.py export.json
     <details class="faq"><summary>La différence avec Langfuse ou Helicone ?</summary><p>Eux aident les devs à déboguer ce qui s'est passé — les logs restent modifiables. NoireBox produit un dossier qu'un tiers vérifie hors-ligne. Déboguer ≠ prouver.</p></details>
     <details class="faq"><summary>Je dois utiliser votre garde-fou ?</summary><p>Non — c'est une source d'événements parmi d'autres. Gardez Lakera, Llama Guard ou votre LLM-juge, et journalisez leurs verdicts en un POST. Le détecteur embarqué est un exemple fonctionnel du contrat plugin.</p></details>
     <details class="faq"><summary>Il faut payer une autorité d'horodatage ?</summary><p>Non — <code>make tsa</code> lance un témoin OpenSSL local avec sa propre chaîne de clés : gratuit, hors-ligne, souverain. Pointer vers une TSA publique ou qualifiée = une variable d'environnement.</p></details>
-    <details class="faq"><summary>Ça coûte combien ?</summary><p>Cœur : MIT, 0 € à vie, vérification incluse. Pas d'offre cloud — l'auto-hébergement est le produit.</p></details>
+    <details class="faq"><summary>Ça coûte combien ?</summary><p>Cœur : MIT, 0 € à vie, vérification incluse — l'auto-hébergement est le produit. Ce qui est payant vit hors des maths : ancrage témoin, hub de flotte, services clés en main (<a href="plans.html">Offres &amp; services</a>).</p></details>
   </div>
 </section>
 
@@ -341,7 +342,7 @@ $ python verifier/verifier.py export.json
       <div class="tier"><h4>Cœur</h4><span>0 € · MIT pour toujours</span><p>Auto-hébergé. Événements illimités. Journal, plugin, vérificateur.</p></div>
       <div class="tier"><h4>Vérification</h4><span>0 € · pour toujours</span><p>Le vérificateur autonome, les racines TSA épinglées et la GitHub Action — gratuits pour vos auditeurs, clients et DPO.</p></div>
     </div>
-    <p class="note">Pas d'offre cloud, pas d'upsell — le jour où NoireBox cesse d'être auto-hébergeable, il cesse d'être digne de confiance.</p>
+    <p class="note">Le jour où NoireBox cesse d'être auto-hébergeable, il cesse d'être digne de confiance. L'offre payante vit hors du journal — seuls des hash de 32 octets en sortent (<a href="plans.html">Offres &amp; services</a>).</p>
   </div>
 </section>
 
