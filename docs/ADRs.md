@@ -826,3 +826,80 @@ surface, and nothing in the deployment noticed.
 session-start gate, `--fail-on-drift` for CI/cron); `demo_mcp_toolset.py`
 shows the silent rewrite caught. The model's instruction surface now has
 the same tamper-evidence as every other sealed surface.
+
+## ADR 026 — Admission receipts: seal the basis, not only the act
+
+**Status**: accepted — You-An Lin, *"Capability Is Not Authority:
+Semantic Ownership Architecture for Persistent Conversational Agents"*
+([DOI 10.5281/zenodo.23315265](https://doi.org/10.5281/zenodo.23315265),
+2026-10-12, CC BY 4.0), the fourth independent arrival in this corridor —
+after the SCAR catalog (Randal Schwartz), the Negative Witness (Mike
+Mol's mtools W231), and this journal — and the first to arrive at the
+half the ladder names only by implication: not *who wrote this* but *who
+was entitled to originate it*. Lin's Paper I ([DOI
+10.5281/zenodo.23171351](https://doi.org/10.5281/zenodo.23171351))
+builds the persistent Resident as first-class runtime state and leaves
+"control and ownership questions" out of scope; Paper II is that scope,
+arriving four days later.
+
+**The finding that matters here** (Paper II, §6.3): a live agent
+correctly attributed foreign history to another Resident *while using
+it* — the foreign record had already shaped its deliberation without an
+admission basis. Attribution correct, admission invalid, every
+output-level metric green. That is the check-vs-proof seam one floor up
+from `verdict_predates_terminal` and the custody grade: the OUTPUT is
+not the unit of audit. Lin's transition chain — presence ≠ availability
+≠ admission ≠ ownership ≠ authority ≠ execution ≠ realization — is the
+ordering-vs-authenticity wedge restated at the semantic layer: a
+promotion without an independent basis is exactly the reordering a hash
+chain catches, except nothing yet catches it, because the runtime state
+that would attest admission (his §5.6, `resident_admission:
+"non_admitted"`) is itself an unwitnessed, silently-promotable resource.
+His failure family applies to the witness. The two stacks are halves:
+the paper defines the statuses and the bases, and has no custody — who
+saw that the admission check ran, with which scope, when. That is the
+journal's whole job.
+
+**Decision** — promotions become first-class sealed events:
+
+1. **`admission/0.1`** — a receipt for the promotion itself:
+   `{actor, source (origin + surface), transition, basis, decision,
+   participation_ownership, scope}`. The transition vocabulary is Lin's
+   four invalid promotions, named: `visibility→admission`,
+   `capability→move`, `relevance→payload`, `style→stance`. The basis is
+   the independent one his laws require — a user-instruction ref, a
+   prior receipt `seq`, an explicit scope grant — never the resource's
+   own presence, relevance, plausibility, or usefulness (laws 1–8 are
+   the negative space this field refuses to encode as a basis).
+2. **`decision` fails closed, house vocabulary**: `admitted` | `denied`
+   | `admission_undecidable` — undecidable is never clean; a check that
+   did not run reads `admission_check_not_run` (the
+   `scope_check_not_run` lineage, ADR 019).
+3. **`participation_ownership` ∈ {same, foreign, shared}** — the
+   false-first-person-ownership guard as a field discipline, not a
+   prompt: a receipt proves an earlier actor's decision; it never makes
+   it the citing actor's autobiography. Downstream use of
+   foreign-sourced material requires the citing actor's OWN admission
+   receipt.
+4. **`check_admission_basis` in the reconciler**: payload content whose
+   source is foreign and whose admission receipt is missing reads
+   `admission_gap` — the `receipt_gap` finding, one transition deeper.
+5. **The SCAR-BENCH admission axis**: Lin's §6.3 names the metric —
+   "a stronger benchmark varies admission rights and actor identity
+   while keeping the substantive task fixed, then observes whether
+   foreign information changes attention, stance, initiative, or
+   payload." Graded on receipts of the PATH (visibility → admission →
+   move → payload), never on the answer text. His own single-turn null
+   result (§6.1–6.2, ceiling parity between the prose contract and the
+   generic baseline) is the Level-0 lesson restated by a fourth team:
+   a contract written in prose measures nothing at ceiling — which is
+   why the laws land here as schema, not as rubric.
+
+**Consequences**: the four invalid promotions become machine-checkable
+invariants against the sealed registry (Level 2 — the reconciler
+surfaces, structurally); the ladder gains a second descent — after
+"who wrote this" comes "on what basis was this admitted" — under the
+same honesty rules (undecidable named, skipped checks reported,
+disclosure ≠ violation). This ADR ships the contract; the schema, the
+check, and the fixtures land in 0.22.0. The paper asked for an
+admission-sensitive benchmark; it should find one already running.
