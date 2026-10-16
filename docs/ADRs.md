@@ -903,3 +903,73 @@ same honesty rules (undecidable named, skipped checks reported,
 disclosure ≠ violation). This ADR ships the contract; the schema, the
 check, and the fixtures land in 0.22.0. The paper asked for an
 admission-sensitive benchmark; it should find one already running.
+
+## ADR 027 — Post-quantum evidence: hybrid signing behind the signer interface
+
+**Status**: accepted (direction) — implementation gated behind export
+`format_version 2`. References: NIST FIPS 204 (ML-DSA), FIPS 205
+(SLH-DSA), SP 800-208 (LMS/XMSS); ANSSI's post-quantum migration
+roadmap (hybrid algorithms on the horizon of 2030 for sensitive
+systems).
+
+**The asymmetry that forces this.** The journal's promise is
+longevity: the archiving tiers sell ten-year probative value, an
+anchor sealed today may be re-verified in 2040. On that horizon the
+two primitives diverge. SHA-256 survives a quantum adversary with its
+margin halved (Grover: 2²⁵⁶ → 2¹²⁸ preimage — expensive, not broken);
+Ed25519 does not survive at all (Shor). Every event signature in this
+journal is written in an algorithm with an expiry date, while the
+chain that binds them isn't. A proof tool that states its perimeter
+honestly cannot leave that unstated.
+
+**What is already post-quantum here** — worth writing down before
+anything is added: the append-only chain itself (SHA-256 only), and
+the OpenTimestamps/Bitcoin witness (a receipt forgeable only by
+redoing the network's proof of work, verifiable in ~30 µs of
+SHA-256). The exceptions are the event signatures (Ed25519) and the
+RFC 3161 tokens (RSA/ECDSA — the *legal* layer of anchoring, a
+convenience witness next to Bitcoin, and the reason this ADR exists
+rather than a victory lap).
+
+**Non-goals, stated so they can be refused in public**: the one-time
+pad (a confidentiality primitive; the journal adds no confidentiality
+to prove) and QKD (a point-to-point physical link between two optics
+terminals; a journal that anchors over HTTPS to witnesses of its
+choosing is not that). If "quantum-proof" ever appears in a marketing
+claim beside either word, this paragraph is the retraction.
+
+**Decision** — a fourth signer, behind the seam that already exists:
+
+1. **`HybridPQSigner`** implements the exact `.sign()` / `.public_hex()`
+   interface of `KeyPair` (`chain.py`), `SocketSigner` (`keyholder.py`)
+   and `P11Signer` (`hsm.py`). No new trust path: custody already
+   solved down to hardware stays custody; the algorithm is a parameter,
+   not an architecture.
+2. **Hybrid by construction**: sealed events carry both signatures —
+   Ed25519 (today's verified interop) + ML-DSA-65 (FIPS 204). Hybrid
+   because PQ v1 cryptography is young; if either half falls, the other
+   still decides, and the verifier already counts both. SLH-DSA (FIPS
+   205, hash-based, stateless) is the sanctioned alternative where
+   signature size beats code size.
+3. **`format_version 2`**: exports carry `signatures: [{alg, sig}]`,
+   with the Ed25519 half mirrored in the legacy flat fields — the
+   ADR 008 precedent: old verifiers keep verifying the classical half;
+   new verifiers demand both.
+4. **Verifier dual-path**: `verifier.py` accepts v1 (Ed25519-only) and
+   v2 (hybrid); a v2 export missing either half fails hard; the
+   audit-pack gains a PQ disclosure line so the grade system (ADR 022)
+   can name the signature era an export belongs to.
+5. **The anchor's own signature is in scope, later**: stateful
+   hash-based LMS (SP 800-208) fits an anchor cadence — a handful of
+   signatures per day makes the state tractable — and relies on
+   nothing but the hash function the journal already trusts. Sequenced
+   after the event-signing path; not a v2 blocker.
+
+**Honest residue**: hybrid signing does not make today's exports
+retroactively quantum-proof — it makes the *verifiable path forward*
+survive the transition, which is what a ten-year archive actually
+requires. Pre-v2 exports migrate by re-anchoring, never by rewriting:
+the chain doesn't change; the anchors get newer, stronger witnesses.
+And the packaged form of this work — managed hybrid migration, PQ
+disclosure in audit-packs, the long-retention archiving tier — is
+service layer. The signer lands in the MIT core like the other three.
