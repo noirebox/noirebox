@@ -7,10 +7,8 @@
 **La boîte noire pour agents IA — journal inaltérable, garde-fous, preuve vérifiable.**
 
 [![PyPI](https://img.shields.io/pypi/v/noirebox)](https://pypi.org/project/noirebox/)
-[![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://pypi.org/project/noirebox/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Lint: ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![Image on GHCR](https://img.shields.io/badge/image-ghcr.io%2Fnoirebox%2Fnoirebox-blue)](https://github.com/noirebox/noirebox/pkgs/container/noirebox)
 [![Made in France](https://img.shields.io/badge/made%20in-France-blue)](#)
 
 **Un agent IA rédige des comptes rendus qui engagent vos clients.
@@ -22,17 +20,45 @@ une attestation que n'importe qui vérifie hors-ligne — **sans vous faire conf
 > **Pour n'importe quel agent, en français et en anglais.** Le journal,
 > l'API, les outils MCP et le vérificateur sont universels ; chaque langue
 > a son détecteur (~250 Ko) entraîné depuis un dataset reproductible (seed 42) — un nouveau
-> marché = un générateur de dataset + `make train`. **Vous avez déjà un
+> marché = un générateur de dataset + un ré-entraînement. **Vous avez déjà un
 > garde-fou ? Gardez-le** — ce n'est qu'une source d'événements de plus.
 > 🇪🇺 Conçu pour le [marché européen (RGPD & AI Act)](#conçu-pour-le-marché-européen-rgpd--ai-act) — développé en France.
 
-[Quickstart](#quickstart) · [Démo LLM réelle](#la-scène-llm-réelle-ollama-local) ·
+> **Statut — octobre 2026.** NoireBox devient un **produit**. Ce dépôt est
+> désormais la **maison publique de la documentation** — architecture, threat
+> model, ADRs, mapping conformité — et n'héberge plus de code source.
+> Le développement continue dans un **dépôt privé**. Chaque release
+> open-source jusqu'à **v0.21.0** reste sur
+> [PyPI](https://pypi.org/project/noirebox/) et dans les tags git sous
+> licence **MIT**, avec le record complet dans le [CHANGELOG](CHANGELOG.md).
+
+[Dernière release ouverte](https://pypi.org/project/noirebox/0.21.0/) ·
 [Specs](docs/SPECS.md) · [Threat model](docs/THREAT-MODEL.md) ·
-[ADRs](docs/ADRs.md) · [Vulgarisation](docs/VULGARISATION.md)
+[ADRs](docs/ADRs.md) · [Vulgarisation](docs/VULGARISATION.md) · [CHANGELOG](CHANGELOG.md)
 
 </div>
 
 ---
+
+## Statut — le pivot produit
+
+NoireBox a été construit au grand jour : 26 ADRs, un audit externe, une suite
+de replay d'attaques publique, 21 releases, chaque décision d'architecture
+argumentée en public. Merci à toutes celles et ceux qui l'ont sondé, cassé,
+revu — ce record d'audit reste public pour toujours.
+
+Ce qui change à partir d'ici :
+
+- **Ce dépôt ne contient plus que de la documentation** — pas de code source,
+  pas de tests, pas de packaging. Il garde les docs d'architecture, le threat
+  model, les ADRs, le mapping conformité et le CHANGELOG complet.
+- **Le développement a déménagé dans un dépôt privé** — NoireBox devient un
+  produit.
+- **Rien n'est fermé rétroactivement.** Chaque release jusqu'à v0.21.0 reste
+  sur [PyPI](https://pypi.org/project/noirebox/) et dans les tags git,
+  sous licence MIT, installable et vérifiable pour toujours.
+
+La documentation ci-dessous décrit la dernière release ouverte (v0.21.0).
 
 ## Conçu pour le marché européen (RGPD & AI Act)
 
@@ -88,9 +114,8 @@ d'affaires.
 
 **NoireBox applique le modèle Certificate Transparency aux journaux d'agents
 IA :** beaucoup de journaux, une seule racine signée par un tiers horodateur,
-des preuves d'inclusion que n'importe qui vérifie hors-ligne
-(`noirebox/merkle.py`, `make demo-fleet`). À notre connaissance, aucun autre
-outil d'audit d'agents ne le fait.
+des preuves d'inclusion que n'importe qui vérifie hors-ligne. À notre
+connaissance, aucun autre outil d'audit d'agents ne le fait.
 
 ## Le cœur, c'est le journal. Le garde-fou, c'est un plugin.
 
@@ -100,15 +125,13 @@ Zéro ambiguïté sur ce qu'est le produit :
 
 - **Une NoireBox par agent ou par service** — comme un boîtier de vol par
   avion. Une instance = un fichier SQLite, une paire de clés, une chaîne.
-  La couche flotte (`noirebox/merkle.py`) agrège des **preuves** (têtes de
-  chaîne de 32 octets), jamais des événements : votre journal ne quitte
-  jamais votre infrastructure.
+  La couche flotte agrège des **preuves** (têtes de chaîne de 32 octets),
+  jamais des événements : votre journal ne quitte jamais votre infrastructure.
 - **Le journal EST le produit** — chaîne, signatures, stockage append-only,
   ancrage RFC 3161, export, vérificateur autonome. Il est indépendant du
   domaine, de l'agent et de la langue : un événement, c'est un `type` libre
-  et un payload, rien de plus. `chain.py`/`store.py`/`anchors.py` n'importent
-  AUCUN code de détection — supprimez le garde-fou entier, tout continue
-  de fonctionner.
+  et un payload, rien de plus. Les modules du journal n'importent AUCUN code
+  de détection — supprimez le garde-fou entier, tout continue de fonctionner.
 - **La prévention est fongible** — un garde-fou n'est qu'un producteur
   d'événements parmi d'autres. Vous avez déjà Lakera, Llama Guard, votre
   LLM-juge, vos regex ? **Gardez-les.** Journalisez leurs verdicts de la
@@ -121,46 +144,27 @@ Zéro ambiguïté sur ce qu'est le produit :
 
 > La prévention varie selon la stack. La preuve est universelle.
 
-## Quickstart
+## La dernière release open-source (v0.21.0)
 
 ```bash
-pip install noirebox       # le moteur ML est embarqué dans le wheel (FR + EN)
-pip install noirebox[pdf]  # + l'attestation PDF prête pour le DPO (extra optionnel)
-noirebox serve             # API sur http://127.0.0.1:8768/docs
+pip install noirebox==0.21.0          # le moteur ML est embarqué dans le wheel (FR + EN)
+pip install "noirebox[pdf]==0.21.0"   # + l'attestation PDF prête pour le DPO (extra optionnel)
+noirebox serve                        # API sur http://127.0.0.1:8768/docs
 ```
 
-Depuis les sources :
+Ou avec Docker — Python inutile :
 
 ```bash
-./start.sh          # venv + deps + tests + API sur http://127.0.0.1:8768/docs
-make demo           # le film complet en une commande (voir ci-dessous)
-```
-
-Ou avec Docker — Python inutile, le moteur ML est embarqué dans l'image :
-
-```bash
-docker run -p 8768:8768 ghcr.io/noirebox/noirebox:latest
+docker run -p 8768:8768 ghcr.io/noirebox/noirebox:0.21.0
 # API + docs OpenAPI sur http://127.0.0.1:8768/docs — données dans ./data
 ```
 
-Démos sans serveur :
+Vérifier une exportation comme un tiers (auditeur, DPO, client) : exportez le
+journal (`GET /api/v1/export`) et vérifiez-le avec le vérificateur livré dans
+la release — ou verrouillez votre propre CI sur l'intégrité du journal avec la
+[GitHub Action noirebox-verify](https://github.com/marketplace/actions/noirebox-verify).
 
-```bash
-make demo                # la scène complète : micro-modèle → journal → auditeur → pirate démasqué
-make demo-mcp            # NoireBox comme outil MCP (protocole agents)
-.venv/bin/python demo/demo_scan.py     # garde-fou regex sur 2 transcripts
-.venv/bin/python demo/demo_tamper.py   # falsification → la chaîne explose
-```
-
-Vérifier une exportation comme un tiers (auditeur, DPO, client) :
-
-```bash
-curl -s http://127.0.0.1:8768/api/v1/export > export.json
-.venv/bin/python verifier/verifier.py export.json   # exit 0 = chaîne intègre
-```
-
-> Le vérificateur a besoin du paquet NoireBox sur la machine de l'auditeur —
-> `pip install noirebox` suffit (pas de modèle, pas de framework).
+> Les prochaines versions arrivent sous forme de produit.
 
 ## Horodatage de la chaîne — des témoins extérieurs que vous choisissez (RFC 3161 + Bitcoin)
 
@@ -177,8 +181,8 @@ couches** ([ADR 006/008/009](docs/ADRs.md)) :
   données scellées sont présumées jusqu'à contestation ;
 - **TSA publiques** (DigiCert, FreeTSA…) — gratuites, immédiates,
   organisations indépendantes ; l'auditeur vérifie contre des **racines
-  épinglées dans ce dépôt** ([`verifier/tsa_roots/`](verifier/tsa_roots/)),
-  jamais contre un certificat fourni par l'opérateur ;
+  épinglées dans le vérificateur publié**, jamais contre un certificat
+  fourni par l'opérateur ;
 - **OpenTimestamps / Bitcoin** — un reçu qu'aucun opérateur ne peut forger :
   le forger exigerait de refaire la preuve de travail du réseau ; le
   vérifier prend ~30 µs de SHA-256, valable aussi longtemps que Bitcoin.
@@ -200,8 +204,8 @@ curl -X POST localhost:8768/api/v1/anchors   # un appel, deux témoins, tout le 
 noirebox audit-pack ./audit                  # le dossier auditeur : export + rapport + Annexe IV §2(f)
 ```
 
-Une TSA OpenSSL auto-hébergée reste livrée pour les déploiements
-souverains/hors-ligne (`make tsa`) — même frontière de confiance que
+Une TSA OpenSSL auto-hébergée est également livrée dans la release pour les
+déploiements souverains/hors-ligne — même frontière de confiance que
 l'opérateur, documentée comme telle. Le mapping réglementaire complet :
 [docs/COMPLIANCE-EU.md](docs/COMPLIANCE-EU.md).
 
@@ -226,13 +230,8 @@ Zéro nouvelle dépendance Python.
 
 ## La scène LLM réelle (Ollama local)
 
-Un **vrai LLM** (qwen2.5:0.5b, 397 Mo, local via Ollama — jamais commité,
-téléchargé par `ollama pull`) reçoit le transcript piégé :
-
-```bash
-brew install ollama && ollama serve && ollama pull qwen2.5:0.5b   # une fois
-make demo-llm                                                     # la scène
-```
+Un **vrai LLM** (qwen2.5:0.5b, 397 Mo, local via Ollama — jamais embarqué,
+téléchargé par `ollama pull`) reçoit le transcript piégé.
 
 Résultat mesuré (température 0, reproductible) :
 - **Sans NoireBox** : le modèle réécrit lui-même les instructions de
@@ -241,33 +240,24 @@ Résultat mesuré (température 0, reproductible) :
 - **Avec NoireBox** : 4 lignes compromises retirées AVANT l'appel, l'incident
   scellé au journal, et la vraie sortie du modèle est propre.
 
-Voir aussi [deploy/DEPLOIEMENT.md](deploy/DEPLOIEMENT.md) — mise en prod à 0 €
-(tunnel cloudflared immédiat, Hugging Face Spaces permanent) ou VPS 3–6 €/mois.
+Les recettes de mise en prod (tunnel cloudflared à 0 €, Hugging Face Spaces
+permanent, VPS 3–6 €/mois) sont livrées avec la release.
 
-## Le micro-détecteur ML — entraîné dans le repo, deux langues, ~250 Ko chacune
+## Le micro-détecteur ML — deux langues, ~250 Ko chacune
 
-Deux moteurs de détection, interchangeables (`engine: "regex" | "ml"` dans
-l'API, `lang: "fr" | "en"`) :
-
-- **`regex`** — heuristique embarquée, zéro dépendance, règles écrites à la main ;
-- **`ml`** — un vrai modèle entraîné par langue : TF-IDF (mots + caractères)
-  + régression logistique, **293 Ko (FR)** et **243 Ko (EN)**.
-
-```bash
-make train        # FR : gen_dataset.py (5 400 exemples) → detector.joblib
-make train-en     # EN : gen_dataset_en.py (5 400 exemples) → detector_en.joblib
-```
-
-Une nouvelle langue est un dataset, pas une réécriture : l'entraîneur, le
-registre et l'API sont partagés. Ajouter l'espagnol = un `gen_dataset_es.py`
-+ `ml/train.py --lang es`.
+Le moteur `ml` est un vrai modèle entraîné par langue : TF-IDF (mots +
+caractères) + régression logistique — **293 Ko (FR)** et **243 Ko (EN)** —
+entraîné depuis des datasets reproductibles (seed 42). Une nouvelle langue
+est un dataset, pas une réécriture : l'entraîneur, le registre et l'API
+(`lang: "fr" | "en"`) sont partagés. Ajouter l'espagnol = un générateur de
+dataset + un ré-entraînement.
 
 **Honnêteté sur l'évaluation** (le truc qui crédibilise en revue) :
 - les jeux de test partagent leurs templates avec l'entraînement →
   accuracy 1.000 mesure la cohérence, pas la généralisation ;
 - la preuve de généralisation est ailleurs : des phrases **inédites**
-  (argot, fautes, formulations jamais vues) sont figées dans
-  `tests/test_ml_guardrail.py` — **dans les deux langues** — bonne catégorie
+  (argot, fautes, formulations jamais vues) sont figées dans la suite de
+  tests de la release — **dans les deux langues** — bonne catégorie
   détectée, **zéro faux positif** sur les phrases saines pièges (« envoie le
   bilan au comptable », « j'ai réinitialisé mon mot de passe ») ;
 - la suite inédite EN a attrapé une vraie faiblesse en v1 (« take orders
@@ -276,10 +266,8 @@ registre et l'API sont partagés. Ajouter l'espagnol = un `gen_dataset_es.py`
 - insight métier FR : 20 % du dataset est désaccentué car les transcripts de
   reconnaissance vocale sortent souvent sans accents.
 
-| Artefact | Taille |
-|---|---|
-| `models/detector.joblib` + `models/detector_en.joblib` (versionnés) | 293 + 243 Ko |
-| `data/dataset.jsonl` + `data/dataset_en.jsonl` (versionnés) | ~1,3 Mo |
+Les deux détecteurs (293 + 243 Ko) et les deux datasets (~1,3 Mo) sont
+versionnés dans les tags de release.
 
 ## Brancher NoireBox — 3 façons réelles
 
@@ -293,7 +281,7 @@ $resp = $client->request('POST', 'https://noirebox.exemple.fr/api/v1/transcripts
 $incidents = $resp->toArray();
 ```
 
-**2. SDK Python** (`noirebox/client.py`) :
+**2. SDK Python** (livré dans le wheel) :
 
 ```python
 from noirebox.client import NoireBoxClient
@@ -309,33 +297,23 @@ nb.verify()                            # vérifier la chaîne
 
 ```json
 { "mcpServers": { "noirebox": {
-    "command": "/chemin/vers/noirebox/.venv/bin/python",
+    "command": "python",
     "args": ["-m", "noirebox.mcp_server"] } } }
 ```
 
-Implémentation JSON-RPC sur stdio sans SDK externe : le protocole reste
-lisible de bout en bout (`demo/demo_mcp.py`).
+## Cas d'usage — n'importe quel agent qui « décide »
 
-## Le code — le cœur d'abord, les plugins après
+| Agent | Ce que NoireBox apporte |
+|---|---|
+| Assistant de réunion (scénario de démo) | comptes rendus prouvables + anti-injection par transcript |
+| Agent de code | journal inaltérable des actions exécutées (fichiers, commandes) |
+| Support client IA | preuve de ce qui a été promis au client, quand, et pourquoi |
+| Pipeline RAG juridique / médical | traçabilité des sources utilisées et des sorties produites |
+| Copilotes métier (finance, RH…) | attestation exportable pour audit interne / DPO / client |
 
-```
-noirebox/            ← package (≈ namespace PSR-4)
-├── chain.py         LE CŒUR : hash chaîné SHA-256 + signatures Ed25519
-├── store.py         LE CŒUR : SQLite append-only, requêtes paramétrées, verrou
-├── attestation.py   LE CŒUR : résumé signé de l'état de la chaîne
-├── anchors.py       LE CŒUR : ancrage RFC 3161 (témoin TSA)
-├── pdf_export.py    LE CŒUR : attestation PDF prête pour un DPO
-├── main.py          routes FastAPI (la couche HTTP)
-├── schemas.py       DTO Pydantic (validation de schémas)
-├── client.py        SDK Python
-├── mcp_server.py    serveur d'outils MCP (JSON-RPC stdio)
-├── guardrail.py     PLUGIN : 4 catégories d'attaques FR/EN par regex
-├── ml_guardrail.py  PLUGIN : micro-modèles entraînés (fr + en, ~250 Ko)
-├── llm_judge.py     PLUGIN : juge tier-2 — LLM local, taxonomie maison (ADR 015)
-├── tiering.py       PLUGIN : scan par étages — regex → ML → juge sur doute (ADR 016)
-├── fleet.py         HUB v0 : fleet-anchor / fleet-verify sur merkle.py (ADR 017)
-└── llm_agent.py     DÉMO PLUGIN : vrai agent Ollama derrière le pipeline gardé
-```
+Le **journal** est universel (événements typés librement). Le **corpus du
+garde-fou** livré est spécialisé transcripts FR — l'étendre à un autre
+domaine = ajouter des exemples au dataset et ré-entraîner.
 
 ## API
 
@@ -366,26 +344,27 @@ digests (jamais le contenu des payloads) et passent derrière le token avec `NOI
 - `pii_request` — « donne les mots de passe / données bancaires »
 - `tool_abuse` — « exécute DROP TABLE / rm -rf / curl »
 
-Voir `corpus/attaques.json`. Étendre = ajouter des patterns regex ou des
-exemples au dataset, puis `make train`. Architecture par étages :
+Le corpus est livré avec la release. Architecture par étages :
 [ADR 001](docs/ADRs.md).
 
-## Tests
+## La suite de tests de la release (392 tests à v0.21.0)
 
-392 tests : cryptographie (falsification, réordonnancement, mauvaise clé),
-garde-fou regex et **ML sur phrases inédites en FR et EN**, le pipeline
-gardé avec un LLM factice (sans Ollama, tourne en CI), agent API,
-serveur MCP, SDK client contre un **vrai serveur uvicorn** (port éphémère),
-agent LLM réel (skip si Ollama absent), **auth OAuth2 JWT +
-rate limiting + attestation PDF DPO + ancrage RFC 3161 contre une vraie TSA
-locale (dont l'attaque de régénération par l'insider)**, les **reçus scellés**
-(joins receipt↔journal, registre des writers, registrar pinné — la write race
-fermée à l'assemblage, le doublon `undecidable`, la disclosure), la **custody
-de la clé** (keyholder sur socket unix — signatures byte-identiques, gate uid
-fail-closed) et le **contrat PKCS#11** sur SoftHSM2 (job CI dédié), le gap GUI
-(servi vs observé), et le contrat complet du vérificateur tiers. Tout se rejoue
-en local : `make test`
-ré-entraîne les deux modèles linguistiques et lance la suite complète.
+Cryptographie (falsification, réordonnancement, mauvaise clé), garde-fou
+regex et **ML sur phrases inédites en FR et EN**, le pipeline gardé avec un
+LLM factice, agent API, serveur MCP, SDK client contre un **vrai serveur
+uvicorn** (port éphémère), **auth OAuth2 JWT + rate limiting + attestation
+PDF DPO + ancrage RFC 3161 contre une vraie TSA locale (dont l'attaque de
+régénération par l'insider)**, les **reçus scellés**, la **custody de la
+clé** (keyholder sur socket unix, PKCS#11 sur SoftHSM2) et le contrat
+complet du vérificateur tiers. Tout se rejoue en local depuis le tag de la
+release.
+
+**La suite SCAR replay est un différentiel, pas juste une suite de tests** —
+les quatre fixtures d'attaque du catalogue de Randal L. Schwartz (plus la
+race du témoin canari, SCAR-PROC-114) rejouées contre cette couche de
+réconciliation, chacune assertant ce qu'elle fait : attrape l'attaque, ou
+avoue le gap par écrit. Gradation, format des claims et taxonomie
+d'application Level 0/1/2 : [docs/SCAR-BENCH.md](docs/SCAR-BENCH.md).
 
 **Scan statique de sécurité** en CI ([Bandit](https://bandit.readthedocs.io/),
 échoue sur MEDIUM et au-dessus) ; chaque finding LOW récurrent est baseliné
@@ -403,40 +382,6 @@ Action ([Marketplace](https://github.com/marketplace/actions/noirebox-verify)) :
     noirebox-ref: v0.16.0  # fige le ref du vérifieur — audits reproductibles
 ```
 
-## Cas d'usage — n'importe quel agent qui « décide »
-
-| Agent | Ce que NoireBox apporte |
-|---|---|
-| Assistant de réunion (scénario de démo) | comptes rendus prouvables + anti-injection par transcript |
-| Agent de code | journal inaltérable des actions exécutées (fichiers, commandes) |
-| Support client IA | preuve de ce qui a été promis au client, quand, et pourquoi |
-| Pipeline RAG juridique / médical | traçabilité des sources utilisées et des sorties produites |
-| Copilotes métier (finance, RH…) | attestation exportable pour audit interne / DPO / client |
-
-Le **journal** est universel (événements typés librement). Le **corpus du
-garde-fou** livré est spécialisé transcripts FR — l'étendre à un autre
-domaine = ajouter des exemples au dataset et relancer `make train`.
-
-## Roadmap
-
-Ce qui reste. Tout ce qui est livré vit dans le [CHANGELOG](CHANGELOG.md) et les
-[ADRs](docs/ADRs.md) — cette section ne garde que l'ouvert.
-
-- [ ] Console hub de flotte : agrégation programmée, alerting — les primitives v0 de sceau/vérification existent ([ADR 017](docs/ADRs.md))
-- [ ] HSM sur du VRAI matériel — l'interface PKCS#11 est livrée (`P11Signer` +
-      `keyholder --pkcs11-*`, prouvée en CI sur SoftHSM2 ; [amendement ADR 020](docs/ADRs.md)) ;
-      reste le pin d'un vrai module et les claims d'extractabilité que seul le
-      silicon rend vrais
-- [x] **Le keyholder : la clé registrar vit dans un PROCESS, pas dans un fichier** —
-      le PEM charge une fois dans `noirebox keyholder` et n'en sort jamais ;
-      `SocketSigner` est un drop-in de `KeyPair`, `--allow-uid` gate le peer et
-      échoue FERMÉ ([amendement ADR 020](docs/ADRs.md))
-- [x] **L'authority ladder, en page** —
-      [docs/AUTHORITY-LADDER.md](docs/AUTHORITY-LADDER.md) : argument du caller →
-      signataire → registre scellé → registrar pinné → custody. Chaque barreau :
-      ce qu'il a fermé, le résidu, le test qui mord — et la table des prémissses
-      que la prochaine sonde lit avant de descendre
-
 ## Soutenir
 
 NoireBox est libre et MIT — vérification incluse, pour toujours. Si ça t'a
@@ -448,3 +393,8 @@ la meilleure façon de le dire :
 *Scanne ou clique — [buymeacoffee.com/samlabbe](https://buymeacoffee.com/samlabbe)*
 
 NoireBox est créé et maintenu par [@slabbdev](https://github.com/slabbdev) — construit seul, dans les Vosges.
+
+## Licence
+
+MIT — voir [LICENSE](LICENSE). Les releases passées (jusqu'à v0.21.0)
+restent MIT ; la documentation de ce dépôt l'est aussi.
