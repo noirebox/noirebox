@@ -64,7 +64,7 @@
     </ul>
 
     <div class="install-pill">
-      <code id="install-cmd">pip install noirebox==0.21.0 &amp;&amp; noirebox serve</code>
+      <code id="install-cmd">git clone https://github.com/noirebox/noirebox &amp;&amp; cd noirebox &amp;&amp; ./start.sh</code>
       <button class="copy-btn" id="copy-install" title="Copy to clipboard" aria-label="Copy install command">⧉</button>
     </div>
   </div>
@@ -260,8 +260,8 @@
     </p>
     <div class="terminal">
       <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="term-title">dev@yourstack — record &amp; prove</span></div>
-      <pre class="term-static">$ pip install noirebox==0.21.0
-$ noirebox serve                        <span class="t-dim"># API on :8768 — /docs is live</span>
+      <pre class="term-static">$ git clone https://github.com/noirebox/noirebox &amp;&amp; cd noirebox
+$ ./start.sh                            <span class="t-dim"># tests + API on :8768 — /docs is live</span>
 
 $ curl -X POST :8768/api/v1/events \
     -d '{"type":"llm_call","payload":{"model":"gpt-x","prompt":"…"}}'

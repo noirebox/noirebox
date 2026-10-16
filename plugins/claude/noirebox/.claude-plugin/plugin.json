@@ -1,0 +1,16 @@
+{
+  "name": "noirebox",
+  "version": "0.7.0",
+  "description": "NoireBox for Claude Code: seal every agent decision and the session transcript into the per-project tamper-evident journal, screen texts through the injection guardrail, verify the hash chain and export signed attestations.",
+  "author": {
+    "name": "noirebox"
+  },
+  "commands": "./commands",
+  "skills": "./skills",
+  "hooks": "./hooks/hooks.json",
+  "mcpServers": {
+    "noirebox": {
+      "command": "noirebox-mcp"
+    }
+  }
+}

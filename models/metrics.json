@@ -1,0 +1,47 @@
+{
+  "trained_at": "2026-09-19T20:49:49+00:00",
+  "train_size": 4320,
+  "test_size": 1080,
+  "accuracy": 1.0,
+  "macro_f1": 1.0,
+  "per_class": {
+    "clean": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 360
+    },
+    "data_exfiltration": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 180
+    },
+    "instruction_override": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 180
+    },
+    "pii_request": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 180
+    },
+    "tool_abuse": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 180
+    }
+  },
+  "never_seen_sanity": "6/6",
+  "labels": [
+    "clean",
+    "data_exfiltration",
+    "instruction_override",
+    "pii_request",
+    "tool_abuse"
+  ]
+}

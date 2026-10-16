@@ -1,0 +1,97 @@
+# NoireBox — shortcuts (make test, make demo, make serve…)
+.PHONY: install test bench sync-count serve demo demo-mcp demo-llm demo-judge demo-fleet demo-payout demo-install-gate ollama-pull judge-pull fleet-anchor tsa dataset train train-en train-es docker wisdom clean
+
+install:
+	python3 -m venv .venv
+	.venv/bin/pip install -q --upgrade pip
+	.venv/bin/pip install -q -r requirements.txt
+
+test:
+	.venv/bin/pytest -q
+
+bench:
+	.venv/bin/python demo/bench.py
+
+# The SCAR catalog, replayed against THIS tree (docs/SCAR-BENCH.md §3):
+# a negative-control set any gate builder can run against their own layer.
+differential:
+	.venv/bin/pytest tests/test_scar_replay.py -v
+
+# The open-weights canary experiment (SCAR-BENCH-114, docs/SCAR-BENCH.md):
+# Randal's prediction, falsifiable — primitives hold, canaries trip harder
+# on smaller priors. Local Ollama required; results land in bench/.
+scar-bench:
+	.venv/bin/python bench/scar114_canary.py
+
+# The wall Randal asked for ("deserves to be framed on a wall").
+# Not in `make help` — easter eggs don't advertise, they wait.
+wisdom:
+	.venv/bin/python -m noirebox.wisdom
+
+serve:
+	.venv/bin/uvicorn noirebox.main:app --host 127.0.0.1 --port 8768
+
+demo:
+	.venv/bin/python demo/demo_live.py
+
+demo-mcp:
+	.venv/bin/python demo/demo_mcp.py
+
+demo-llm:
+	.venv/bin/python demo/demo_ollama.py
+
+demo-judge:
+	.venv/bin/python demo/demo_judge.py
+
+judge-pull:
+	ollama pull qwen2.5-coder:3b
+
+demo-fleet:
+	.venv/bin/python demo/demo_fleet.py
+
+demo-payout:
+	.venv/bin/python demo/demo_payout.py
+
+demo-install-gate:
+	.venv/bin/python demo/demo_install_gate.py
+
+ollama-pull:
+	ollama pull qwen2.5:0.5b
+
+# Fleet hub v0 (ADR 017): ONE seal covers N journals. Point HUB at the hub
+# journal and JOURNALS at the member list — a cron entry re-runs this and the
+# falsifiable window shrinks to the tail since the last fleet anchor.
+#   15 6 * * *  cd /srv/noirebox && make fleet-anchor HUB=/srv/hub/hub.db JOURNALS="/srv/boxes/*/data/noirebox.db"
+HUB ?= hub.db
+JOURNALS ?=
+fleet-anchor:
+	.venv/bin/noirebox fleet-anchor $(JOURNALS) --db $(HUB)
+
+tsa:
+	@chmod +x tsa/gen_tsa.sh && ./tsa/gen_tsa.sh tsa/material
+	.venv/bin/python tsa/tsa_server.py --material tsa/material --port 3318
+
+sync-count:
+	.venv/bin/python tools/sync_test_count.py
+
+dataset:
+	.venv/bin/python ml/gen_dataset.py
+
+train:
+	.venv/bin/python ml/gen_dataset.py
+	.venv/bin/python ml/train.py
+
+train-en:
+	.venv/bin/python ml/gen_dataset_en.py
+	.venv/bin/python ml/train.py --lang en
+
+train-es:
+	.venv/bin/python ml/gen_dataset_es.py
+	.venv/bin/python ml/train.py --lang es
+
+docker:
+	docker compose up --build
+
+clean:
+	rm -rf data/*.db data/*.key .pytest_cache
+	find . -name __pycache__ -type d -exec rm -rf {} +

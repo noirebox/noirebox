@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+cryptography
+pydantic
+pytest
+httpx
+scikit-learn
+joblib
+PyJWT>=2.15
+reportlab

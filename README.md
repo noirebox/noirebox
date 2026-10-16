@@ -7,8 +7,10 @@
 **The black box for AI agents — tamper-evident journal, guardrails, verifiable proof.**
 
 [![PyPI](https://img.shields.io/pypi/v/noirebox)](https://pypi.org/project/noirebox/)
-[![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://pypi.org/project/noirebox/)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Lint: ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Image on GHCR](https://img.shields.io/badge/image-ghcr.io%2Fnoirebox%2Fnoirebox-blue)](https://github.com/noirebox/noirebox/pkgs/container/noirebox)
 [![Made in France](https://img.shields.io/badge/made%20in-France-blue)](#)
 
 **Your AI agent writes meeting notes that bind your clients.
@@ -20,46 +22,18 @@ an attestation anyone can verify offline — **without trusting you**.
 > **Works with any agent, in French and English.** The journal, the API, the
 > MCP tools and the verifier are domain- and language-agnostic; each language
 > gets a ~250 KB detector trained from a reproducible dataset (seed 42) — a new market =
-> one dataset generator + a retrain. **Already have a guardrail? Keep it** —
+> one dataset generator + `make train`. **Already have a guardrail? Keep it** —
 > it's just another event source. 🇪🇺 Built for the
 > [European market (GDPR & AI Act)](#built-for-the-european-market-gdpr--ai-act) — engineered in France.
 
-> **Status — October 2026.** NoireBox is becoming a **product**. This
-> repository is now the **public documentation home** — architecture, threat
-> model, ADRs, compliance mapping — and no longer hosts source code.
-> Development continues in a **private repository**. Every open-source
-> release through **v0.21.0** stays on
-> [PyPI](https://pypi.org/project/noirebox/) and in the git tags under **MIT**,
-> with the full record in the [CHANGELOG](CHANGELOG.md).
-
-[Last open release](https://pypi.org/project/noirebox/0.21.0/) ·
+[Quickstart](#quickstart) · [Real LLM scene](#the-real-llm-scene-local-ollama) ·
 [Specs](docs/SPECS.md) · [Threat model](docs/THREAT-MODEL.md) ·
 [The authority ladder](docs/AUTHORITY-LADDER.md) ·
-[ADRs](docs/ADRs.md) · [CHANGELOG](CHANGELOG.md)
+[ADRs](docs/ADRs.md)
 
 </div>
 
 ---
-
-## Status — the product pivot
-
-NoireBox was built in the open: 26 ADRs, an external audit, a public
-attack-replay suite, 21 releases, every design decision argued in public.
-Thank you to everyone who probed, broke and reviewed it — that audit trail
-stays public forever.
-
-What changes from here:
-
-- **This repository is documentation-only** — no source code, no tests, no
-  packaging. It holds the architecture docs, the threat model, the ADRs, the
-  compliance mapping and the complete CHANGELOG.
-- **Development moved to a private repository** — NoireBox is being built
-  into a product.
-- **Nothing is retroactively closed.** Every release through v0.21.0 remains
-  on [PyPI](https://pypi.org/project/noirebox/) and in the git tags,
-  MIT-licensed, installable and verifiable forever.
-
-The documentation below describes the last open release (v0.21.0).
 
 ## Built for the European market (GDPR & AI Act)
 
@@ -111,7 +85,8 @@ Reg. (EU) 2026/1744) — with fines up to €35 M / 7 % of turnover.
 
 **NoireBox applies the Certificate-Transparency model to AI-agent journals:**
 many journals, one root signed by a timestamp authority, inclusion proofs that
-anyone verifies offline. To our knowledge, no other agent-audit tool does this.
+anyone verifies offline (`noirebox/merkle.py`, `make demo-fleet`). To our
+knowledge, no other agent-audit tool does this.
 
 ## The core is the journal. The guardrail is a plugin.
 
@@ -121,13 +96,13 @@ No ambiguity about what the product is:
 
 - **One NoireBox per agent or service** — like one flight recorder per
   aircraft. One instance = one SQLite file, one key pair, one chain. The
-  fleet layer aggregates **proofs** (32-byte chain heads), never events:
-  your journal never leaves your infrastructure.
+  fleet layer (`noirebox/merkle.py`) aggregates **proofs** (32-byte chain
+  heads), never events: your journal never leaves your infrastructure.
 - **The journal is the product** — chain, signatures, append-only storage,
   RFC 3161 anchoring, export, standalone verifier. It is domain-agnostic,
   agent-agnostic and language-agnostic: an event is a free-typed `type`
-  plus a payload, nothing more. The journal modules import zero detection
-  code — delete the whole guardrail and everything still runs.
+  plus a payload, nothing more. `chain.py`/`store.py`/`anchors.py` import
+  zero detection code — delete the whole guardrail and everything still runs.
 - **Prevention is pluggable** — a guardrail is just one event producer
   among others. Already have Lakera, Llama Guard, your own LLM-judge, your
   own regexes? **Keep them.** Journal their verdicts the same way
@@ -139,27 +114,47 @@ No ambiguity about what the product is:
 
 > Prevention varies per stack. Proof is universal.
 
-## The last open-source release (v0.21.0)
+## Quickstart
 
 ```bash
-pip install noirebox==0.21.0          # the ML engine ships inside the wheel (FR + EN)
-pip install "noirebox[pdf]==0.21.0"   # + the DPO-ready PDF attestation (optional extra)
-noirebox serve                        # API on http://127.0.0.1:8768/docs
+pip install noirebox       # the ML engine ships inside the wheel (FR + EN)
+pip install noirebox[pdf]  # + the DPO-ready PDF attestation (optional extra)
+noirebox serve             # API on http://127.0.0.1:8768/docs
 ```
 
-Or with Docker — no Python needed:
+From source:
 
 ```bash
-docker run -p 8768:8768 ghcr.io/noirebox/noirebox:0.21.0
+./start.sh          # venv + deps + tests + API on http://127.0.0.1:8768/docs
+make demo           # the full story in one command (see below)
+```
+
+Or with Docker — no Python needed, the ML engine ships inside the image:
+
+```bash
+docker run -p 8768:8768 ghcr.io/noirebox/noirebox:latest
 # API + OpenAPI docs on http://127.0.0.1:8768/docs — data persists in ./data
 ```
 
-Verify an export as a third party (auditor, DPO, client): export the journal
-(`GET /api/v1/export`) and verify it with the verifier shipped in the
-release — or gate your own CI on journal integrity with the
-[noirebox-verify GitHub Action](https://github.com/marketplace/actions/noirebox-verify).
+Standalone demos:
 
-> Future versions ship as the product.
+```bash
+make demo                # the full scene: micro-model → journal → auditor → caught pirate
+make demo-mcp            # NoireBox as an MCP tool (agent protocol)
+.venv/bin/python demo/demo_scan.py     # regex guardrail on 2 transcripts
+.venv/bin/python demo/demo_tamper.py   # tampering → the chain explodes
+.venv/bin/python demo/demo_provenance.py   # provenance sealing vs model collapse (ADR 011)
+```
+
+Verify an export as a third party (auditor, DPO, client):
+
+```bash
+curl -s http://127.0.0.1:8768/api/v1/export > export.json
+.venv/bin/python verifier/verifier.py export.json   # exit 0 = intact & witnesses verified · exit 2 = anchoring UNPROVEN (missing openssl/ots?) · --allow-unverified-witnesses to accept
+```
+
+> The verifier needs the NoireBox package on the auditing machine —
+> `pip install noirebox` is enough (no model, no framework).
 
 ## Chain timestamping — outside witnesses you choose (RFC 3161 + Bitcoin)
 
@@ -175,8 +170,9 @@ Anchoring closes it — with **witnesses you choose, in layers**
   carries a *legal presumption* (art. 41): the date and the integrity of the
   sealed data are presumed until challenged;
 - **Public TSAs** (DigiCert, FreeTSA…) — free, immediate, independent
-  organizations; the auditor verifies against **roots pinned in the released
-  verifier**, never against a certificate the operator ships;
+  organizations; the auditor verifies against **roots pinned in this
+  repository** ([`verifier/tsa_roots/`](verifier/tsa_roots/)), never against
+  a certificate the operator ships;
 - **OpenTimestamps / Bitcoin** — a receipt no operator can forge: forging it
   means redoing the network's proof of work; verifying it is ~30 µs of
   SHA-256, valid as long as Bitcoin exists.
@@ -197,8 +193,8 @@ curl -X POST localhost:8768/api/v1/anchors   # one call, both witnesses, the who
 noirebox audit-pack ./audit                  # the auditor's folder: export + report + Annexe IV §2(f)
 ```
 
-A self-hosted OpenSSL TSA also ships in the release for sovereign/offline
-deployments — same trust boundary as the operator, documented as such.
+A self-hosted OpenSSL TSA still ships for sovereign/offline deployments
+(`make tsa`) — same trust boundary as the operator, documented as such.
 Full regulatory mapping: [docs/COMPLIANCE-EU.md](docs/COMPLIANCE-EU.md).
 
 ## The bundled guardrail — one plugin, two engines
@@ -221,8 +217,13 @@ house-taxonomy few-shot prompt. Zero new Python deps.
 
 ## The real LLM scene (local Ollama)
 
-A **real LLM** (qwen2.5:0.5b, 397 MB, local via Ollama — never bundled,
-fetched by `ollama pull`) receives the poisoned transcript.
+A **real LLM** (qwen2.5:0.5b, 397 MB, local via Ollama — never committed,
+fetched by `ollama pull`) receives the poisoned transcript:
+
+```bash
+brew install ollama && ollama serve && ollama pull qwen2.5:0.5b   # once
+make demo-llm                                                     # the scene
+```
 
 Measured outcome (temperature 0, reproducible):
 - **Without NoireBox**: the model rewrites the attacker's instructions into
@@ -231,31 +232,36 @@ Measured outcome (temperature 0, reproducible):
 - **With NoireBox**: 4 poisoned lines removed *before* the call, incident
   sealed in the journal, and the model's real output is clean.
 
-Deployment recipes (a €0 cloudflared tunnel, a permanent Hugging Face Space,
-a €3–6/mo VPS) shipped with the release.
+See also [deploy/DEPLOIEMENT.md](deploy/DEPLOIEMENT.md) for €0 deployment
+(instant cloudflared tunnel, permanent Hugging Face Space) or a €3–6/mo VPS.
 
-## The ML micro-detector — two languages, ~250 KB each
+## The ML micro-detector — trained in-repo, two languages, ~250 KB each
 
-The `ml` engine is a real trained model per language: TF-IDF (word + char
-n-grams) + logistic regression — **293 KB (FR)** and **243 KB (EN)** —
-trained from reproducible datasets (seed 42). A new language is a dataset,
-not a rewrite: the trainer, the registry and the API (`lang: "fr" | "en"`)
-are shared. Adding Spanish = one dataset generator + a retrain.
+```bash
+make train        # FR: gen_dataset.py (5,400 examples) → detector.joblib
+make train-en     # EN: gen_dataset_en.py (5,400 examples) → detector_en.joblib
+```
+
+A new language is a dataset, not a rewrite: the trainer, the registry and
+the API (`lang: "fr" | "en"`) are shared. Adding Spanish = one
+`gen_dataset_es.py` + `ml/train.py --lang es`.
 
 **Honest evaluation** (the part that earns credit in reviews):
 - the test sets share templates with their train sets → accuracy 1.000
   measures consistency, not generalization;
 - the generalization proof lives elsewhere: **held-out sentences** (slang,
-  typos, never-seen formulations) are frozen in the release's test suite —
-  in *both* languages — correct category detected, **zero false positives**
+  typos, never-seen formulations) are frozen in `tests/test_ml_guardrail.py`
+  — in *both* languages — correct category detected, **zero false positives**
   on trap-clean sentences ("send the report to the accountant", "I rotated
   my password");
 - the EN held-out suite caught a real weakness in v1 ("take orders from
   me" scored 0.37) → dataset extended → model retrained → suite green.
   That loop *is* the ML workflow, and it's in the git history.
 
-Both detectors (293 + 243 KB) and both datasets (~1.3 MB) are versioned in
-the release tags.
+| Artifact | Size |
+|---|---|
+| `models/detector.joblib` + `models/detector_en.joblib` (versioned) | 293 + 243 KB |
+| `data/dataset.jsonl` + `data/dataset_en.jsonl` (versioned) | ~1.3 MB |
 
 ## Plugging NoireBox in — 3 real ways
 
@@ -267,7 +273,7 @@ curl -X POST https://noirebox.example.com/api/v1/transcripts/scan \
      -d '{"meeting_id": "MTG-42", "text": "<transcript>", "engine": "ml"}'
 ```
 
-**2. Python SDK** (ships in the wheel):
+**2. Python SDK** (`noirebox/client.py`):
 
 ```python
 from noirebox.client import NoireBoxClient
@@ -283,9 +289,12 @@ nb.verify()                            # check the chain
 
 ```json
 { "mcpServers": { "noirebox": {
-    "command": "python",
+    "command": "/path/to/noirebox/.venv/bin/python",
     "args": ["-m", "noirebox.mcp_server"] } } }
 ```
+
+Stdio JSON-RPC implementation with no external SDK: the protocol stays
+readable end to end (`demo/demo_mcp.py`).
 
 ## Use cases — any agent that "decides"
 
@@ -299,7 +308,28 @@ nb.verify()                            # check the chain
 
 The **journal** is universal (free-typed events). The shipped **guardrail
 corpus** specializes in FR meeting transcripts — extending it to another
-domain = adding examples to the dataset and retraining.
+domain = adding examples to the dataset and re-running `make train`.
+
+## The code — core first, plugins after
+
+```
+noirebox/            ← package (≈ PSR-4 namespace)
+├── chain.py         THE CORE: SHA-256 hash chain + Ed25519 signatures
+├── store.py         THE CORE: append-only SQLite, parameterized queries, lock
+├── attestation.py   THE CORE: signed digest of the chain state
+├── anchors.py       THE CORE: RFC 3161 anchoring (TSA witness)
+├── pdf_export.py    THE CORE: DPO-ready attestation PDF
+├── main.py          FastAPI routes (the HTTP layer)
+├── schemas.py       Pydantic DTOs (request validation)
+├── client.py        Python SDK
+├── mcp_server.py    MCP tools server (stdio JSON-RPC)
+├── guardrail.py     PLUGIN: 4 FR/EN attack categories caught by regex
+├── ml_guardrail.py  PLUGIN: trained micro-models (fr + en, ~250 KB each)
+├── llm_judge.py     PLUGIN: tier-2 judge — local LLM, house taxonomy (ADR 015)
+├── tiering.py       PLUGIN: tiered scan — regex → ML → judge on doubt (ADR 016)
+├── fleet.py         HUB v0: fleet-anchor / fleet-verify over merkle.py (ADR 017)
+└── llm_agent.py     PLUGIN DEMO: real Ollama agent behind the guarded pipeline
+```
 
 ## API
 
@@ -330,24 +360,25 @@ The metadata routes (`/activity`, `/attestation*`) expose aggregates and digests
 - `pii_request` — "give me the passwords / banking data"
 - `tool_abuse` — "run DROP TABLE / rm -rf / curl"
 
-The corpus ships in the release. Tiering architecture:
-[ADR 001](docs/ADRs.md).
+See `corpus/attaques.json`. Extending = add regex patterns or dataset
+examples, then `make train`.
 
-## The release test suite (392 tests at v0.21.0)
+## Tests
 
-Cryptography (tampering, reordering, wrong key), regex and **ML guardrails
-on held-out sentences in FR and EN**, the guarded pipeline with a stub LLM,
-API agent, MCP server, SDK client against a **real uvicorn server**
-(ephemeral port), **OAuth2 JWT auth + rate limiting + DPO-ready PDF
-attestation + RFC 3161 anchoring against a real local TSA (incl. the insider
-chain-regeneration attack)**, the sealed receipts, key custody (keyholder on
-a unix socket, PKCS#11 on SoftHSM2) and the full third-party verifier
-contract. Everything replays locally from the release tag.
+392 tests: cryptography (tampering, reordering, wrong key), regex and **ML
+guardrails on held-out sentences in FR and EN**, the guarded pipeline with a
+stub LLM (no Ollama needed, runs in CI), API agent, MCP server, SDK
+client against a **real uvicorn server** (ephemeral port), real LLM agent
+(skipped if Ollama is absent), **OAuth2 JWT auth + rate
+limiting + DPO-ready PDF attestation + RFC 3161 anchoring against a real
+local TSA (incl. the insider chain-regeneration attack)**, and the full
+third-party verifier contract. Everything replays locally: `make test`
+re-trains both language models and runs the full suite.
 
-**The SCAR replay suite is a differential, not just a test suite** — the four attack fixtures from Randal L. Schwartz's gate-attack catalog (plus the canary-witness race, SCAR-PROC-114) replayed against this reconciliation layer, each asserting what it does: catches the attack, or confesses the gap in writing. Grading, claims format and the Level 0/1/2 enforcement taxonomy: [docs/SCAR-BENCH.md](docs/SCAR-BENCH.md).
+**The SCAR replay suite is a differential, not just a test suite** — the four attack fixtures from Randal L. Schwartz's gate-attack catalog (plus the canary-witness race, SCAR-PROC-114) replayed against this reconciliation layer, each asserting what it does: catches the attack, or confesses the gap in writing. Run it against YOUR gate: `make differential`. Grading, claims format and the Level 0/1/2 enforcement taxonomy: [docs/SCAR-BENCH.md](docs/SCAR-BENCH.md).
 
-**Static security scanning** ran in CI ([Bandit](https://bandit.readthedocs.io/),
-failing on MEDIUM and above); every recurring LOW finding is baselined with its
+**Static security scanning** runs in CI ([Bandit](https://bandit.readthedocs.io/),
+fails on MEDIUM and above); every recurring LOW finding is baselined with its
 justification in [docs/SECURITY-BASELINE.md](docs/SECURITY-BASELINE.md) — no
 silent noise.
 
@@ -362,6 +393,31 @@ the integrity of the journal — the verifier ships as a GitHub Action
     noirebox-ref: v0.16.0  # pin the verifier ref — reproducible audits
 ```
 
+## Roadmap
+
+What remains. Everything shipped lives in the [CHANGELOG](CHANGELOG.md) and
+the [ADRs](docs/ADRs.md) — this section only holds what is still open.
+
+- [ ] Fleet hub console: scheduled aggregation, alerting — the v0 seal/verify primitives shipped ([ADR 017](docs/ADRs.md))
+- [ ] HSM signing on REAL hardware — the PKCS#11 interface is shipped
+      (`P11Signer` + `keyholder --pkcs11-*`, CI-proven on SoftHSM2;
+      [ADR 020 amendment](docs/ADRs.md)); what remains is a real module
+      pin (YubiHSM2 / Nitrokey / cloud HSM) and the extractability claims
+      that only silicon makes true
+- [x] **The keyholder: the registrar key lives in a PROCESS, not a file** —
+      the PEM loads once into `noirebox keyholder` and never leaves it;
+      signers get a unix socket (`SocketSigner` is a drop-in for `KeyPair`),
+      `--allow-uid` gates the peer and fails closed ([ADR 020
+      amendment](docs/ADRs.md)); the PKCS#11 bridge ships in 0.16.0
+      (`P11Signer` behind the same daemon). Where agent and operator share a
+      uid AND the socket, the gate is the filesystem's — stated, not hidden.
+- [x] **The authority ladder, as a page** — [docs/AUTHORITY-LADDER.md](docs/AUTHORITY-LADDER.md):
+      caller argument → store writer → sealed registry → pinned registrar →
+      keyholder custody. Each rung: what it closed, the residue it exposed,
+      the test that bites — and the standing-premises table the next probe
+      reads before it descends.
+- [ ] Randal's frontier leg — the landing pad is merged (#73), awaiting the PR
+
 ## Support
 
 NoireBox is free and MIT — verification included, forever. If it saved you
@@ -375,5 +431,4 @@ NoireBox is created and maintained by [@slabbdev](https://github.com/slabbdev) �
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Past releases (through v0.21.0) remain MIT;
-the documentation in this repository is MIT too.
+MIT — see [LICENSE](LICENSE).
