@@ -59,6 +59,8 @@ section { scroll-margin-top: 24px; }
 }
 .toc a:hover { color: var(--txt); background: rgba(139, 92, 246, .08); }
 .toc a.active { color: var(--violet-soft); border-left-color: var(--violet); background: rgba(139, 92, 246, .1); }
+.toc a.toc-en { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); color: var(--violet-soft); }
+.toc a.toc-en:hover { background: rgba(139, 92, 246, .12); }
 .side-foot { margin-top: auto; padding-top: 18px; display: flex; gap: 14px; font-size: 13px; }
 .side-foot a { color: var(--dim); text-decoration: none; }
 .side-foot a:hover { color: var(--violet-soft); }
