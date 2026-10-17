@@ -12,6 +12,7 @@
 [![Lint: ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Image on GHCR](https://img.shields.io/badge/image-ghcr.io%2Fnoirebox%2Fnoirebox-blue)](https://github.com/noirebox/noirebox/pkgs/container/noirebox)
 [![Made in France](https://img.shields.io/badge/made%20in-France-blue)](#)
+[![DOI](https://zenodo.org/badge/1380362407.svg)](https://doi.org/10.5281/zenodo.23442280)
 
 **Your AI agent writes meeting notes that bind your clients.
 Eighteen months from now — who can prove what it *exactly* produced, and why?**
