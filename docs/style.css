@@ -129,6 +129,9 @@ pre.code {
 pre.code .c { color: var(--dimmer); }
 pre.code code { background: none; padding: 0; }
 pre.layout { color: var(--dim); white-space: pre; }
+figure.diagram { margin: 14px 0; overflow-x: auto; }
+figure.diagram img { display: block; width: 100%; min-width: 640px; height: auto; border-radius: 10px; border: 1px solid var(--line-strong); background: #fff; }
+figure.diagram figcaption { color: var(--dimmer); font-size: 13px; margin-top: 8px; }
 
 /* ── tables ─────────────────────────────────── */
 table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
