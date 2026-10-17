@@ -170,6 +170,15 @@ class Finding:
                            newest anchor than the cadence allows: the
                            custody grade drifted, silently — retention is
                            the only grade that is wrong by drift (§20)
+        admission_gap      — foreign-sourced material used with no ADMISSION
+                           receipt backing it: the promotion happened on the
+                           resource's own presence/relevance/plausibility,
+                           not on an independent basis (ADR 026 — the
+                           receipt_gap finding, one transition deeper)
+        admission_ownership_undeclared — a material-bearing use declares no
+                           participation_ownership: the field the admission
+                           discipline exists for, absent — reported, never
+                           folded into clean (ADR 026)
     """
 
     invariant: str
@@ -1602,3 +1611,196 @@ def custody_grade(events: list[dict], *, max_tail_events: int = 1000,
                       "the TSA's signing duty (RFC 3161) covers the "
                       "anchored prefix; the tail rests on the operator",
     }
+
+
+# --- ADR 026 — admission receipts: seal the basis, not only the act ---------
+
+_ADMITTED_TRANSITIONS = frozenset({
+    # Lin's four invalid promotions, named (ADR 026): each is the transition
+    # whose absence of an independent basis his §6.3 caught live.
+    "visibility→admission",
+    "capability→move",
+    "relevance→payload",
+    "style→stance",
+})
+_ADMISSION_BASES = frozenset({"user-instruction", "receipt-seq", "scope-grant"})
+_ADMISSION_DECISIONS = frozenset({
+    "admitted", "denied", "admission_undecidable", "admission_check_not_run",
+})
+_ADMISSION_OWNERSHIP = frozenset({"same", "foreign", "shared"})
+
+
+def seal_admission(store, key, *, actor: str, origin: str, surface: str,
+                   transition: str, basis_kind: str, basis_ref: str,
+                   decision: str, participation_ownership: str,
+                   refs: dict | None = None,
+                   scope: str | None = None,
+                   note: str | None = None) -> dict:
+    """Seals one ADMISSION receipt (ADR 026): the promotion itself becomes a
+    signed event — `{actor, source (origin + surface), transition, basis,
+    decision, participation_ownership, scope}` — so "who was entitled to
+    originate this" rests on the journal, not on runtime state nobody
+    witnesses (Lin's `resident_admission` was the silently-promotable
+    resource; here it is an event the chain locks).
+
+    The vocabularies are BOUNDED (the v0.3.0 lesson):
+
+    - `transition` — Lin's four invalid promotions, named;
+    - `basis_kind` — the INDEPENDENT bases only: a user-instruction ref, a
+      prior receipt `seq` (`receipt-seq`, digits), an explicit scope grant.
+      Presence, relevance, plausibility, usefulness are laws 1–8's negative
+      space — the enum refuses to encode them as a basis;
+    - `decision` — fails closed: `admitted` | `denied` |
+      `admission_undecidable` | `admission_check_not_run` (a check that did
+      not run is its own state, never clean — the `scope_check_not_run`
+      lineage, ADR 019);
+    - `participation_ownership` — `same` | `foreign` | `shared`.
+
+    `refs` carries the correlation fields the reconciler joins on (e.g.
+    `{"session_id": "s1"}`), copied verbatim into the payload — the journal
+    stays domain-blind to WHICH key the deployment correlates on."""
+    if not str(actor or "").strip():
+        raise ValueError("admission: actor is required — a name, not a role "
+                         "(ADR 021)")
+    if not str(origin or "").strip():
+        raise ValueError("admission: origin is required — where the material "
+                         "came from")
+    if not str(surface or "").strip():
+        raise ValueError("admission: surface is required — the channel it "
+                         "arrived on")
+    if transition not in _ADMITTED_TRANSITIONS:
+        raise ValueError(
+            f"admission: transition must be one of {sorted(_ADMITTED_TRANSITIONS)} "
+            "— Lin's four promotions are a protocol vocabulary, not a sentence")
+    if basis_kind not in _ADMISSION_BASES:
+        raise ValueError(
+            f"admission: basis_kind must be one of {sorted(_ADMISSION_BASES)} "
+            "— presence, relevance, plausibility and usefulness are the "
+            "negative space this field refuses to encode as a basis (laws 1–8)")
+    basis_ref = str(basis_ref or "").strip()
+    if not basis_ref:
+        raise ValueError("admission: basis_ref is required — WHICH instruction, "
+                         "receipt seq or grant the promotion rests on")
+    if basis_kind == "receipt-seq" and not basis_ref.isdigit():
+        raise ValueError("admission: a receipt-seq basis cites a prior receipt's "
+                         "seq — digits, not prose")
+    if decision not in _ADMISSION_DECISIONS:
+        raise ValueError(
+            f"admission: decision must be one of {sorted(_ADMISSION_DECISIONS)}")
+    if participation_ownership not in _ADMISSION_OWNERSHIP:
+        raise ValueError(
+            f"admission: participation_ownership must be one of "
+            f"{sorted(_ADMISSION_OWNERSHIP)}")
+    if refs is not None and (not isinstance(refs, dict) or not refs or
+                             any(not str(k).strip() for k in refs)):
+        raise ValueError("admission: refs must be a non-empty dict of "
+                         "correlation fields")
+    if scope is not None and not str(scope or "").strip():
+        raise ValueError("admission: scope, when present, must be a non-empty "
+                         "string — WHAT the admission covers")
+    payload: dict = {
+        "schema": "admission/0.1",
+        "actor": actor.strip(),
+        "source": {"origin": origin.strip(), "surface": surface.strip()},
+        "transition": transition,
+        "basis": {"kind": basis_kind, "ref": basis_ref},
+        "decision": decision,
+        "participation_ownership": participation_ownership,
+    }
+    if refs:
+        payload.update(refs)
+    if scope is not None:
+        payload["scope"] = str(scope).strip()
+    if note is not None and str(note).strip():
+        payload["note"] = str(note).strip()
+    return store.append("admission", payload, key)
+
+
+def check_admission_basis(events: list[dict], *, use_type: str,
+                          correlation_key: str = "session_id",
+                          admission_type: str = "admission") -> list[Finding]:
+    """The admission joins (ADR 026): downstream use of foreign-sourced
+    material requires the citing actor's OWN admission receipt — sealed
+    EARLIER, decided `admitted`, for the SAME origin.
+
+    - a material-bearing use (payload carries `source.origin`) declaring
+      `participation_ownership` ∈ {foreign, shared} with no such receipt is
+      `admission_gap` — the `receipt_gap` finding, one transition deeper:
+      attribution correct, admission basis absent (Lin's §6.3);
+    - a use carrying `source` but declaring NO ownership is
+      `admission_ownership_undeclared` — the skip is reported, never folded
+      into clean (the undeclared-channel discipline);
+    - `same` ownership owes nothing.
+
+    The note names the state on file: a receipt that reads `denied`,
+    `admission_undecidable` or `admission_check_not_run` proves nothing; a
+    receipt sealed AFTER the use does not resurrect the count (the attempt
+    lineage, ADR 020). When the use names no `actor`, the own-receipt
+    discipline degrades to origin-level — the join says what it could
+    verify, the docstring says so here. Clean coverage returns an empty
+    list; seal the findings like any report."""
+    if not str(use_type or "").strip():
+        raise ValueError("admission: use_type is required — which event type "
+                         "consumes material")
+    admissions = [e for e in events
+                  if e.get("type") == admission_type
+                  and str(e.get("payload", {}).get("schema", "")).startswith("admission/")]
+    findings: list[Finding] = []
+    for e in events:
+        if e.get("type") != use_type:
+            continue
+        payload = e.get("payload", {})
+        source = payload.get("source")
+        if not isinstance(source, dict) or not str(source.get("origin", "")).strip():
+            continue  # not material-bearing — nothing to admit
+        key_value = payload.get(correlation_key)
+        if key_value is None:
+            continue
+        key_value = str(key_value)
+        ownership = payload.get("participation_ownership")
+        if not ownership:
+            findings.append(Finding(
+                "admission", "admission_ownership_undeclared", key_value,
+                decision_seq=e["seq"],
+                note="the use carries source but declares no "
+                     "participation_ownership — the field the admission "
+                     "discipline exists for; undeclared is the same "
+                     "invisibility the schema refuses elsewhere"))
+            continue
+        if ownership not in ("foreign", "shared"):
+            continue  # own material — nothing owed
+        origin = str(source["origin"])
+        actor = payload.get("actor")
+        candidates = [a for a in admissions
+                      if str(a.get("payload", {}).get(correlation_key)) == key_value
+                      and str(a.get("payload", {}).get("source", {})
+                              .get("origin", "")) == origin
+                      and a["seq"] < e["seq"]
+                      and (actor is None or a.get("payload", {}).get("actor") == actor)]
+        if any(a["payload"]["decision"] == "admitted" for a in candidates):
+            continue
+        on_file = sorted({a["payload"]["decision"] for a in candidates})
+        later = [a for a in admissions
+                 if str(a.get("payload", {}).get(correlation_key)) == key_value
+                 and str(a.get("payload", {}).get("source", {})
+                         .get("origin", "")) == origin
+                 and a["seq"] > e["seq"]
+                 and (actor is None or a.get("payload", {}).get("actor") == actor)]
+        if on_file:
+            reason = (f"the admission receipt on file for this origin reads "
+                      f"{'/'.join(on_file)} — a receipt that does not admit "
+                      f"proves nothing; undecidable is never clean")
+        elif any(a["payload"]["decision"] == "admitted" for a in later):
+            reason = ("the only admission receipt for this origin was sealed "
+                      "AFTER the use — appended after the fact does not "
+                      "resurrect the count (the attempt lineage, ADR 020)")
+        else:
+            reason = ("no admission receipt for this origin — the promotion "
+                      "happened on the resource's own presence, attribution "
+                      "correct, admission basis absent (Lin's §6.3)")
+        findings.append(Finding(
+            "admission", "admission_gap", key_value,
+            decision_seq=e["seq"],
+            note=f"foreign-sourced material used with no admission receipt "
+                 f"backing it — {reason}"))
+    return findings

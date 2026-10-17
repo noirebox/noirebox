@@ -243,6 +243,37 @@ def main(argv: list[str] | None = None) -> int:
                              "witness = min(authoring, retention) (§20)")
     cg.add_argument("--max-tail-events", type=int, default=1000)
     cg.add_argument("--db", default=None, help="journal path")
+    adm = sub.add_parser("seal-admission",
+                         help="seal an ADMISSION receipt (ADR 026) — the "
+                              "promotion itself becomes a signed event: who, "
+                              "from which surface, on what independent basis, "
+                              "admitted or refused")
+    adm.add_argument("--actor", required=True,
+                     help="who performs the promotion (a name, not a role)")
+    adm.add_argument("--origin", required=True,
+                     help="where the material came from")
+    adm.add_argument("--surface", required=True,
+                     help="the channel it arrived on")
+    adm.add_argument("--transition", required=True,
+                     help="visibility→admission | capability→move | "
+                          "relevance→payload | style→stance (bounded)")
+    adm.add_argument("--basis-kind", required=True,
+                     help="user-instruction | receipt-seq | scope-grant — "
+                          "an INDEPENDENT basis (ADR 026)")
+    adm.add_argument("--basis-ref", required=True,
+                     help="which instruction, receipt seq or grant "
+                          "(receipt-seq cites digits)")
+    adm.add_argument("--decision", required=True,
+                     help="admitted | denied | admission_undecidable | "
+                          "admission_check_not_run")
+    adm.add_argument("--ownership", required=True,
+                     help="same | foreign | shared")
+    adm.add_argument("--ref", action="append", default=[], metavar="KEY=VALUE",
+                     help="correlation field the reconciler joins on "
+                          "(repeatable, e.g. --ref session_id=s1)")
+    adm.add_argument("--scope", default=None, help="what the admission covers")
+    adm.add_argument("--note", default=None, help="short human context")
+    adm.add_argument("--db", default=None, help="journal path")
     khs = sub.add_parser("keyholder-status",
                          help="describe a running keyholder: its public key "
                               "(the out-of-band pin value) and the peer check")
@@ -689,6 +720,33 @@ def main(argv: list[str] | None = None) -> int:
         disc = custody_grade(store.all(),
                              max_tail_events=args.max_tail_events)
         print(_json.dumps(disc, indent=2, ensure_ascii=False))
+        return 0
+
+    if args.command == "seal-admission":
+        from noirebox import locate
+        from noirebox.chain import load_instance_key
+        from noirebox.reconcile import seal_admission
+        from noirebox.store import EventStore
+
+        refs = {}
+        for pair in args.ref:
+            if "=" not in pair:
+                print(f"[admission] --ref expects KEY=VALUE, got {pair!r}")
+                return 2
+            k, _, v = pair.partition("=")
+            refs[k.strip()] = v.strip()
+        db = args.db or locate.resolve_journal()
+        store = EventStore(db)
+        key = load_instance_key(db)
+        event = seal_admission(store, key, actor=args.actor, origin=args.origin,
+                               surface=args.surface, transition=args.transition,
+                               basis_kind=args.basis_kind,
+                               basis_ref=args.basis_ref, decision=args.decision,
+                               participation_ownership=args.ownership,
+                               refs=refs or None, scope=args.scope,
+                               note=args.note)
+        print(f"[admission] sealed seq={event.seq} actor={args.actor} "
+              f"decision={args.decision} origin={args.origin}")
         return 0
 
     if args.command == "keyholder-status":
