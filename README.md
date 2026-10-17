@@ -29,8 +29,7 @@ an attestation anyone can verify offline — **without trusting you**.
 [Quickstart](#quickstart) · [Real LLM scene](#the-real-llm-scene-local-ollama) ·
 [Specs](docs/SPECS.md) · [Threat model](docs/THREAT-MODEL.md) ·
 [The authority ladder](docs/AUTHORITY-LADDER.md) ·
-[ADRs](docs/ADRs.md) ·
-[Plans & services](https://noirebox.github.io/noirebox/plans.html)
+[ADRs](docs/ADRs.md)
 
 </div>
 
