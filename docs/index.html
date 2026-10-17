@@ -11,7 +11,7 @@
 <meta property="og:url" content="https://code.noirebox.eu/">
 <meta property="og:image" content="https://code.noirebox.eu/assets/banner.jpg">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="style.css?v=31">
+<link rel="stylesheet" href="style.css?v=32">
 </head>
 <body>
 
@@ -97,15 +97,11 @@
   any stack. The verification never contacts the server: the export plus
   <code>openssl</code> is the whole trust surface.
 </p>
-<pre class="code">transcript ──▶ guardrail (regex | ml | tiered llm) ──▶ agent (any)
-                    │ incident                         │ llm_call / llm_output
-                    ▼                                  ▼
-              ┌───────────────── TAMPER-EVIDENT JOURNAL ─────────────────┐
-              │  SQLite append-only · SHA-256 chain · Ed25519           │
-              └───────────────────────────┬─────────────────────────────┘
-                     GET /api/v1/export   │  GET /api/v1/attestation
-                                         ▼
-              export.json ──▶ verifier.py (third party, offline) → exit 0|1|2</pre>
+<figure class="diagram">
+  <img src="assets/architecture.png" width="1774" height="887"
+    alt="End-to-end architecture. A transcript flows through the guardrail — regex, ML or tiered LLM engines — into any agent; the incident verdict and the agent's llm_call / llm_output events drop into the tamper-evident journal (SQLite append-only, SHA-256 chain, Ed25519), drawn as a row of sealed documents chained together. GET /api/v1/export and GET /api/v1/attestation produce export.json and attestation.json, which verifier.py — third party, offline — checks to a verdict: exit 0 valid, exit 1 invalid (tampered), exit 2 anchoring unproven.">
+  <figcaption>The whole trust surface in one picture: sealed at runtime, exported, verified offline by a third party — exit 0 valid · 1 tampered · 2 anchoring unproven (verifier contract below).</figcaption>
+</figure>
 <div class="cols">
   <div>
     <h3>Properties</h3>
@@ -587,6 +583,6 @@ demo/                 runnable end-to-end scenes</pre>
 
 </main>
 
-<script src="script.js?v=31"></script>
+<script src="script.js?v=32"></script>
 </body>
 </html>
