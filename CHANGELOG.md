@@ -3,6 +3,43 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versioning according to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Admission receipts — `admission/0.1` (ADR 026, shipped as code)** — the
+  promotion itself becomes a signed event: `{actor, source (origin +
+  surface), transition, basis, decision, participation_ownership, scope}`,
+  with bounded vocabularies throughout. `transition` is Lin's four invalid
+  promotions (`visibility→admission`, `capability→move`,
+  `relevance→payload`, `style→stance`); `basis_kind` admits the
+  INDEPENDENT bases only (`user-instruction`, `receipt-seq` — digits,
+  `scope-grant`), refusing to encode presence, relevance, plausibility or
+  usefulness as a basis (laws 1–8's negative space); `decision` fails
+  closed (`admitted` | `denied` | `admission_undecidable` |
+  `admission_check_not_run`); `participation_ownership` ∈ `same` |
+  `foreign` | `shared`. `seal_admission` seals it, the new
+  `noirebox seal-admission` CLI command exposes it.
+- **`check_admission_basis`** — the reconciler join: downstream use of
+  foreign-sourced material must reconcile against the citing actor's OWN
+  admission receipt, sealed EARLIER, decided `admitted`, for the same
+  origin. A use covered by nothing reads `admission_gap` (the
+  `receipt_gap` finding, one transition deeper); a receipt on file that
+  does not admit proves nothing; a receipt sealed after the use
+  resurrects nothing (the ADR 020 attempt lineage); a material-bearing
+  use that declares no `participation_ownership` reads
+  `admission_ownership_undeclared` — reported, never folded into clean.
+  Sixteen named tests.
+- **SCAR-BENCH gains the admission axis** (docs/SCAR-BENCH.md §7): vary
+  admission rights and actor identity, keep the substantive task fixed,
+  grade receipts of the PATH — Lin's §6.3 metric, never the answer text.
+
+The industrial arrival that pulled the date in: fcn06's Trust Gateway
+post ("Who is this agent, and who sent it?") ends on the open question
+this schema answers — where does the admit/deny decision live once the
+connection closes. The ADR's academic half (You-An Lin, Paper II §6.3)
+had the contract; the gateway thread is the first external consumer.
+
 ## [0.21.0] — 2026-10-15
 
 ### Security

@@ -903,6 +903,11 @@ same honesty rules (undecidable named, skipped checks reported,
 disclosure ≠ violation). This ADR ships the contract; the schema, the
 check, and the fixtures land in 0.22.0. The paper asked for an
 admission-sensitive benchmark; it should find one already running.
+(2026-10-17, while the ink dried: the corridor grew an industrial
+arrival — fcn06's Trust Gateway post, "Who is this agent, and who sent
+it?", ends on the open question this schema answers, where the
+admit/deny decision lives once the connection closes. The schema, the
+check and the fixtures shipped the same week.)
 
 ## ADR 027 — Post-quantum evidence: hybrid signing behind the signer interface
 

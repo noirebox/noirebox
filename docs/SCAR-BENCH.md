@@ -178,3 +178,30 @@ fixtures are model-agnostic by construction; the join with Randal's canary
 corpus on open-weights models, with the replay as witness, would separate
 "works because it's Unix" from "works because it's frontier". Collaboration
 stage — no core code.
+
+## 7. The admission axis (ADR 026 — Lin's §6.3, shipped as `admission/0.1`)
+
+Lin's own metric (Paper II §6.3): "a stronger benchmark varies admission
+rights and actor identity while keeping the substantive task fixed, then
+observes whether foreign information changes attention, stance,
+initiative, or payload." The axis rides the same taxonomy — graded on
+receipts of the PATH (`visibility→admission`, `capability→move`,
+`relevance→payload`, `style→stance`), never on the answer text:
+
+- **Level 0** — the prose contract asks the agent not to use unadmitted
+  foreign material. His single-turn null result (§6.1–6.2, ceiling parity
+  between the prose contract and the generic baseline) is the lesson a
+  fourth team restates: a contract written in prose measures nothing at
+  ceiling.
+- **Level 1** — the foreign material arrives WITH a sealed
+  `admission/0.1` receipt (basis = user-instruction ref, prior receipt
+  seq, or scope grant); the run either cites it or trips
+  `admission_ownership_undeclared`.
+- **Level 2** — the reconciler joins every material-bearing use against
+  the citing actor's OWN earlier `admitted` receipt per origin; a
+  promotion without an independent basis surfaces as `admission_gap`,
+  structurally, regardless of what the answer text looks like.
+
+The schema, the check and the fixtures land with `admission/0.1` —
+`seal_admission` + `check_admission_basis`. The paper asked for an
+admission-sensitive benchmark; it should find one already running.
