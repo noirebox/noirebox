@@ -3,359 +3,123 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NoireBox — Preuves, pas promesses. Pistes d'audit infalsifiables pour agents IA</title>
-<meta name="description" content="Chaque décision de votre agent IA — scellée dans un journal infalsifiable, horodatée par un témoin externe, prouvable par n'importe qui. Sans faire confiance à personne.">
-<meta property="og:title" content="NoireBox — Preuves, pas promesses">
-<meta property="og:description" content="Pistes d'audit infalsifiables pour agents IA : chaînage par hash, signatures, horodatage par un témoin externe, vérifiable hors-ligne.">
-<meta property="og:type" content="website">
-<meta property="og:image" content="https://noirebox.github.io/noirebox/assets/banner.jpg">
-<meta property="og:image:width" content="1672">
-<meta property="og:image:height" content="941">
-<meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="style.css?v=27">
+<title>NoireBox — référence technique (résumé en français)</title>
+<meta name="description" content="NoireBox en bref, en français : journal infalsifiable pour agents IA — chaînage SHA-256, signatures Ed25519, ancrage RFC 3161, vérification hors-ligne. La référence développeur complète est en anglais.">
+<link rel="stylesheet" href="style.css?v=30">
+<style>main { margin-left: 0; }</style>
 </head>
 <body>
 
-<div class="progress" id="progress"></div>
+<main id="content">
 
-<!-- ═══════════════ NAV ═══════════════ -->
-<nav class="nav">
-  <a class="brand" href="#top"><span class="brand-cube"></span>NOIRE<span>BOX</span></a>
-  <div class="nav-links">
-    <a href="#core">Le journal</a>
-    <a href="#plugin">Garde-fou</a>
-    <a href="#witness">Témoin</a>
-    <a href="#proof">Preuve</a>
-    <a href="#api">API</a>
-    <a href="https://github.com/noirebox/noirebox" target="_blank" class="nav-github">★ GitHub</a>
-    <a href="index.html" class="nav-flag" title="English version" lang="en">🇬🇧</a>
+<header class="head">
+  <p class="kicker">// code.noirebox.eu — résumé en français. La référence complète est en anglais.</p>
+  <h1>NoireBox <span class="ver">v0.21.0</span></h1>
+  <p class="lede">
+    La boîte noire des agents IA : chaque événement — appel de modèle, sortie,
+    incident, décision — est <strong>scellé</strong> dans un journal en annexe
+    seule, chaîné par SHA-256, signé en Ed25519, horodaté par des témoins
+    externes (RFC 3161, OpenTimestamps/Bitcoin). N'importe qui — auditeur,
+    DPO, client — peut revérifier l'intégralité hors-ligne,
+    <strong>sans vous faire confiance</strong>.
+  </p>
+  <div class="badges">
+    <a href="https://pypi.org/project/noirebox/" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/v/noirebox" alt="PyPI"></a>
+    <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT">
+    <img src="https://img.shields.io/badge/tests-392%20·%200%20failing-brightgreen" alt="tests">
   </div>
-</nav>
-
-<!-- ═══════════════ HERO — la bannière, en live ═══════════════ -->
-<header class="hero" id="top">
-  <div class="hero-inner">
-    <p class="kicker">// PISTES D'AUDIT INFALSIFIABLES POUR AGENTS IA</p>
-    <h1 class="wordmark">Noire<span class="wm-grad">Box</span></h1>
-    <p class="tagline">Preuves, pas promesses</p>
-
-    <p class="hero-sub">
-      Chaque décision de votre agent IA — scellée dans un journal chaîné par hash et
-      signé, horodaté par un témoin externe. Vérifiable hors-ligne, par n'importe qui,
-      <strong>sans faire confiance à personne.</strong>
-    </p>
-
-    <div class="gh-badges">
-      <span class="gh-badge"><i>RGPD</i><b>prêt</b></span>
-      <span class="gh-badge"><i>AI ACT</i><b>art. 12</b></span>
-      <span class="gh-badge"><i>fabriqué dans</i><b>les Vosges 🇫🇷</b></span>
-    </div>
-
-    <div class="cta-row">
-      <a class="btn btn-light" href="https://github.com/noirebox/noirebox#quickstart" target="_blank">Démarrer — auto-hébergé</a>
-      <a class="btn btn-ghost" href="#core">Voir la preuve ↓</a>
-    </div>
-
-    <ul class="stats">
-      <li><strong>392</strong><span>tests verts</span></li>
-      <li><strong>0,6 Mo</strong><span>wheel, modèles inclus</span></li>
-      <li><strong>0,17 ms</strong><span>par événement scellé</span></li>
-      <li><strong>250 Ko</strong><span>détecteur par langue</span></li>
-    </ul>
-
-    <div class="install-pill">
-      <code id="install-cmd">git clone https://github.com/noirebox/noirebox &amp;&amp; cd noirebox &amp;&amp; ./start.sh</code>
-      <button class="copy-btn" id="copy-install" title="Copier la commande" aria-label="Copier la commande d'installation">⧉</button>
-    </div>
+  <div class="install-pill">
+    <code id="install-cmd">pip install noirebox</code>
+    <button class="copy-btn" data-copy="install-cmd" title="Copier" aria-label="Copier la commande d'installation">⧉</button>
   </div>
-
-  <figure class="hero-visual reveal">
-    <img src="assets/banner.webp" width="1672" height="941"
-      alt="Le journal NoireBox dessiné comme une chaîne de blocs scellés #1023 à #1027, chacun portant son hash et sa signature. Le bloc #1025 brille en rouge : son contenu a été réécrit et l'écart de hash révèle la falsification. Une carte d'attestation liste le hash du journal, la racine de Merkle, la signature Ed25519 et l'horodatage — tous vérifiés. Journal append-only · chaîne de hash SHA-256 · signatures Ed25519 · détection d'injection de prompt · attestations & preuves de Merkle.">
-    <figcaption>L'événement #1025 a été réécrit après coup. La chaîne l'a attrapé — tout ce qu'il scellait reste prouvable.</figcaption>
-  </figure>
 </header>
 
-<!-- ═══════════════ TICKER ═══════════════ -->
-<div class="ticker" aria-hidden="true">
-  <div class="ticker-track" id="ticker"></div>
-</div>
-
-<!-- ═══════════════ 01 CŒUR ═══════════════ -->
-<section class="section reveal" id="core">
-  <div class="wrap">
-    <p class="kicker">01 · LE CŒUR</p>
-    <h2>Un journal.<br><span class="grad">Nothing else matters.</span> 🤘</h2>
-    <p class="lede">
-      Le journal EST le produit : chaîné par hash, signé, append-only, ancré à un
-      témoin extérieur. Il ne sait même pas ce qu'est un agent — un événement, c'est
-      un type et un payload. C'est pourquoi il convient à <em>tout</em> agent, toute
-      stack, toute langue.
-    </p>
-    <div class="chain">
-      <div class="link ok c-blue"><span>#1023</span><code>4f2c6e9a…</code><code>sig ✓</code></div>
-      <div class="chain-arrow">→</div>
-      <div class="link ok c-violet"><span>#1024</span><code>9b7e3c1d…</code><code>sig ✓</code></div>
-      <div class="chain-arrow">→</div>
-      <div class="link bad"><span>#1025 ✗</span><code>e03a9f7c…</code><code>contenu réécrit</code></div>
-      <div class="chain-arrow">→</div>
-      <div class="link dim"><span>#1026</span><code>7c9d2e1b…</code><code>hash précédent ✗</code></div>
-      <div class="chain-arrow">→</div>
-      <div class="link dim"><span>#1027</span><code>a1f3b9d4…</code><code>invérifiable</code></div>
+<section>
+  <h2><a href="#pourquoi" class="anchor">§</a>Pourquoi</h2>
+  <p>Votre agent IA rédige des comptes rendus qui <strong>engagent</strong>. Six mois plus tard, qui peut prouver
+  <em>exactement</em> ce qu'il a produit, sur quel entrant, avec quel outil — et que le journal n'a pas été modifié depuis ?
+  Les outils d'observabilité servent à déboguer ; leurs logs restent modifiables. NoireBox produit un dossier qu'un tiers
+  revérifie arithmétiquement, hors-ligne.</p>
+  <div class="cols">
+    <div>
+      <h3>Ce que ça garantit</h3>
+      <ul class="tight">
+        <li><strong>Annexe seule</strong> — pas d'UPDATE, pas de DELETE ; 0,17 ms par événement scellé</li>
+        <li><strong>Falsification localisée</strong> — réécriture, insertion, suppression : détectées à l'événement exact</li>
+        <li><strong>Non-répudiation</strong> — Ed25519 ; la clé peut vivre hors du disque (démon keyholder, token PKCS#11)</li>
+        <li><strong>Temps externe</strong> — ancrage RFC 3161 multi-TSA ; seuls 32 octets de hash sortent</li>
+        <li><strong>Indécidable ≠ propre</strong> — chaque état non prouvé est nommé, jamais fondu dans un OK</li>
+      </ul>
     </div>
-    <div class="pipeline" aria-label="Comment une décision devient une preuve">
-      <span class="pl-step">Décision IA</span>
-      <span class="pl-arrow">→</span>
-      <span class="pl-step">SHA-256</span>
-      <span class="pl-arrow">→</span>
-      <span class="pl-step">Ed25519</span>
-      <span class="pl-arrow">→</span>
-      <span class="pl-step">TSA · RFC 3161</span>
-      <span class="pl-arrow">→</span>
-      <span class="pl-step ok">✓ enregistrement immuable</span>
-    </div>
-    <div class="grid-3">
-      <div class="card"><h3>Chaîné par hash</h3><p>Chaque événement s'engage sur le précédent. Insertion, suppression, réécriture — détectées, et localisées à l'événement près.</p></div>
-      <div class="card"><h3>Signé</h3><p>Sceaux Ed25519 depuis une clé qui ne quitte jamais votre infrastructure — ni votre process, ni votre token : la custody de la clé jusqu'au matériel (keyholder, PKCS#11). Un journal forgé — même parfaitement re-chaîné — échoue.</p></div>
-      <div class="card"><h3>Append-only</h3><p>SQLite sans UPDATE, sans DELETE. Écrire est la seule opération qui existe. Événements signés en 0,21 ms.</p></div>
+    <div>
+      <h3>Ce que ce n'est pas</h3>
+      <ul class="tight">
+        <li>Pas une blockchain — un émetteur, un vérificateur, pas de taxe de consensus</li>
+        <li>Pas un outil d'observabilité — déboguer ≠ prouver</li>
+        <li>Pas une certification — un composant qui énonce son périmètre (modèle de menace)</li>
+        <li>Pas du SaaS — auto-hébergé, zéro télémétrie, un fichier SQLite par journal</li>
+      </ul>
     </div>
   </div>
 </section>
 
-<!-- ═══════════════ 02 PLUGIN ═══════════════ -->
-<section class="section alt reveal" id="plugin">
-  <div class="wrap">
-    <p class="kicker">02 · GARDE-FOUS</p>
-    <h2>La prévention est fongible.<br><span class="grad">La preuve est universelle.</span></h2>
-    <p class="lede">
-      Vous avez déjà Lakera, Llama Guard, votre LLM-juge ou vos propres regex ?
-      <strong>Gardez-les.</strong> Un garde-fou n'est qu'une source d'événements —
-      journalisez ses verdicts et ses détections deviennent inaltérables au lieu
-      de finir dans des logs réinscriptibles.
-    </p>
-    <div class="sources">
-      <div class="source"><span class="dot g"></span><div><strong>Votre garde-fou</strong><em>ses verdicts, en événements</em></div></div>
-      <div class="source"><span class="dot g"></span><div><strong>Votre agent</strong><em>llm_call · llm_output · eval</em></div></div>
-      <div class="source"><span class="dot b"></span><div><strong>Plugin embarqué</strong><em>regex + 250 Ko de ML, fr &amp; en</em></div></div>
-    </div>
-    <div class="plug-flow" aria-label="Intégration sans effort">
-      <span class="pf-chip">OpenAI</span>
-      <span class="pf-chip">Claude</span>
-      <span class="pf-chip">LangGraph</span>
-      <span class="pf-chip">CrewAI</span>
-      <span class="pf-chip">Agent maison</span>
-      <span class="pf-arrow">→</span>
-      <span class="pf-chip hot">NoireBox</span>
-      <span class="pf-arrow">→</span>
-      <span class="pf-chip ok">Piste d'audit immuable</span>
-    </div>
-    <p class="note mono">Pas de lock-in modèle. Pas de réécriture d'infra. Un seul SDK.</p>
-    <p class="note">Le détecteur embarqué est un exemple fonctionnel du contrat de plugin — remplaçable par design
-      (<a href="https://github.com/noirebox/noirebox/blob/main/docs/ADRs.md">ADR 003</a> : le Prompt Guard de Meta évalué puis écarté, chemin d'intégration documenté).</p>
-  </div>
+<section>
+  <h2><a href="#demarrage" class="anchor">§</a>Démarrage</h2>
+  <pre class="code">pip install noirebox          <span class="c"># le moteur ML (FR + EN) est dans la roue</span>
+noirebox serve                <span class="c"># API sur http://127.0.0.1:8768 — OpenAPI à /docs</span>
+
+curl -X POST http://127.0.0.1:8768/api/v1/events \
+  -d '{"type":"llm_call","payload":{"model":"…"}}'   <span class="c"># sceller un événement</span>
+curl -X POST http://127.0.0.1:8768/api/v1/anchors    <span class="c"># sceller la tête de chaîne (RFC 3161)</span>
+curl -s http://127.0.0.1:8768/api/v1/export > export.json
+
+python verifier/verifier.py export.json
+<span class="c"># exit 0 = intact et témoins vérifiés · 1 = cassé · 2 = ancrage non prouvé</span></pre>
+  <p>Ou Docker : <code>docker run -p 8768:8768 ghcr.io/noirebox/noirebox:latest</code></p>
 </section>
 
-<!-- ═══════════════ 03 TÉMOIN ═══════════════ -->
-<section class="section reveal" id="witness">
-  <div class="wrap">
-    <p class="kicker">03 · LE TÉMOIN EXTÉRIEUR</p>
-    <h2>Scellé à l'instant T ☕<br><span class="grad">Le passé est en lecture seule.</span></h2>
-    <p class="lede">
-      Un journal qui se date lui-même ne prouve rien — c'est le suspect qui rédige
-      son propre procès-verbal. L'ancrage RFC 3161 fait signer par une Autorité
-      d'Horodatage externe : <em>« j'ai reçu le hash X à la date T »</em>. Seul un hash
-      de 32 octets sort. Un journal régénéré montre une tête que l'ancien jeton ne
-      couvre pas — et un jeton rétroactif est arithmétiquement impossible.
-    </p>
-    <div class="steps">
-      <div class="step"><span>1</span><div><strong>Hash</strong><em>seulement la tête, jamais la donnée</em></div></div>
-      <div class="step"><span>2</span><div><strong>La TSA signe</strong><em>« hash X reçu à la date T »</em></div></div>
-      <div class="step"><span>3</span><div><strong>Rescellé</strong><em>le jeton devient lui-même un événement</em></div></div>
-    </div>
-    <p class="big-line">Un sceau pour toute la flotte. <span class="grad">Certificate Transparency, pour les agents IA.</span></p>
-    <p class="note">Ancrage de flotte : les têtes de N journaux forment un arbre de Merkle — un seul sceau TSA les couvre tous, et chaque boîtier prouve sa place avec ~11 hash, vérifiables hors-ligne. À notre connaissance, aucun autre outil d'audit d'agents ne le fait. <code>make demo-fleet</code></p>
-    <p class="note mono">make tsa → témoin OpenSSL local, propre chaîne de clés, 0 €, marche hors-ligne. Ou pointez NOIREBOX_TSA_URL vers toute TSA qualifiée.</p>
-  </div>
+<section>
+  <h2><a href="#surface" class="anchor">§</a>La surface technique</h2>
+  <ul class="tight">
+    <li><strong>API HTTP</strong> — 12 routes FastAPI, OpenAPI interactif, auth JWT optionnelle</li>
+    <li><strong>CLI</strong> — 20 sous-commandes : sceller, vérifier, réconcilier, ancrage de flotte, custody-grade…</li>
+    <li><strong>Serveur MCP</strong> — 4 outils agents (scan, log_event, verify, attestation) sur stdio JSON-RPC</li>
+    <li><strong>Hook éditeur/agent</strong> — sceller un tool-use ou une session entière ; extension VS Code / Cursor</li>
+    <li><strong>Garde-fous</strong> — 3 moteurs (regex / ML / juge LLM local) ; le vôtre reste une source d'événements parmi d'autres</li>
+    <li><strong>Conformité UE</strong> — mapping RGPD art. 5(2)/15/20, AI Act art. 12/55(1)(c)/Annexe IV, eIDAS art. 41</li>
+    <li><strong>27 ADRs</strong> — chaque décision d'architecture, avec ce qui a été écarté et pourquoi</li>
+  </ul>
+  <p>La documentation de référence — specs, schémas scellés, contrat de vérification, custody, benchmarks, ADRs —
+  est maintenue <strong>en anglais</strong> dans le dépôt :</p>
+  <p><a href="index.html">Référence développeur complète →</a></p>
 </section>
 
-<!-- ═══════════════ 04 POURQUOI MAINTENANT ═══════════════ -->
-<section class="section alt reveal" id="whynow">
-  <div class="wrap">
-    <p class="kicker">04 · POURQUOI MAINTENANT</p>
-    <h2>L'IA décide plus vite<br><span class="grad">qu'on ne peut l'auditer.</span></h2>
-    <p class="lede">Quand quelque chose tourne mal — incident, litige, régulateur — six questions décident de tout :</p>
-    <div class="why-grid">
-      <div class="why-q">Qu'a <strong>vu</strong> l'agent ?</div>
-      <div class="why-q">Qu'a-t-il <strong>décidé</strong> ?</div>
-      <div class="why-q">Quelle <strong>version de modèle</strong> a tourné ?</div>
-      <div class="why-q">Quels <strong>outils</strong> a-t-il appelés ?</div>
-      <div class="why-q">Qu'a changé <strong>depuis</strong> ?</div>
-      <div class="why-q">Le log a-t-il été <strong>modifié après coup</strong> ?</div>
-    </div>
-    <p class="big-line">NoireBox répond aux six. <span class="grad">Cryptographiquement.</span></p>
-  </div>
+<section>
+  <h2><a href="#liens" class="anchor">§</a>Liens</h2>
+  <table>
+    <tbody>
+      <tr><td class="mono">Référence développeur (EN)</td><td><a href="index.html">code.noirebox.eu</a></td></tr>
+      <tr><td class="mono">README en français</td><td><a href="https://github.com/noirebox/noirebox/blob/main/README.fr.md" target="_blank" rel="noopener">README.fr.md</a></td></tr>
+      <tr><td class="mono">Spécifications</td><td><a href="https://github.com/noirebox/noirebox/blob/main/docs/SPECS.md" target="_blank" rel="noopener">docs/SPECS.md</a></td></tr>
+      <tr><td class="mono">Décisions d'architecture</td><td><a href="https://github.com/noirebox/noirebox/blob/main/docs/ADRs.md" target="_blank" rel="noopener">docs/ADRs.md</a> (27 ADRs)</td></tr>
+      <tr><td class="mono">Modèle de menace</td><td><a href="https://github.com/noirebox/noirebox/blob/main/docs/THREAT-MODEL.md" target="_blank" rel="noopener">docs/THREAT-MODEL.md</a></td></tr>
+      <tr><td class="mono">Code source · MIT</td><td><a href="https://github.com/noirebox/noirebox" target="_blank" rel="noopener">github.com/noirebox/noirebox</a></td></tr>
+    </tbody>
+  </table>
 </section>
 
-<!-- ═══════════════ 05 MESURÉ ═══════════════ -->
-<section class="section reveal" id="measured">
-  <div class="wrap">
-    <p class="kicker">05 · MESURÉ, PAS AFFIRMÉ</p>
-    <h2>Des chiffres reproductibles.<br><span class="grad">Pas des chiffres ressentis.</span></h2>
-    <p class="lede">
-      Chaque métrique ci-dessous est reproductible depuis le dépôt — <code>make test</code>,
-      <code>make train</code>, les commandes de benchmark des specs. Une métrique qu'on
-      ne peut pas reproduire, c'est <em>inconnu</em>, pas un chiffre plus rond.
-    </p>
-    <table class="metrics">
-      <tr><th>Métrique</th><th>Valeur</th><th>Reproduire avec</th></tr>
-      <tr><td>Événement scellé — hash + Ed25519 + commit SQLite</td><td class="m-val">0,17 ms</td><td class="m-how">docs/SPECS.md §6</td></tr>
-      <tr><td>Scan garde-fou, moteur regex (7 lignes)</td><td class="m-val">0,21 ms</td><td class="m-how">docs/SPECS.md §6</td></tr>
-      <tr><td>Scan garde-fou, moteur ML (7 lignes)</td><td class="m-val">10,3 ms</td><td class="m-how">docs/SPECS.md §6</td></tr>
-      <tr><td>Vérification complète, 100 événements</td><td class="m-val">44 ms</td><td class="m-how">verifier/verifier.py, tout export</td></tr>
-      <tr><td>Détecteurs embarqués, FR + EN</td><td class="m-val">293 + 243 Ko</td><td class="m-how">make train · make train-en</td></tr>
-      <tr><td>Phrases d'attaque inédites, FR + EN</td><td class="m-val">12/12</td><td class="m-how">tests/test_ml_guardrail.py</td></tr>
-      <tr><td>Suite de tests</td><td class="m-val">392 verts</td><td class="m-how">make test</td></tr>
-    </table>
-    <p class="note mono">Mesuré sur un MacBook M-series, octobre 2026. Un chiffre, une commande — si une version future ne reproduit pas un chiffre, la table est corrigée, pas gonflée.</p>
-  </div>
-</section>
-
-<!-- ═══════════════ 06 PREUVE ═══════════════ -->
-<section class="section reveal" id="proof">
-  <div class="wrap">
-    <p class="kicker">06 · LA PREUVE</p>
-    <h2>Un fichier. Une commande.<br><span class="grad">Zéro confiance.</span></h2>
-    <p class="lede">
-      Un auditeur, un DPO, un client — reçoit le dossier complet et recalcule la
-      vérité en local. Aucune API à croire, aucun dashboard à avaler.
-      L'arithmétique ne ment pas.
-    </p>
-    <div class="terminal">
-      <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="term-title">auditeur@tiers — aucun identifiant</span></div>
-      <pre id="term-out"></pre>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════ 07 POUR QUI ═══════════════ -->
-<section class="section alt reveal" id="usecases">
-  <div class="wrap">
-    <p class="kicker">07 · POUR QUI</p>
-    <h2>Conçu pour les systèmes qui<br><span class="grad">doivent s'expliquer.</span></h2>
-    <div class="grid-3 uc-grid">
-      <div class="card"><h3>Finance</h3><p>Chaque décision automatisée auditable — scoring crédit, trading, sinistres.</p></div>
-      <div class="card"><h3>Santé</h3><p>Tracer les décisions assistées par IA de bout en bout, pour les patients et les inspecteurs.</p></div>
-      <div class="card"><h3>Juridique</h3><p>Préserver la preuve et la chaîne de custody des documents produits par IA.</p></div>
-      <div class="card"><h3>IA d'entreprise</h3><p>Savoir exactement ce que vos agents ont fait, sur quelle entrée, avec quels outils.</p></div>
-      <div class="card"><h3>Sécurité</h3><p>Détecter la falsification de logs, pas seulement les pannes. Le journal se défend.</p></div>
-      <div class="card"><h3>Secteur public</h3><p>Devoirs de transparence algorithmique satisfaits par construction.</p></div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════ 08 DÉVELOPPEURS ═══════════════ -->
-<section class="section reveal" id="api">
-  <div class="wrap">
-    <p class="kicker">08 · DÉVELOPPEURS</p>
-    <h2>Une API, un SDK, un vérificateur.<br><span class="grad">Rien d'autre à apprendre.</span></h2>
-    <p class="lede">
-      FastAPI, 11 routes documentées, OpenAPI interactive sur <em>/docs</em>.
-      Enregistrez depuis tout ce qui sait envoyer du JSON — votre agent, votre
-      CI, votre cron.
-    </p>
-    <div class="terminal">
-      <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="term-title">dev@votrestack — enregistrer &amp; prouver</span></div>
-      <pre class="term-static">$ git clone https://github.com/noirebox/noirebox &amp;&amp; cd noirebox
-$ ./start.sh                            <span class="t-dim"># tests + API sur :8768 — /docs est en ligne</span>
-
-$ curl -X POST :8768/api/v1/events \
-    -d '{"type":"llm_call","payload":{"model":"gpt-x","prompt":"…"}}'
-
-$ curl -X POST :8768/api/v1/anchors     <span class="t-dim"># scelle la tête de chaîne (RFC 3161)</span>
-$ curl -s :8768/api/v1/export > export.json
-
-$ python verifier/verifier.py export.json
-<span class="t-ok">[✓] INTÈGRE — une preuve, vérifiable par tous, hors-ligne</span></pre>
-    </div>
-
-    <p class="note mono" style="margin-top:20px;letter-spacing:.02em">
-      RÉCUPÉRER —
-      <a href="https://pypi.org/project/noirebox/" style="color:var(--violet-soft)">pip install noirebox</a> ·
-      <a href="https://marketplace.visualstudio.com/items?itemName=noirebox.noirebox" style="color:var(--violet-soft)">VS Code / Cursor — Marketplace</a> ·
-      <a href="https://open-vsx.org/extension/noirebox/noirebox" style="color:var(--violet-soft)">Open VSX</a> ·
-      <a href="https://github.com/noirebox/noirebox/releases/tag/v0.21.0" style="color:var(--violet-soft)">VSIX + sources</a> ·
-      <a href="https://github.com/noirebox/noirebox/pkgs/container/noirebox" style="color:var(--violet-soft)">Docker — GHCR</a>
-    </p>
-    <div class="plug-flow" aria-label="Surface développeur">
-      <span class="pf-chip">FastAPI</span>
-      <span class="pf-chip">OpenAPI · /docs</span>
-      <span class="pf-chip">SDK Python</span>
-      <span class="pf-chip">Serveur MCP · 4 outils agents</span>
-      <span class="pf-chip">Docker</span>
-      <span class="pf-chip ok">11 routes</span>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════ 09 EUROPE ═══════════════ -->
-<section class="section reveal" id="europe">
-  <div class="wrap">
-    <p class="kicker">09 · EUROPE</p>
-    <h2>La régulation arrive.<br><span class="grad">Tracez chaque décision.</span></h2>
-    <p class="lede">Les éditeurs IA européens doivent <em>prouver</em> — pas promettre — ce que leurs systèmes ont fait. NoireBox est construit autour de cette obligation.</p>
-    <div class="grid-4">
-      <div class="card"><h3>AI Act — art. 12</h3><p>Devoirs d'enregistrement des systèmes à risque : journaux automatiques, cryptographiques.</p></div>
-      <div class="card"><h3>RGPD — 5(2) · 15/20</h3><p>Responsabilité et droits des personnes : exports signés, vérifiables par le DPO.</p></div>
-      <div class="card"><h3>ISO 42001</h3><p>Systèmes de management de l'IA : la traçabilité des décisions nourrit l'audit directement.</p></div>
-      <div class="card"><h3>Data Act européen</h3><p>Accès et gouvernance des données : enregistrements portables et vérifiables par construction.</p></div>
-    </div>
-    <p class="big-line">La conformité n'est pas une fonctionnalité. <span class="grad">C'est une propriété d'architecture.</span></p>
-    <p class="note">Souverain : auto-hébergé, zéro télémétrie, les clés restent chez vous. Développé dans les Vosges 🇫🇷. Une brique, pas une certification — nous énonçons notre périmètre (voir le threat model) au lieu de le survendre.</p>
-  </div>
-</section>
-
-<!-- ═══════════════ 10 FAQ ═══════════════ -->
-<section class="section reveal" id="faq">
-  <div class="wrap">
-    <p class="kicker">10 · AVANT DE COMMENCER</p>
-    <h2>Quelques questions,<br><span class="grad">des réponses sèches.</span></h2>
-    <details class="faq"><summary>Une NoireBox par agent ?</summary><p>Oui — comme un boîtier de vol par avion. Une instance = un fichier SQLite, une paire de clés, une chaîne. La couche flotte agrège des têtes de chaîne (32 octets), jamais vos événements : votre journal reste chez vous.</p></details>
-    <details class="faq"><summary>C'est une blockchain ?</summary><p>Non — un émetteur, un vérificateur. Une chaîne locale signée donne l'intégrité et la non-répudiation sans payer le consensus. La blockchain résout un problème qu'on n'a pas (ADR 001).</p></details>
-    <details class="faq"><summary>La différence avec Langfuse ou Helicone ?</summary><p>Eux aident les devs à déboguer ce qui s'est passé — les logs restent modifiables. NoireBox produit un dossier qu'un tiers vérifie hors-ligne. Déboguer ≠ prouver.</p></details>
-    <details class="faq"><summary>Je dois utiliser votre garde-fou ?</summary><p>Non — c'est une source d'événements parmi d'autres. Gardez Lakera, Llama Guard ou votre LLM-juge, et journalisez leurs verdicts en un POST. Le détecteur embarqué est un exemple fonctionnel du contrat plugin.</p></details>
-    <details class="faq"><summary>Il faut payer une autorité d'horodatage ?</summary><p>Non — <code>make tsa</code> lance un témoin OpenSSL local avec sa propre chaîne de clés : gratuit, hors-ligne, souverain. Pointer vers une TSA publique ou qualifiée = une variable d'environnement.</p></details>
-    <details class="faq"><summary>Ça coûte combien ?</summary><p>Cœur : MIT, 0 € à vie, vérification incluse — l'auto-hébergement est le produit.</p></details>
-  </div>
-</section>
-
-<!-- ═══════════════ 11 DÉMARRER ═══════════════ -->
-<section class="section alt reveal" id="access">
-  <div class="wrap narrow">
-    <p class="kicker">11 · DÉMARRER GRATUITEMENT</p>
-    <h2>Le cœur est MIT.<br><span class="grad">Pour toujours.</span></h2>
-    <p class="lede">
-      Journal, plugin garde-fou, vérificateur — libres et ouverts, vérification incluse.
-      Tout tourne sur votre infrastructure ; la preuve n'a jamais eu besoin d'intermédiaire.
-    </p>
-    <div class="tiers">
-      <div class="tier"><h4>Cœur</h4><span>0 € · MIT pour toujours</span><p>Auto-hébergé. Événements illimités. Journal, plugin, vérificateur.</p></div>
-      <div class="tier"><h4>Vérification</h4><span>0 € · pour toujours</span><p>Le vérificateur autonome, les racines TSA épinglées et la GitHub Action — gratuits pour vos auditeurs, clients et DPO.</p></div>
-    </div>
-    <p class="note">Le jour où NoireBox cesse d'être auto-hébergeable, il cesse d'être digne de confiance. Seuls des hash de 32 octets quittent votre infrastructure.</p>
-  </div>
-</section>
-
-<footer class="footer">
-  <div><span class="brand-cube"></span> <strong>NoireBox</strong> — preuves, pas promesses.</div>
-  <div class="foot-links">
-    <a href="https://github.com/noirebox/noirebox" target="_blank">GitHub</a>
-    <a href="https://github.com/noirebox/noirebox/blob/main/docs/SPECS.md">Specs</a>
-    <a href="https://github.com/noirebox/noirebox/blob/main/docs/THREAT-MODEL.md">Threat model</a>
+<footer class="foot">
+  <div><span class="cube"></span> <strong>NoireBox</strong> — l'enregistreur de vol des agents IA.</div>
+  <div class="foot-links mono">
+    <a href="index.html">EN</a>
+    <a href="https://github.com/noirebox/noirebox" target="_blank" rel="noopener">GitHub</a>
     <span>MIT</span>
-    <span>🇫🇷 Développé dans les Vosges</span>
+    <span>🇫🇷 Vosges</span>
   </div>
 </footer>
 
-<script src="script.js?v=27"></script>
+</main>
+
+<script src="script.js?v=30"></script>
 </body>
 </html>

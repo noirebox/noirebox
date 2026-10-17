@@ -3,354 +3,590 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NoireBox — Proof, not promises. Tamper-evident AI agent audit trails</title>
-<meta name="description" content="Every decision your AI agent makes — sealed in a tamper-evident journal, timestamped by an external witness, provable by anyone. Without trusting anyone.">
-<meta property="og:title" content="NoireBox — Proof, not promises">
-<meta property="og:description" content="Tamper-evident AI agent audit trails: hash-chained, signed, timestamped by an external witness, verifiable offline.">
+<title>NoireBox — Developer Reference</title>
+<meta name="description" content="The developer reference for NoireBox: hash-chained, signed, externally anchored journals for AI agents. API, CLI, schemas, custody, verification contract, benchmarks — everything an integrator needs.">
+<meta property="og:title" content="NoireBox — Developer Reference">
+<meta property="og:description" content="Tamper-evident journals for AI agents: API, CLI, schemas, custody, verification contract, benchmarks.">
 <meta property="og:type" content="website">
-<meta property="og:image" content="https://noirebox.github.io/noirebox/assets/banner.jpg">
-<meta property="og:image:width" content="1672">
-<meta property="og:image:height" content="941">
+<meta property="og:url" content="https://code.noirebox.eu/">
+<meta property="og:image" content="https://code.noirebox.eu/assets/banner.jpg">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="style.css?v=27">
+<link rel="stylesheet" href="style.css?v=30">
 </head>
 <body>
 
-<div class="progress" id="progress"></div>
+<a class="skip" href="#content">Skip to content</a>
 
-<!-- ═══════════════ NAV ═══════════════ -->
-<nav class="nav">
-  <a class="brand" href="#top"><span class="brand-cube"></span>NOIRE<span>BOX</span></a>
-  <div class="nav-links">
-    <a href="#core">The journal</a>
-    <a href="#plugin">Guardrail</a>
-    <a href="#witness">Witness</a>
-    <a href="#proof">Proof</a>
-    <a href="#api">API</a>
-    <a href="https://github.com/noirebox/noirebox" target="_blank" class="nav-github">★ GitHub</a>
-    <a href="fr.html" class="nav-flag" title="Version française" lang="fr">🇫🇷</a>
+<!-- ═══════════════ SIDEBAR ═══════════════ -->
+<button class="menu-btn" id="menu-btn" aria-label="Toggle navigation">☰</button>
+<nav class="sidebar" id="sidebar" aria-label="Table of contents">
+  <a class="brand" href="#overview"><span class="cube"></span>NOIRE<span>BOX</span></a>
+  <p class="brand-sub">developer reference</p>
+  <div class="toc">
+    <a href="#overview">Overview</a>
+    <a href="#install">Install</a>
+    <a href="#quickstart">Quickstart</a>
+    <a href="#data-model">Data model</a>
+    <a href="#api">HTTP API</a>
+    <a href="#receipts">Receipts &amp; schemas</a>
+    <a href="#verification">Verification contract</a>
+    <a href="#custody">Key custody &amp; signing</a>
+    <a href="#anchoring">Anchoring &amp; fleet</a>
+    <a href="#guardrails">Guardrails</a>
+    <a href="#integrations">Integrations</a>
+    <a href="#cli">CLI reference</a>
+    <a href="#performance">Performance</a>
+    <a href="#layout">Project layout</a>
+    <a href="#releases">Releases &amp; distribution</a>
+    <a href="#security">Security &amp; limits</a>
+    <a href="#compliance">Compliance mapping</a>
+    <a href="#docs">Documentation index</a>
+    <a href="#adrs">ADR index</a>
+    <a href="#contributing">Contributing</a>
+  </div>
+  <div class="side-foot">
+    <a href="https://github.com/noirebox/noirebox" target="_blank" rel="noopener">GitHub ↗</a>
+    <a href="https://pypi.org/project/noirebox/" target="_blank" rel="noopener">PyPI ↗</a>
+    <a href="fr.html" lang="fr" title="Résumé en français">🇫🇷 FR</a>
   </div>
 </nav>
+<div class="scrim" id="scrim" hidden></div>
 
-<!-- ═══════════════ HERO — the banner, live ═══════════════ -->
-<header class="hero" id="top">
-  <div class="hero-inner">
-    <p class="kicker">// TAMPER-EVIDENT AI AGENT AUDIT TRAILS</p>
-    <h1 class="wordmark">Noire<span class="wm-grad">Box</span></h1>
-    <p class="tagline">Proof, not promises</p>
+<!-- ═══════════════ CONTENT ═══════════════ -->
+<main id="content">
 
-    <p class="hero-sub">
-      Every decision your AI agent makes — sealed in a hash-chained, signed journal,
-      timestamped by an external witness. Verifiable offline, by anyone,
-      <strong>without trusting anyone.</strong>
-    </p>
-
-    <div class="gh-badges">
-      <span class="gh-badge"><i>GDPR</i><b>ready</b></span>
-      <span class="gh-badge"><i>AI ACT</i><b>art. 12</b></span>
-      <span class="gh-badge"><i>made in</i><b>🇫🇷 Vosges, France</b></span>
-    </div>
-
-    <div class="cta-row">
-      <a class="btn btn-light" href="https://github.com/noirebox/noirebox#quickstart" target="_blank">Start free — self-host</a>
-      <a class="btn btn-ghost" href="#core">See the proof ↓</a>
-    </div>
-
-    <ul class="stats">
-      <li><strong>392</strong><span>tests green</span></li>
-      <li><strong>0.6 MB</strong><span>wheel, models included</span></li>
-      <li><strong>0.17 ms</strong><span>overhead per event</span></li>
-      <li><strong>250 KB</strong><span>per-language detector</span></li>
-    </ul>
-
-    <div class="install-pill">
-      <code id="install-cmd">git clone https://github.com/noirebox/noirebox &amp;&amp; cd noirebox &amp;&amp; ./start.sh</code>
-      <button class="copy-btn" id="copy-install" title="Copy to clipboard" aria-label="Copy install command">⧉</button>
-    </div>
+<header class="head">
+  <p class="kicker">// code.noirebox.eu — the technical reference. The marketing page is gone on purpose.</p>
+  <h1>NoireBox <span class="ver">v0.21.0</span></h1>
+  <p class="lede">
+    A tamper-evident journal for AI agents: every event hash-chained (SHA-256),
+    signed (Ed25519), append-only on SQLite, anchored to external RFC 3161
+    witnesses — plus a pluggable guardrail and a standalone verifier a third
+    party can run offline, without trusting you.
+  </p>
+  <div class="badges">
+    <a href="https://pypi.org/project/noirebox/" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/v/noirebox" alt="PyPI"></a>
+    <img src="https://img.shields.io/badge/python-3.11%2B-blue" alt="Python 3.11+">
+    <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT">
+    <a href="https://github.com/noirebox/noirebox/actions/workflows/ci.yml" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/tests-392%20·%200%20failing-brightgreen" alt="tests"></a>
+    <a href="https://github.com/noirebox/noirebox/pkgs/container/noirebox" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/GHCR-noirebox%2Fnoirebox-blue" alt="GHCR"></a>
   </div>
-
-  <figure class="hero-visual reveal">
-    <img src="assets/banner.webp" width="1672" height="941"
-      alt="The NoireBox journal drawn as a chain of sealed blocks #1023 to #1027, each carrying its hash and signature. Block #1025 glows red: its content was rewritten and the hash mismatch exposes the tampering. An attestation card lists the journal hash, Merkle root, Ed25519 signature and timestamp — all verified. Append-only journal · SHA-256 hash chain · Ed25519 signatures · prompt-injection detection · attestations & Merkle proofs.">
-    <figcaption>Event #1025 was rewritten after the fact. The chain caught it — everything it sealed stays provable.</figcaption>
-  </figure>
+  <div class="install-pill">
+    <code id="install-cmd">pip install noirebox</code>
+    <button class="copy-btn" data-copy="install-cmd" title="Copy" aria-label="Copy install command">⧉</button>
+  </div>
+  <p class="head-links mono">
+    <a href="https://github.com/noirebox/noirebox" target="_blank" rel="noopener">source</a> ·
+    <a href="https://github.com/noirebox/noirebox/blob/main/docs/SPECS.md" target="_blank" rel="noopener">SPECS.md</a> ·
+    <a href="https://github.com/noirebox/noirebox/blob/main/docs/THREAT-MODEL.md" target="_blank" rel="noopener">threat model</a> ·
+    <a href="https://github.com/noirebox/noirebox/blob/main/CHANGELOG.md" target="_blank" rel="noopener">changelog</a> ·
+    <a href="https://github.com/noirebox/noirebox/blob/main/docs/ADRs.md" target="_blank" rel="noopener">27 ADRs</a>
+  </p>
 </header>
 
-<!-- ═══════════════ TICKER ═══════════════ -->
-<div class="ticker" aria-hidden="true">
-  <div class="ticker-track" id="ticker"></div>
+<!-- ═══════════════ OVERVIEW ═══════════════ -->
+<section id="overview">
+<h2><a href="#overview" class="anchor">§</a>Overview</h2>
+<p>
+  NoireBox is a single FastAPI service + Python package that gives an AI-agent
+  system two guarantees: <strong>provable traceability</strong> (every event
+  sealed in a journal a third party can verify offline) and
+  <strong>input filtering</strong> (transcripts scanned before they reach the
+  agent, verdicts sealed as events). The journal is domain- and
+  language-agnostic — an event is a type and a payload — which is why it fits
+  any stack. The verification never contacts the server: the export plus
+  <code>openssl</code> is the whole trust surface.
+</p>
+<pre class="code">transcript ──▶ guardrail (regex | ml | tiered llm) ──▶ agent (any)
+                    │ incident                         │ llm_call / llm_output
+                    ▼                                  ▼
+              ┌───────────────── TAMPER-EVIDENT JOURNAL ─────────────────┐
+              │  SQLite append-only · SHA-256 chain · Ed25519           │
+              └───────────────────────────┬─────────────────────────────┘
+                     GET /api/v1/export   │  GET /api/v1/attestation
+                                         ▼
+              export.json ──▶ verifier.py (third party, offline) → exit 0|1|2</pre>
+<div class="cols">
+  <div>
+    <h3>Properties</h3>
+    <ul class="tight">
+      <li><strong>Append-only</strong> — no UPDATE, no DELETE exist; sealing costs 0.17&nbsp;ms/event</li>
+      <li><strong>Located tamper detection</strong> — rewrite, insert or delete fails verification at the exact <code>seq</code></li>
+      <li><strong>Non-repudiation</strong> — Ed25519 over each <code>event_hash</code>; the key never has to leave your infrastructure</li>
+      <li><strong>External time</strong> — RFC 3161 anchoring: only a 32-byte head hash ever leaves</li>
+      <li><strong>Offline verification</strong> — the verifier speaks JSON + <code>openssl ts</code>, no API to trust</li>
+      <li><strong>Undecidable ≠ clean</strong> — unverifiable states are named first-class, never folded into OK</li>
+    </ul>
+  </div>
+  <div>
+    <h3>Not</h3>
+    <ul class="tight">
+      <li><strong>Not a blockchain</strong> — one issuer, one verifier, no consensus tax <span class="dim">(ADR 001)</span></li>
+      <li><strong>Not an observability tool</strong> — Langfuse-style logs are for debugging and stay rewritable; this is for proof</li>
+      <li><strong>Not a certification</strong> — a building block that states its perimeter instead of overselling it <span class="dim">(threat model)</span></li>
+      <li><strong>Not multi-tenant SaaS</strong> — self-hosted, zero telemetry, one SQLite file per journal</li>
+    </ul>
+  </div>
 </div>
 
-<!-- ═══════════════ 01 CORE ═══════════════ -->
-<section class="section reveal" id="core">
-  <div class="wrap">
-    <p class="kicker">01 · THE CORE</p>
-    <h2>One journal.<br><span class="grad">Nothing else matters. </span>🤘</h2>
-    <p class="lede">
-      The journal is the product: hash-chained, signed, append-only, anchored to an
-      external witness. It doesn't know what an agent is — an event is a type and a
-      payload. That's why it fits <em>every</em> agent, every stack, every language.
-    </p>
-    <div class="chain">
-      <div class="link ok c-blue"><span>#1023</span><code>4f2c6e9a…</code><code>sig ✓</code></div>
-      <div class="chain-arrow">→</div>
-      <div class="link ok c-violet"><span>#1024</span><code>9b7e3c1d…</code><code>sig ✓</code></div>
-      <div class="chain-arrow">→</div>
-      <div class="link bad"><span>#1025 ✗</span><code>e03a9f7c…</code><code>content rewritten</code></div>
-      <div class="chain-arrow">→</div>
-      <div class="link dim"><span>#1026</span><code>7c9d2e1b…</code><code>prev hash ✗</code></div>
-      <div class="chain-arrow">→</div>
-      <div class="link dim"><span>#1027</span><code>a1f3b9d4…</code><code>unverifiable</code></div>
-    </div>
-    <div class="pipeline" aria-label="How a decision becomes proof">
-      <span class="pl-step">AI decision</span>
-      <span class="pl-arrow">→</span>
-      <span class="pl-step">SHA-256</span>
-      <span class="pl-arrow">→</span>
-      <span class="pl-step">Ed25519</span>
-      <span class="pl-arrow">→</span>
-      <span class="pl-step">TSA · RFC 3161</span>
-      <span class="pl-arrow">→</span>
-      <span class="pl-step ok">✓ immutable record</span>
-    </div>
-    <div class="grid-3">
-      <div class="card"><h3>Hash-chained</h3><p>Every event commits to the previous one. Insert, delete or rewrite — detected, and located to the exact event.</p></div>
-      <div class="card"><h3>Signed</h3><p>Ed25519 seals from a key that never leaves your infrastructure — nor your process, nor your token: key custody down to hardware (keyholder, PKCS#11). A forged journal — even perfectly re-chained — fails.</p></div>
-      <div class="card"><h3>Append-only</h3><p>SQLite with no UPDATE, no DELETE. Writing is the only operation that exists. Signed events at 0.17 ms apiece.</p></div>
-    </div>
-  </div>
+<!-- ═══════════════ INSTALL ═══════════════ -->
+<section id="install">
+<h2><a href="#install" class="anchor">§</a>Install</h2>
+<p>Python ≥ 3.11, MIT, zero telemetry. The ML guardrail engine ships inside the wheel (FR + EN detectors, ~250&nbsp;KB each) — no model download at runtime.</p>
+<pre class="code">pip install noirebox        # core: journal + API + guardrail + verifier deps
+pip install noirebox[pdf]   # + PDF attestation export (reportlab)
+pip install noirebox[hsm]   # + PKCS#11 key custody (python-pkcs11)</pre>
+<p>Or Docker (image includes the ML engine):</p>
+<pre class="code">docker run -p 8768:8768 ghcr.io/noirebox/noirebox:latest
+# API + OpenAPI docs on http://127.0.0.1:8768/docs — data persists in ./data</pre>
+<p>Or from source (venv + deps + tests + API):</p>
+<pre class="code">git clone https://github.com/noirebox/noirebox &amp;&amp; cd noirebox
+./start.sh</pre>
+<h3>Environment variables</h3>
+<table>
+  <thead><tr><th>Variable</th><th>Effect</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">NOIREBOX_DB</td><td>Journal path (default: <code>data/noirebox.db</code>, or nearest <code>.noirebox/</code> directory)</td></tr>
+    <tr><td class="mono">NOIREBOX_CLIENTS</td><td><code>id:secret,…</code> — enables JWT bearer auth + per-client rate limit. Unset = open API. A SET-but-unparseable value is fail-closed since 0.21.0 <span class="dim">(NB-01)</span></td></tr>
+    <tr><td class="mono">NOIREBOX_METADATA_AUTH</td><td><code>1</code> moves the metadata routes behind the bearer token (verification routes can never be locked)</td></tr>
+    <tr><td class="mono">NOIREBOX_TSA_PROFILES</td><td>Multi-TSA anchoring: several independent witnesses behind one anchor <span class="dim">(ADR 008/009)</span></td></tr>
+    <tr><td class="mono">NOIREBOX_TSA_URL</td><td>Legacy single-TSA endpoint (still works)</td></tr>
+    <tr><td class="mono">NOIREBOX_JUDGE_MODEL</td><td>Local LLM judge for the tiered engine (default <code>qwen2.5-coder:3b</code> via Ollama)</td></tr>
+    <tr><td class="mono">NOIREBOX_HSM_PIN</td><td>PKCS#11 token user PIN — prefer over argv (an argv PIN sits in the process table)</td></tr>
+  </tbody>
+</table>
 </section>
 
-<!-- ═══════════════ 02 PLUGIN ═══════════════ -->
-<section class="section alt reveal" id="plugin">
-  <div class="wrap">
-    <p class="kicker">02 · GUARDRAILS</p>
-    <h2>Prevention is pluggable.<br><span class="grad">Proof is universal.</span></h2>
-    <p class="lede">
-      Already running Lakera, Llama Guard, your own LLM-judge or your own regexes?
-      <strong>Keep them.</strong> A guardrail is just one event source — journal its
-      verdicts and its catches become tamper-evident instead of living in rewritable logs.
-    </p>
-    <div class="sources">
-      <div class="source"><span class="dot g"></span><div><strong>Your guardrail</strong><em>its verdicts, as events</em></div></div>
-      <div class="source"><span class="dot g"></span><div><strong>Your agent</strong><em>llm_call · llm_output · eval</em></div></div>
-      <div class="source"><span class="dot b"></span><div><strong>Bundled plugin</strong><em>regex + 250 KB ML, fr &amp; en</em></div></div>
-    </div>
-    <div class="plug-flow" aria-label="Drop-in integration">
-      <span class="pf-chip">OpenAI</span>
-      <span class="pf-chip">Claude</span>
-      <span class="pf-chip">LangGraph</span>
-      <span class="pf-chip">CrewAI</span>
-      <span class="pf-chip">Custom agent</span>
-      <span class="pf-arrow">→</span>
-      <span class="pf-chip hot">NoireBox</span>
-      <span class="pf-arrow">→</span>
-      <span class="pf-chip ok">Immutable audit trail</span>
-    </div>
-    <p class="note mono">No model lock-in. No infrastructure rewrite. One SDK.</p>
-    <p class="note">The detector we ship is a working example of the plugin contract — swappable by design
-      (<a href="https://github.com/noirebox/noirebox/blob/main/docs/ADRs.md">ADR 003</a>: Meta's Prompt Guard evaluated and declined, integration path documented).</p>
-  </div>
+<!-- ═══════════════ QUICKSTART ═══════════════ -->
+<section id="quickstart">
+<h2><a href="#quickstart" class="anchor">§</a>Quickstart</h2>
+<pre class="code"><span class="c"># 1 — run the API</span>
+noirebox serve                <span class="c"># http://127.0.0.1:8768 — interactive OpenAPI at /docs</span>
+
+<span class="c"># 2 — seal an event (auth off by default; enable with NOIREBOX_CLIENTS)</span>
+curl -X POST http://127.0.0.1:8768/api/v1/events \
+  -H 'Content-Type: application/json' \
+  -d '{"type":"llm_call","payload":{"model":"gpt-x","prompt_sha256":"…"}}'
+
+<span class="c"># 3 — anchor the chain head with an external TSA witness (RFC 3161)</span>
+curl -X POST http://127.0.0.1:8768/api/v1/anchors
+
+<span class="c"># 4 — export the full dossier</span>
+curl -s http://127.0.0.1:8768/api/v1/export > export.json
+
+<span class="c"># 5 — verify as a third party, offline (pip install noirebox is enough)</span>
+python verifier/verifier.py export.json
+<span class="c"># exit 0 = intact &amp; witnesses verified · 1 = broken · 2 = anchoring unproven</span></pre>
+<p>One-command demos: <code class="mono">make demo</code> (full scene: scan → journal → auditor → caught tampering) · <code class="mono">make demo-mcp</code> · <code class="mono">make demo-fleet</code> · <code class="mono">make demo-tamper</code>-style standalone scripts in <a href="https://github.com/noirebox/noirebox/tree/main/demo" target="_blank" rel="noopener"><code>demo/</code></a>.</p>
 </section>
 
-<!-- ═══════════════ 03 WITNESS ═══════════════ -->
-<section class="section reveal" id="witness">
-  <div class="wrap">
-    <p class="kicker">03 · THE OUTSIDE WITNESS</p>
-    <h2>Sealed at T. time ☕<br><span class="grad">The past is read-only.</span></h2>
-    <p class="lede">
-      A journal that dates itself proves nothing — that's the suspect writing its own report.
-      RFC 3161 anchoring lets an external Timestamp Authority sign <em>"I received hash X at
-      time T"</em>. Only a 32-byte hash ever leaves. A regenerated journal shows a head the old
-      token doesn't cover — and a backdated token is arithmetically impossible.
-    </p>
-    <div class="steps">
-      <div class="step"><span>1</span><div><strong>Hash</strong><em>only the head, never the data</em></div></div>
-      <div class="step"><span>2</span><div><strong>TSA signs</strong><em>« hash X received at time T »</em></div></div>
-      <div class="step"><span>3</span><div><strong>Sealed back</strong><em>the token becomes an event itself</em></div></div>
-    </div>
-    <p class="big-line">One seal for the whole fleet. <span class="grad">Certificate Transparency, for AI agents.</span></p>
-    <p class="note">Fleet anchoring: the heads of N journals form a Merkle tree — a single TSA seal covers them all, and each box proves its place with ~11 hashes, verified offline. To our knowledge, no other agent-audit tool does this. <code>make demo-fleet</code></p>
-    <p class="note mono">make tsa → local OpenSSL witness, own key chain, 0 €, works offline. Or point NOIREBOX_TSA_URL at any qualified TSA.</p>
-  </div>
+<!-- ═══════════════ DATA MODEL ═══════════════ -->
+<section id="data-model">
+<h2><a href="#data-model" class="anchor">§</a>Data model</h2>
+<p>An <code>Event</code> is the only write shape. Types are free-form strings (1–64 chars) — <code>llm_call</code>, <code>llm_output</code>, <code>incident</code>, <code>eval</code>, <code>anchor</code> are conventions, not a closed enum.</p>
+<table>
+  <thead><tr><th>Field</th><th>Type</th><th>Constraint</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">seq</td><td>int</td><td>≥ 1, no gaps, UNIQUE</td></tr>
+    <tr><td class="mono">ts</td><td>str</td><td>ISO 8601 UTC, milliseconds</td></tr>
+    <tr><td class="mono">type</td><td>str</td><td>1–64 chars, free-form</td></tr>
+    <tr><td class="mono">payload</td><td>object</td><td>arbitrary JSON (GDPR minimization = caller's responsibility)</td></tr>
+    <tr><td class="mono">prev_hash</td><td>64 hex</td><td>SHA-256 of event <code>seq-1</code> (<code>"0"×64</code> genesis)</td></tr>
+    <tr><td class="mono">event_hash</td><td>64 hex</td><td>SHA-256 of the canonical serialization of <code>{seq, ts, type, payload, prev_hash}</code>, UNIQUE</td></tr>
+    <tr><td class="mono">signature</td><td>128 hex</td><td>Ed25519 over <code>bytes.fromhex(event_hash)</code>, instance key</td></tr>
+  </tbody>
+</table>
+<p><strong>Canonical serialization</strong> — any third-party reimplementation must produce the same bytes:</p>
+<pre class="code">json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")</pre>
+<p>The key is Ed25519, PEM PKCS8, <code>chmod 600</code>, created at database init (<code>&lt;db&gt;.key</code>). The public key alone is enough to verify. Where that key <em>lives</em> is pluggable — see <a href="#custody">custody</a>.</p>
 </section>
 
-<!-- ═══════════════ 04 WHY NOW ═══════════════ -->
-<section class="section alt reveal" id="whynow">
-  <div class="wrap">
-    <p class="kicker">04 · WHY NOW</p>
-    <h2>AI decides faster than<br><span class="grad">you can audit it.</span></h2>
-    <p class="lede">When something goes wrong — an incident, a dispute, a regulator — six questions decide everything:</p>
-    <div class="why-grid">
-      <div class="why-q">What did the agent <strong>see</strong>?</div>
-      <div class="why-q">What did it <strong>decide</strong>?</div>
-      <div class="why-q">Which <strong>model version</strong> ran?</div>
-      <div class="why-q">Which <strong>tools</strong> did it call?</div>
-      <div class="why-q">What changed <strong>since</strong>?</div>
-      <div class="why-q">Was the log <strong>modified afterwards</strong>?</div>
-    </div>
-    <p class="big-line">NoireBox answers all six. <span class="grad">Cryptographically.</span></p>
-  </div>
+<!-- ═══════════════ API ═══════════════ -->
+<section id="api">
+<h2><a href="#api" class="anchor">§</a>HTTP API</h2>
+<p>FastAPI, 12 routes, interactive OpenAPI at <code>/docs</code> and <code>/redoc</code>; machine-readable spec: <a href="openapi.json"><code>docs/openapi.json</code></a>. Base <code>http://127.0.0.1:8768</code>. 🔒 = behind the bearer token when auth is enabled; verification routes are open by design.</p>
+<table>
+  <thead><tr><th>Route</th><th>Auth</th><th>Body / query</th><th>Response</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">GET /health</td><td>—</td><td>—</td><td>liveness</td></tr>
+    <tr><td class="mono">POST /api/v1/token</td><td>—</td><td><code>{client_id, client_secret}</code></td><td>JWT HS256, 1 h expiry</td></tr>
+    <tr><td class="mono">POST /api/v1/events</td><td>🔒</td><td><code>{type, payload}</code> → 201</td><td>the sealed event</td></tr>
+    <tr><td class="mono">GET /api/v1/events</td><td>🔒</td><td><code>?limit&amp;offset&amp;since_seq</code></td><td>paginated list; <code>since_seq</code> = live-tail cursor (indexed, no replay)</td></tr>
+    <tr><td class="mono">GET /api/v1/activity</td><td>—</td><td>—</td><td>day → sealed-event count (aggregate only)</td></tr>
+    <tr><td class="mono">GET /api/v1/verify</td><td>—</td><td>—</td><td><code>{valid, nb_events, first_error}</code></td></tr>
+    <tr><td class="mono">POST /api/v1/transcripts/scan</td><td>🔒</td><td><code>{meeting_id, text, engine, lang}</code> → 201</td><td>incidents + journal entry</td></tr>
+    <tr><td class="mono">GET /api/v1/attestation</td><td>—</td><td>—</td><td>signed summary (head hash + signature)</td></tr>
+    <tr><td class="mono">GET /api/v1/attestation.pdf</td><td>—</td><td>—</td><td>A4 PDF for the DPO</td></tr>
+    <tr><td class="mono">POST /api/v1/attestation/verify</td><td>—</td><td>attestation</td><td><code>{valid}</code></td></tr>
+    <tr><td class="mono">POST /api/v1/anchors</td><td>🔒</td><td>— → 201</td><td><code>{anchor_event_seq, anchored_head_seq, anchored_head_hash, tsr_bytes}</code></td></tr>
+    <tr><td class="mono">GET /api/v1/export</td><td>🔒</td><td>—</td><td><code>{format_version, service, public_key, events, attestation}</code></td></tr>
+  </tbody>
+</table>
+<p><strong>Auth</strong> <span class="dim">(ADR 004)</span> — enabled only if <code>NOIREBOX_CLIENTS</code> is set: 1-hour JWT HS256, 60 req/min per client (sliding window, 429 + <code>Retry-After</code>), constant-time secret comparison. <strong>Errors</strong>: 401 (missing/invalid token) · 422 (Pydantic) · 429 (quota) · 503 (engine unavailable, actionable message) · verification failures always carry the exact <code>seq</code>.</p>
 </section>
 
-<!-- ═══════════════ 05 MEASURED ═══════════════ -->
-<section class="section reveal" id="measured">
-  <div class="wrap">
-    <p class="kicker">05 · MEASURED, NOT CLAIMED</p>
-    <h2>Numbers we can reproduce.<br><span class="grad">Not numbers we feel.</span></h2>
-    <p class="lede">
-      Every metric below is reproducible from the repo — <code>make test</code>,
-      <code>make train</code>, the benchmark commands in the specs. A metric we
-      can't reproduce means <em>unknown</em>, not a rounder number.
-    </p>
-    <table class="metrics">
-      <tr><th>Metric</th><th>Value</th><th>Reproduce with</th></tr>
-      <tr><td>Sealed event — hash + Ed25519 + SQLite commit</td><td class="m-val">0.17 ms</td><td class="m-how">docs/SPECS.md §6</td></tr>
-      <tr><td>Guardrail scan, regex engine (7 lines)</td><td class="m-val">0.21 ms</td><td class="m-how">docs/SPECS.md §6</td></tr>
-      <tr><td>Guardrail scan, ML engine (7 lines)</td><td class="m-val">10.3 ms</td><td class="m-how">docs/SPECS.md §6</td></tr>
-      <tr><td>Full chain verification, 100 events</td><td class="m-val">44 ms</td><td class="m-how">verifier/verifier.py, any export</td></tr>
-      <tr><td>Bundled detectors, FR + EN</td><td class="m-val">293 + 243 KB</td><td class="m-how">make train · make train-en</td></tr>
-      <tr><td>Held-out attack sentences, FR + EN</td><td class="m-val">12/12</td><td class="m-how">tests/test_ml_guardrail.py</td></tr>
-      <tr><td>Test suite</td><td class="m-val">392 green</td><td class="m-how">make test</td></tr>
-    </table>
-    <p class="note mono">Measured on an M-series MacBook, October 2026. One number, one command — if a future release can't reproduce one, the table gets corrected, not inflated.</p>
-  </div>
+<!-- ═══════════════ RECEIPTS ═══════════════ -->
+<section id="receipts">
+<h2><a href="#receipts" class="anchor">§</a>Receipts &amp; sealed payload schemas</h2>
+<p>Beyond free-form events, subsystems seal <em>versioned payload schemas</em> into the same journal. Each schema version is a contract; the reconciliation layer assembles verdicts from them.</p>
+<table>
+  <thead><tr><th>Schema</th><th>Sealed by</th><th>Carries</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">receipt/0.2.2</td><td>any writer</td><td><code>judged_by</code> (an <code>llm</code> judge requires <code>spec_hash</code> — it read its sealed spec, or the seal refuses), <code>reason</code>, optional <code>requirement_ref</code></td></tr>
+    <tr><td class="mono">writer/0.1</td><td>the registrar</td><td>known-writers registry: <code>public_hex</code> → <code>domain</code>, <code>declared_by</code> — resolved against the PINNED registrar key (out-of-band); non-registrar entries can't vote; a key under two domains = <code>registry_duplicate_undecidable</code>, never first-wins</td></tr>
+    <tr><td class="mono">registry-disclosure/0.2</td><td>the report</td><td>registrant + evidence grade — disclosure, never violation; never touches <code>clean_pass</code></td></tr>
+    <tr><td class="mono">retention/0.1</td><td><code>noirebox seal-retention</code></td><td>prune / migrate / policy-change / restore — retention changes are custody events journaled like any other, not ops-layer edits</td></tr>
+  </tbody>
+</table>
+<p><strong>Named states, never silence:</strong> <code>unverified_label</code> · <code>independence_undecidable</code> · <code>label_llm_call_mismatch</code> · <code>registry_duplicate_undecidable</code> · <code>scope_check_not_run</code> — an undecidable outcome is never reported as clean, and a skipped check is reported as skipped.</p>
+<p>The doctrine behind these schemas — who may judge what, and which verdict outranks which — is written up as the <a href="https://github.com/noirebox/noirebox/blob/main/docs/AUTHORITY-LADDER.md" target="_blank" rel="noopener">authority ladder</a> <span class="dim">(ADR 019–022)</span>.</p>
 </section>
 
-<!-- ═══════════════ 06 PROOF ═══════════════ -->
-<section class="section reveal" id="proof">
-  <div class="wrap">
-    <p class="kicker">06 · THE PROOF</p>
-    <h2>One file. One command.<br><span class="grad">Zero trust.</span></h2>
-    <p class="lede">
-      An auditor, a DPO, a client — receives the full dossier and recomputes the truth locally.
-      No API to trust, no dashboard to believe. Arithmetic doesn't lie.
-    </p>
-    <div class="terminal">
-      <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="term-title">auditor@third-party — no credentials</span></div>
-      <pre id="term-out"></pre>
-    </div>
-  </div>
+<!-- ═══════════════ VERIFICATION ═══════════════ -->
+<section id="verification">
+<h2><a href="#verification" class="anchor">§</a>Verification contract</h2>
+<p><code>verifier/verifier.py</code> — strict order, first failure wins, never contacts the server (<code>openssl</code> only):</p>
+<ol class="tight">
+  <li><code>seq</code> of event n equals n — no gaps, no duplicates</li>
+  <li><code>prev_hash</code> equals <code>event_hash</code> of event n−1</li>
+  <li><code>event_hash</code> equals the recomputed canonical SHA-256</li>
+  <li><code>signature</code> valid for the export public key</li>
+  <li>Attestation: <code>head_seq</code> = event count, <code>head_hash</code> = last <code>event_hash</code>, signature valid on the canonical summary</li>
+  <li>Each <code>anchor</code> event: referenced head consistent with the chain, RFC 3161 token verified (<code>openssl ts -verify</code>) against that hash and the embedded TSA certificate</li>
+</ol>
+<table class="exit">
+  <thead><tr><th>Exit</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">0</td><td>INTACT — chain valid <em>and</em> every witness token verified</td></tr>
+    <tr><td class="mono">1</td><td>BROKEN — first chain/signature break + exact location</td></tr>
+    <tr><td class="mono">2</td><td>ANCHORING UNPROVEN — a witness token could not be verified (missing <code>openssl</code>/<code>ots</code>, timeout). Report field: <code>unverifiable_witnesses</code>. Accept explicitly with <code>--allow-unverified-witnesses</code> <span class="dim">(0.21.0, NB-02: undecidable is never clean — including inside the tool that enforces the doctrine)</span></td></tr>
+  </tbody>
+</table>
+<p>TSA roots for public witnesses are <strong>pinned in the repository</strong> (<a href="https://github.com/noirebox/noirebox/tree/main/verifier/tsa_roots" target="_blank" rel="noopener"><code>verifier/tsa_roots/</code></a>) — the auditor never trusts a certificate the operator ships. The auditing machine needs <code>pip install noirebox</code>, nothing else.</p>
 </section>
 
-<!-- ═══════════════ 07 USE CASES ═══════════════ -->
-<section class="section alt reveal" id="usecases">
-  <div class="wrap">
-    <p class="kicker">07 · WHO IT'S FOR</p>
-    <h2>Built for systems that<br><span class="grad">must explain themselves.</span></h2>
-    <div class="grid-3 uc-grid">
-      <div class="card"><h3>Finance</h3><p>Every automated decision auditable — credit scoring, trading, claims.</p></div>
-      <div class="card"><h3>Healthcare</h3><p>Trace AI-assisted decisions end to end, for patients and inspectors.</p></div>
-      <div class="card"><h3>Legal</h3><p>Preserve evidence and chain of custody for AI-produced documents.</p></div>
-      <div class="card"><h3>Enterprise AI</h3><p>Know exactly what your agents did, on which input, with which tools.</p></div>
-      <div class="card"><h3>Security</h3><p>Detect log tampering, not just failures. The journal fights back.</p></div>
-      <div class="card"><h3>Public sector</h3><p>Algorithmic transparency duties, satisfied by design.</p></div>
-    </div>
-  </div>
+<!-- ═══════════════ CUSTODY ═══════════════ -->
+<section id="custody">
+<h2><a href="#custody" class="anchor">§</a>Key custody &amp; signing</h2>
+<p>Every signer answers the same interface — <code>.sign()</code> + <code>.public_hex()</code> — so custody can move without touching callers:</p>
+<table>
+  <thead><tr><th>Signer</th><th>Key lives</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">KeyPair</td><td>PEM file, chmod 600</td><td>default; fine when process and disk are one trust domain</td></tr>
+    <tr><td class="mono">SocketSigner</td><td>keyholder daemon, over a unix socket</td><td>signs bytes, never reveals the key, no export operation; <code>--allow-uid</code> peer check fails CLOSED where the peer uid isn't checkable <span class="dim">(0.15.0)</span></td></tr>
+    <tr><td class="mono">P11Signer</td><td>PKCS#11 token, non-extractable</td><td><code>--ensure-key</code> imports the existing journal key — continuity, not rotation; public hex doesn't move <span class="dim">(0.16.0, <code>noirebox[hsm]</code>)</span></td></tr>
+  </tbody>
+</table>
+<p><strong>Custody disclosure</strong> — the journal states its own proof grade:</p>
+<ul class="tight">
+  <li><code>noirebox custody-grade</code> prints <code>witness = min(authoring, retention)</code>: a journal is only as provable as the weaker of "was the writer's key in custody at seal time" and "was the retention path itself journaled"</li>
+  <li><code>noirebox seal-retention --action prune|migrate|policy-change|restore</code> — retention operations become first-class sealed events</li>
+  <li>Custody vs anchoring are <em>different trust boundaries</em> and are disclosed separately <span class="dim">(ADR 022)</span></li>
+  <li>Post-quantum evidence is staged as <strong>hybrid signing behind the signer interface</strong> — classical Ed25519 stays the trust anchor while a PQ sibling rides along <span class="dim">(ADR 027)</span></li>
+  <li>The pinned <em>hardware</em> root remains the deployer's call — stated in the <a href="https://github.com/noirebox/noirebox/blob/main/docs/THREAT-MODEL.md" target="_blank" rel="noopener">threat model</a>, not hidden</li>
+</ul>
 </section>
 
-<!-- ═══════════════ 08 DEVELOPERS ═══════════════ -->
-<section class="section reveal" id="api">
-  <div class="wrap">
-    <p class="kicker">08 · DEVELOPERS</p>
-    <h2>An API, an SDK, a verifier.<br><span class="grad">Nothing else to learn.</span></h2>
-    <p class="lede">
-      FastAPI, 11 documented routes, interactive OpenAPI at <em>/docs</em>.
-      Record from anything that can send JSON — your agent, your CI, your cron job.
-    </p>
-    <div class="terminal">
-      <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="term-title">dev@yourstack — record &amp; prove</span></div>
-      <pre class="term-static">$ git clone https://github.com/noirebox/noirebox &amp;&amp; cd noirebox
-$ ./start.sh                            <span class="t-dim"># tests + API on :8768 — /docs is live</span>
-
-$ curl -X POST :8768/api/v1/events \
-    -d '{"type":"llm_call","payload":{"model":"gpt-x","prompt":"…"}}'
-
-$ curl -X POST :8768/api/v1/anchors     <span class="t-dim"># seal the chain head (RFC 3161)</span>
-$ curl -s :8768/api/v1/export > export.json
-
-$ python verifier/verifier.py export.json
-<span class="t-ok">[✓] INTACT — proof, verified by anyone, offline</span></pre>
-    </div>
-
-    <p class="note mono" style="margin-top:20px;letter-spacing:.02em">
-      GET IT —
-      <a href="https://pypi.org/project/noirebox/" style="color:var(--violet-soft)">pip install noirebox</a> ·
-      <a href="https://marketplace.visualstudio.com/items?itemName=noirebox.noirebox" style="color:var(--violet-soft)">VS Code / Cursor — Marketplace</a> ·
-      <a href="https://open-vsx.org/extension/noirebox/noirebox" style="color:var(--violet-soft)">Open VSX</a> ·
-      <a href="https://github.com/noirebox/noirebox/releases/tag/v0.21.0" style="color:var(--violet-soft)">VSIX + sources</a> ·
-      <a href="https://github.com/noirebox/noirebox/pkgs/container/noirebox" style="color:var(--violet-soft)">Docker — GHCR</a>
-    </p>
-    <div class="plug-flow" aria-label="Developer surface">
-      <span class="pf-chip">FastAPI</span>
-      <span class="pf-chip">OpenAPI · /docs</span>
-      <span class="pf-chip">Python SDK</span>
-      <span class="pf-chip">MCP server · 4 agent tools</span>
-      <span class="pf-chip">Docker</span>
-      <span class="pf-chip ok">10 routes</span>
-    </div>
-  </div>
+<!-- ═══════════════ ANCHORING ═══════════════ -->
+<section id="anchoring">
+<h2><a href="#anchoring" class="anchor">§</a>Anchoring &amp; fleet</h2>
+<p>A journal that dates itself proves nothing — that's the suspect writing its own report. Anchoring lets an external Timestamp Authority sign <em>"I received hash X at time T"</em>. Only the 32-byte head hash ever leaves. A regenerated journal shows a head the old token doesn't cover, and a backdated token is arithmetically impossible — this is the control that catches an operator with the private key.</p>
+<h3>Witness layers you choose</h3>
+<table>
+  <thead><tr><th>Layer</th><th>Trust</th><th>Setup</th></tr></thead>
+  <tbody>
+    <tr><td>Qualified eIDAS TSA (Universign, Certigna…)</td><td>legal presumption of date + integrity (eIDAS art. 41)</td><td>point a profile at the endpoint</td></tr>
+    <tr><td>Public TSAs (DigiCert, FreeTSA…)</td><td>independent organizations; roots pinned in this repo</td><td><code>NOIREBOX_TSA_PROFILES</code></td></tr>
+    <tr><td>OpenTimestamps / Bitcoin</td><td>forging means redoing the network's proof of work; verifying ≈ 30 µs</td><td><code>ots</code> client in PATH</td></tr>
+    <tr><td>Self-hosted OpenSSL TSA</td><td>own root + leaf chain, 0 €, works offline</td><td><code>make tsa</code></td></tr>
+  </tbody>
+</table>
+<p>The <code>anchor</code> event payload carries <code>head_seq</code>, <code>head_hash</code>, the primary RFC 3161 token (<code>tsr</code>, base64 DER), the TSA cert bundle (<code>tsa_cert_pem</code>) and the full witness list (<code>tokens</code> — one token per profile + OTS receipts).</p>
+<h3>Fleet hub</h3>
+<p>One seal for the whole fleet: the heads of N journals form a Merkle tree, a single TSA seal covers them all, and each member proves its place with ~11 hashes — verified offline. <code>noirebox fleet-anchor</code> seals it, <code>fleet-verify</code> checks one member, <code>fleet-status</code> checks every member (exit 0 all covered / 1 alarm, <code>--json</code> for alerting), <code>fleet-watch</code> runs that on a cadence with optional re-anchoring (<code>--reanchor</code> shrinks the falsifiable window to the interval) and webhook alarms. The hub sees 32-byte hashes, never your events.</p>
 </section>
 
-<!-- ═══════════════ 09 EUROPE ═══════════════ -->
-<section class="section reveal" id="europe">
-  <div class="wrap">
-    <p class="kicker">09 · EUROPE</p>
-    <h2>AI regulation is coming.<br><span class="grad">Make every decision traceable.</span></h2>
-    <p class="lede">European AI vendors must <em>prove</em> — not promise — what their systems did. NoireBox is engineered around that obligation.</p>
-    <div class="grid-4">
-      <div class="card"><h3>EU AI Act — art. 12</h3><p>Record-keeping duties for risk systems: automatic event logs, cryptographic.</p></div>
-      <div class="card"><h3>GDPR — 5(2) · 15/20</h3><p>Accountability and subject rights: signed exports, verifiable by the DPO.</p></div>
-      <div class="card"><h3>ISO 42001</h3><p>AI management systems: traceability of decisions feeds the audit directly.</p></div>
-      <div class="card"><h3>EU Data Act</h3><p>Data access and governance: portable, verifiable records by construction.</p></div>
-    </div>
-    <p class="big-line">Compliance isn't a feature. <span class="grad">It's an architectural property.</span></p>
-    <p class="note">Sovereign: self-hosted, zero telemetry, keys stay yours. Engineered in the Vosges 🇫🇷. A building block, not a certification — we state our perimeter (see the threat model) instead of overselling it.</p>
-  </div>
+<!-- ═══════════════ GUARDRAILS ═══════════════ -->
+<section id="guardrails">
+<h2><a href="#guardrails" class="anchor">§</a>Guardrails</h2>
+<p>Prevention is pluggable; proof is universal. Already running Lakera, Llama Guard, your own LLM-judge? Keep them — a guardrail is just another event source, and its verdicts become tamper-evident instead of living in rewritable logs.</p>
+<table>
+  <thead><tr><th>Engine</th><th>How</th><th>Latency (7 lines)</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">regex</td><td>bilingual FR/EN patterns compiled at load; score = fixed severity</td><td>0.21 ms</td></tr>
+    <tr><td class="mono">ml</td><td>TF-IDF (1–2 word + 3–5 char grams) + logistic regression; FR + EN detectors ~250 KB each in the wheel; threshold 0.5, granularity = line</td><td>10.3 ms</td></tr>
+    <tr><td class="mono">tiered</td><td>regex + ML first; a local LLM judge (default <code>qwen2.5-coder:3b</code>, JSON-pinned, temperature 0) only pays for doubt <span class="dim">(ADR 015/016)</span></td><td>ml cost + judge on disagreement</td></tr>
+  </tbody>
+</table>
+<p><strong>Incident contract</strong> — same shape from every engine:</p>
+<pre class="code">{
+  "category": "instruction_override|data_exfiltration|pii_request|tool_abuse",
+  "score": 0.94,
+  "excerpt": "…≤ 120 chars…",
+  "start": 214, "end": 305
+}</pre>
+<p>Honest failure modes: unparsable judge output → 503, never a manufactured incident; verdicts outside the taxonomy are dropped; measured false negatives are non-zero and tracked. The bundled detector is a working example of the plugin contract — swappable by design <span class="dim">(ADR 003: Meta's Prompt Guard evaluated and declined, integration path documented)</span>.</p>
 </section>
 
-<!-- ═══════════════ 10 FAQ ═══════════════ -->
-<section class="section reveal" id="faq">
-  <div class="wrap">
-    <p class="kicker">10 · BEFORE YOU BEGIN</p>
-    <h2>A few questions,<br><span class="grad">straight answers.</span></h2>
-    <details class="faq"><summary>One NoireBox per agent?</summary><p>Yes — like one flight recorder per aircraft. One instance = one SQLite file, one key pair, one chain. The fleet layer aggregates chain heads (32-byte hashes), never your events: your journal stays on your infrastructure.</p></details>
-    <details class="faq"><summary>Is this a blockchain?</summary><p>No — one issuer, one verifier. A signed local chain gives integrity and non-repudiation without paying a consensus tax. The blockchain solves a problem we don't have (ADR 001).</p></details>
-    <details class="faq"><summary>How is it different from Langfuse or Helicone?</summary><p>Those help developers debug what happened — the logs stay modifiable. NoireBox produces a dossier a third party verifies offline. Debug ≠ proof.</p></details>
-    <details class="faq"><summary>Do I have to use the bundled guardrail?</summary><p>No — it's one event source among others. Keep Lakera, Llama Guard or your own LLM-judge and journal their verdicts with a single POST. The bundled detector is a working example of the plugin contract.</p></details>
-    <details class="faq"><summary>Do I need a paid timestamp authority?</summary><p>No — <code>make tsa</code> runs a local OpenSSL witness with its own key chain: free, offline, sovereign. Pointing at any public or qualified TSA is one environment variable.</p></details>
-    <details class="faq"><summary>What does it cost?</summary><p>Core: MIT, $0 forever, verification included — self-hosted is the product.</p></details>
-  </div>
+<!-- ═══════════════ INTEGRATIONS ═══════════════ -->
+<section id="integrations">
+<h2><a href="#integrations" class="anchor">§</a>Integrations</h2>
+<h3>MCP server — agent tools over stdio JSON-RPC</h3>
+<pre class="code">python -m noirebox.mcp_server
+# client config: {"mcpServers": {"noirebox": {"command": "python", "args": ["-m", "noirebox.mcp_server"]}}}</pre>
+<table>
+  <thead><tr><th>Tool</th><th>Does</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">noirebox_scan</td><td>scan a transcript, seal the incidents</td></tr>
+    <tr><td class="mono">noirebox_log_event</td><td>seal one free-form event</td></tr>
+    <tr><td class="mono">noirebox_verify</td><td>verify the journal in place</td></tr>
+    <tr><td class="mono">noirebox_attestation</td><td>fetch the signed summary</td></tr>
+  </tbody>
+</table>
+<h3>Agent hooks &amp; editor</h3>
+<ul class="tight">
+  <li><code class="mono">noirebox hook tool-use</code> / <code class="mono">session-end</code> — seal one tool action (PostToolUse) or the full session transcript (SessionEnd) from hook JSON on stdin; best-effort by design <span class="dim">(ADR 013)</span></li>
+  <li><code class="mono">noirebox seal-trajectory --rollout &lt;dir&gt;</code> — seal a coding agent's model trajectory (model-io JSONL): per-line digests only, never the payload <span class="dim">(ADR 012)</span></li>
+  <li><a href="https://marketplace.visualstudio.com/items?itemName=noirebox.noirebox" target="_blank" rel="noopener">VS Code / Cursor extension</a> (also on <a href="https://open-vsx.org/extension/noirebox/noirebox" target="_blank" rel="noopener">Open VSX</a>) — journal + verify from the editor; versioned separately from the package</li>
+  <li>ZCode / Claude Code plugin — <code class="mono">plugins/claude</code> + <code class="mono">plugins/noirebox</code> in-repo</li>
+</ul>
+<h3>Operations</h3>
+<ul class="tight">
+  <li><code class="mono">noirebox export-siem --format cef|otlp --since N</code> — CEF (ArcSight) or OpenTelemetry JSON, tail-only with <code>--since</code></li>
+  <li><code class="mono">noirebox audit-pack &lt;outdir&gt;</code> — one folder for the auditor: export + verifier report + the Annexe IV §2(f) logging description <span class="dim">(ADR 010)</span></li>
+  <li><code class="mono">noirebox replay &lt;meeting_id&gt;</code> — rebuild the decision timeline from sealed evidence; refuses if the chain doesn't verify first ("replay refuses theater")</li>
+  <li><code class="mono">noirebox reconcile --config invariants.json --journal-report --fail-on-findings</code> — invariants over the journal, CI-friendly exit 2</li>
+  <li><code class="mono">noirebox crosschain --journal a=path …</code> — consumption edges across journals, partial order, fan-in <span class="dim">(ADR 024)</span></li>
+  <li><code class="mono">noirebox toolset-pin --server S --tools tools.json --reviewed-by NAME --check --fail-on-drift</code> — MCP tool descriptions are instructions: pin the baseline, diff on session start <span class="dim">(ADR 025)</span></li>
+  <li>Built-in dashboard (heatmap, traffic radar) on the service; Grafana JSON in <code class="mono">docs/grafana-dashboard.json</code></li>
+</ul>
 </section>
 
-<!-- ═══════════════ 11 ACCESS ═══════════════ -->
-<section class="section alt reveal" id="access">
-  <div class="wrap narrow">
-    <p class="kicker">11 · START FREE</p>
-    <h2>Core is MIT.<br><span class="grad">Forever.</span></h2>
-    <p class="lede">
-      Journal, guardrail plugin, verifier — free and open, including verification.
-      Everything runs on your infrastructure; the proof never needed a middleman.
-    </p>
-    <div class="tiers">
-      <div class="tier"><h4>Core</h4><span>$0 · MIT forever</span><p>Self-hosted. Unlimited events. Journal, plugin, verifier.</p></div>
-      <div class="tier"><h4>Verification</h4><span>$0 · forever</span><p>The standalone verifier, pinned TSA roots and the GitHub Action — free for your auditors, clients and DPO.</p></div>
-    </div>
-    <p class="note">If NoireBox ever stops being self-hostable, it stops being trustworthy. Only 32-byte hashes ever leave your infrastructure.</p>
-  </div>
+<!-- ═══════════════ CLI ═══════════════ -->
+<section id="cli">
+<h2><a href="#cli" class="anchor">§</a>CLI reference</h2>
+<p><code class="mono">noirebox --version</code> → 0.21.0. Twenty subcommands; every journal path resolves the same way (<code>--db</code> → <code>NOIREBOX_DB</code> → nearest <code>.noirebox/</code> → <code>data/noirebox.db</code>).</p>
+<table>
+  <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">serve</td><td>run the HTTP API (uvicorn) — <code>--host</code>, <code>--port</code> (default 127.0.0.1:8768)</td></tr>
+    <tr><td class="mono">seal</td><td>seal one free-form event: <code>seal &lt;type&gt; '&lt;json&gt;'</code> — digests and short facts, never raw content</td></tr>
+    <tr><td class="mono">verify</td><td>verify the journal chain in place, print the verdict</td></tr>
+    <tr><td class="mono">locate</td><td>print the resolved journal path</td></tr>
+    <tr><td class="mono">reconcile</td><td>invariants over the journal from a JSON config; <code>--journal-report</code> seals the report; <code>--fail-on-findings</code> exits 2 (CI)</td></tr>
+    <tr><td class="mono">crosschain</td><td>reconciliation across journals (consumption edges, ADR 024); repeatable <code>--journal NAME=PATH</code></td></tr>
+    <tr><td class="mono">toolset-pin</td><td>MCP toolset baseline: pin, then <code>--check</code> (session-start gate), <code>--fail-on-drift</code> for cron/CI</td></tr>
+    <tr><td class="mono">audit-pack</td><td>auditor pack: export + verifier report + Annexe IV §2(f) description</td></tr>
+    <tr><td class="mono">seal-trajectory</td><td>seal a coding agent's model trajectory (model-io JSONL, digests only); <code>--rollout</code> scans a dir, <code>--interval</code> rescans</td></tr>
+    <tr><td class="mono">hook tool-use</td><td>seal one agent tool action (PostToolUse) from hook JSON on stdin</td></tr>
+    <tr><td class="mono">hook session-end</td><td>seal the session transcript (SessionEnd)</td></tr>
+    <tr><td class="mono">fleet-anchor</td><td>one Merkle seal over N journal heads, witnessed by the configured TSAs, proofs printed per member; <code>--allow-local</code> = no external date</td></tr>
+    <tr><td class="mono">fleet-verify</td><td>is this journal covered by the hub's latest fleet seal? (exit 0/1)</td></tr>
+    <tr><td class="mono">fleet-status</td><td>check every member against the hub seal — cron/CI friendly, <code>--json</code></td></tr>
+    <tr><td class="mono">fleet-watch</td><td>service form: check on a cadence, alarm on drift (webhook), optional <code>--reanchor</code></td></tr>
+    <tr><td class="mono">replay</td><td>rebuild the decision timeline for one meeting/run from sealed evidence; refuses an unverified chain</td></tr>
+    <tr><td class="mono">export-siem</td><td>CEF or OTLP/JSON export, <code>--since</code> tail-only</td></tr>
+    <tr><td class="mono">keyholder</td><td>serve the key over a unix socket — signs bytes, never reveals; <code>--allow-uid</code>, <code>--pkcs11-*</code>, <code>--ensure-key</code></td></tr>
+    <tr><td class="mono">keyholder-status</td><td>describe a running keyholder: public key (the out-of-band pin value) + peer check</td></tr>
+    <tr><td class="mono">seal-retention</td><td>seal a retention change INTO the journal (prune | migrate | policy-change | restore)</td></tr>
+    <tr><td class="mono">custody-grade</td><td>print the custody disclosure: witness = min(authoring, retention)</td></tr>
+  </tbody>
+</table>
 </section>
 
-<footer class="footer">
-  <div><span class="brand-cube"></span> <strong>NoireBox</strong> — proof, not promises.</div>
-  <div class="foot-links">
-    <a href="https://github.com/noirebox/noirebox" target="_blank">GitHub</a>
-    <a href="https://github.com/noirebox/noirebox/blob/main/docs/SPECS.md">Specs</a>
-    <a href="https://github.com/noirebox/noirebox/blob/main/docs/THREAT-MODEL.md">Threat model</a>
+<!-- ═══════════════ PERFORMANCE ═══════════════ -->
+<section id="performance">
+<h2><a href="#performance" class="anchor">§</a>Performance &amp; measurements</h2>
+<p>Every number is reproducible from the repo. A metric we can't reproduce means <em>unknown</em>, not a rounder number.</p>
+<table>
+  <thead><tr><th>Metric</th><th>Value</th><th>Reproduce with</th></tr></thead>
+  <tbody>
+    <tr><td>Sealed append — SHA-256 + Ed25519 + SQLite commit</td><td class="mono">0.17 ms</td><td class="mono">make bench</td></tr>
+    <tr><td>Regex guardrail scan (7 lines)</td><td class="mono">0.21 ms</td><td class="mono">make bench</td></tr>
+    <tr><td>ML guardrail scan (7 lines, sklearn loaded)</td><td class="mono">10.3 ms</td><td class="mono">make bench</td></tr>
+    <tr><td>Full chain verification, 100 events (incl. JSON load)</td><td class="mono">44 ms</td><td class="mono">verifier/verifier.py</td></tr>
+    <tr><td>Bundled detectors, FR + EN</td><td class="mono">293 + 243 KB</td><td class="mono">make train · make train-en</td></tr>
+    <tr><td>Held-out attack sentences, FR + EN</td><td class="mono">12/12</td><td class="mono">tests/test_ml_guardrail.py</td></tr>
+    <tr><td>Test suite</td><td class="mono">392 · 0 failing</td><td class="mono">make test</td></tr>
+  </tbody>
+</table>
+<p class="dim">MacBook M-series, local venv — sealing/verification rows 2026-10-04. Absolute values vary with hardware; <code>make bench</code> on your machine is the reference.</p>
+
+<h3>SCAR-BENCH-114 — open-weights measurement</h3>
+<p>A published, seeded measurement protocol (<a href="https://github.com/noirebox/noirebox/blob/main/docs/SCAR-BENCH.md" target="_blank" rel="noopener">docs/SCAR-BENCH.md</a>): 120 planned trials against three local models, canary-witness scoring, <a href="https://github.com/noirebox/noirebox/blob/main/bench/scar114_results.json" target="_blank" rel="noopener">raw results in-repo</a>. Headline:</p>
+<table>
+  <thead><tr><th>Model</th><th>Condition A (prose) — canary trip rate</th><th>Condition B (primitive)</th><th>Strict canonical JSON</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">qwen2.5-coder:3b</td><td>100% (18/18)</td><td>75% (15/20)</td><td>0</td></tr>
+    <tr><td class="mono">qwen2.5:0.5b</td><td>100% (19/19)</td><td>78.9% (15/19)</td><td>0</td></tr>
+    <tr><td class="mono">llama-guard3:1b</td><td>100% (20/20)</td><td>see results file</td><td>0</td></tr>
+  </tbody>
+</table>
+<p class="dim">Disclosure: single machine, local Ollama, temperature 0.7, per-trial fixed seeds. Measurement, not a verdict. 4 timeouts excluded, disclosed in the results file.</p>
+</section>
+
+<!-- ═══════════════ LAYOUT ═══════════════ -->
+<section id="layout">
+<h2><a href="#layout" class="anchor">§</a>Project layout</h2>
+<pre class="code">noirebox/            the package
+  chain.py store.py schemas.py       hash chain, SQLite append-only store, Pydantic models
+  receipt.py reconcile.py independence.py    sealed receipts, invariants, flow independence
+  anchors.py witness.py merkle.py fleet.py   RFC 3161 anchoring, fleet hub
+  keyholder.py hsm.py                custody: unix-socket signer, PKCS#11
+  guardrail.py ml_guardrail.py llm_judge.py tiering.py   three scan engines + tiered judge
+  mcp_server.py hookcli.py trajseal.py toolset.py        agent-facing surfaces
+  crosschain.py digests.py siem.py replay.py pdf_export.py c2pa.py aiact.py
+  cli.py main.py dashboard.py auth.py
+verifier/verifier.py  standalone third-party verifier (+ tsa_roots/ pinned certificates)
+bench/                SCAR-BENCH harness + published results (scar114)
+tsa/                  self-hosted OpenSSL witness (root + leaf chain)
+plugins/              VS Code extension · Claude Code hooks · ZCode plugin
+tests/                392 tests — the invariant suite, incl. SCAR replay
+docs/                 SPECS · THREAT-MODEL · ADRs · compliance &amp; bench docs (this site)
+demo/                 runnable end-to-end scenes</pre>
+</section>
+
+<!-- ═══════════════ RELEASES ═══════════════ -->
+<section id="releases">
+<h2><a href="#releases" class="anchor">§</a>Releases &amp; distribution</h2>
+<table>
+  <thead><tr><th>Channel</th><th>Artifact</th></tr></thead>
+  <tbody>
+    <tr><td><a href="https://pypi.org/project/noirebox/" target="_blank" rel="noopener">PyPI</a></td><td class="mono">pip install noirebox</td></tr>
+    <tr><td><a href="https://github.com/noirebox/noirebox/pkgs/container/noirebox" target="_blank" rel="noopener">GHCR</a></td><td class="mono">ghcr.io/noirebox/noirebox:latest</td></tr>
+    <tr><td><a href="https://marketplace.visualstudio.com/items?itemName=noirebox.noirebox" target="_blank" rel="noopener">VS Code Marketplace</a> · <a href="https://open-vsx.org/extension/noirebox/noirebox" target="_blank" rel="noopener">Open VSX</a></td><td>editor extension — versioned separately (0.10.1)</td></tr>
+    <tr><td><a href="https://github.com/noirebox/noirebox/releases" target="_blank" rel="noopener">GitHub Releases</a></td><td>VSIX + tagged sources, notes per release</td></tr>
+  </tbody>
+</table>
+<h3>History</h3>
+<p>21 releases since 2026-09-19, every one in the <a href="https://github.com/noirebox/noirebox/blob/main/CHANGELOG.md" target="_blank" rel="noopener">changelog</a>. Recent arc:</p>
+<ul class="tight">
+  <li><strong>0.21.0</strong> — 2026-10-15 — external audit round: 10 findings, 0 breaking the cryptography; 8 fixed outright, NB-05/NB-08 closed in their compatible halves, each with a named test. Fail-closed defaults everywhere (<code>unverifiable witness → exit 2</code>, unparseable <code>NOIREBOX_CLIENTS</code> refuses to boot)</li>
+  <li><strong>0.20.0</strong> — 2026-10-14 — retention sealing + custody grade: <code>witness = min(authoring, retention)</code></li>
+  <li><strong>0.19.0 / 0.18.0</strong> — 2026-10-14 — uid-gate as a tri-state disclosure (off / enforced / unavailable), custody protocol 0.2, PIN moved out of argv</li>
+  <li><strong>0.16.0 / 0.15.0</strong> — 2026-10-13 — the key leaves the disk: keyholder daemon, then PKCS#11 token</li>
+  <li><strong>0.11.0</strong> — 2026-10-11 — receipt/0.2.2 (judged_by + spec_hash), SCAR-BENCH-114 published</li>
+  <li><strong>0.1.0 → 0.10.0</strong> — 2026-09-19 → 10-04 — chain, guardrails, RFC 3161, fleet hub, distribution</li>
+</ul>
+</section>
+
+<!-- ═══════════════ SECURITY ═══════════════ -->
+<section id="security">
+<h2><a href="#security" class="anchor">§</a>Security &amp; honest limits</h2>
+<p>The adversary model, trust boundaries and residual risks live in the <a href="https://github.com/noirebox/noirebox/blob/main/docs/THREAT-MODEL.md" target="_blank" rel="noopener">threat model</a>; the security baseline and scan methodology in <a href="https://github.com/noirebox/noirebox/blob/main/docs/SECURITY-BASELINE.md" target="_blank" rel="noopener">SECURITY-BASELINE.md</a>. Report vulnerabilities per <a href="https://github.com/noirebox/noirebox/blob/main/SECURITY.md" target="_blank" rel="noopener">SECURITY.md</a> — please don't open public issues for them.</p>
+<p>Known limits, assumed and tracked:</p>
+<ul class="tight">
+  <li>Payloads are not encrypted — GDPR minimization is the caller's responsibility</li>
+  <li>Pinned <em>hardware</em> root of custody is still open; the published attestation is the countermeasure until then</li>
+  <li>Probabilistic guardrail — measured false negatives are non-zero</li>
+  <li>Single-process append lock — sharding/scaling not targeted</li>
+  <li>0.21.0 residual: re-hash detection stays a versioned-format decision (NB-05 compatible half)</li>
+</ul>
+</section>
+
+<!-- ═══════════════ COMPLIANCE ═══════════════ -->
+<section id="compliance">
+<h2><a href="#compliance" class="anchor">§</a>Compliance mapping</h2>
+<p>Full write-ups: <a href="https://github.com/noirebox/noirebox/blob/main/docs/COMPLIANCE-EU.md" target="_blank" rel="noopener">COMPLIANCE-EU.md</a> · <a href="https://github.com/noirebox/noirebox/blob/main/docs/ART12-MAPPING.md" target="_blank" rel="noopener">ART12-MAPPING.md</a>. A building block, not a certification — the perimeter is stated, not oversold.</p>
+<table>
+  <thead><tr><th>Obligation</th><th>Answered by</th></tr></thead>
+  <tbody>
+    <tr><td>GDPR art. 5(2) — accountability: <em>demonstrate</em> compliance</td><td>tamper-evident journal of what the AI produced, when, on which input</td></tr>
+    <tr><td>GDPR art. 15/20 — access &amp; portability</td><td>signed export, verifiable by the subject's own auditor</td></tr>
+    <tr><td>EU AI Act art. 12 + 19 — automatic event logs, retained ≥ 6 months</td><td>sealing at runtime; cryptographic log integrity; ART12 mapping doc</td></tr>
+    <tr><td>EU AI Act art. 55(1)(c) — GPAI incident tracking (live since Aug 2025)</td><td>incidents as first-class sealed events; <code>audit-pack</code> for reporting</td></tr>
+    <tr><td>AI Act Annexe IV §2(f) — document the logging characteristics</td><td><code>noirebox audit-pack</code> generates the description with the export</td></tr>
+    <tr><td>eIDAS art. 41 — qualified timestamp presumption</td><td>anchor profiles for qualified TSAs + pinned-root public TSAs + OpenTimestamps</td></tr>
+    <tr><td>Sovereignty</td><td>self-hosted, zero telemetry, keys on your infrastructure, EU-only clouds fine</td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ═══════════════ DOCS ═══════════════ -->
+<section id="docs">
+<h2><a href="#docs" class="anchor">§</a>Documentation index</h2>
+<p>Everything below lives in <code class="mono">docs/</code> in the repository — markdown, versioned with the code.</p>
+<table>
+  <thead><tr><th>Document</th><th>Contents</th></tr></thead>
+  <tbody>
+    <tr><td><a href="https://github.com/noirebox/noirebox/blob/main/docs/SPECS.md" target="_blank" rel="noopener">SPECS.md</a></td><td>the source of truth: data contracts, crypto, API contract, measured performance — divergence between code and spec is a bug</td></tr>
+    <tr><td><a href="https://github.com/noirebox/noirebox/blob/main/docs/ADRs.md" target="_blank" rel="noopener">ADRs.md</a></td><td>27 architecture decision records with their context and rejected options</td></tr>
+    <tr><td><a href="https://github.com/noirebox/noirebox/blob/main/docs/THREAT-MODEL.md" target="_blank" rel="noopener">THREAT-MODEL.md</a></td><td>adversary model, trust boundaries, open residuals</td></tr>
+    <tr><td><a href="https://github.com/noirebox/noirebox/blob/main/docs/AUTHORITY-LADDER.md" target="_blank" rel="noopener">AUTHORITY-LADDER.md</a></td><td>who may judge what — the verdict-precedence doctrine behind receipt schemas</td></tr>
+    <tr><td><a href="https://github.com/noirebox/noirebox/blob/main/docs/SCAR-BENCH.md" target="_blank" rel="noopener">SCAR-BENCH.md</a></td><td>the published measurement protocol: taxonomy, claims format, differential harness</td></tr>
+    <tr><td><a href="https://github.com/noirebox/noirebox/blob/main/docs/COMPLIANCE-EU.md" target="_blank" rel="noopener">COMPLIANCE-EU.md</a></td><td>GDPR / AI Act / eIDAS mapping with article-level references</td></tr>
+    <tr><td><a href="https://github.com/noirebox/noirebox/blob/main/docs/ART12-MAPPING.md" target="_blank" rel="noopener">ART12-MAPPING.md</a></td><td>AI Act art. 12 logging requirements → journal properties</td></tr>
+    <tr><td><a href="https://github.com/noirebox/noirebox/blob/main/docs/SECURITY-BASELINE.md" target="_blank" rel="noopener">SECURITY-BASELINE.md</a></td><td>security scan methodology and results, with reproduction commands</td></tr>
+    <tr><td><a href="https://github.com/noirebox/noirebox/blob/main/docs/VULGARISATION.md" target="_blank" rel="noopener">VULGARISATION.md</a></td><td>the whole project explained from zero, no prior knowledge assumed</td></tr>
+    <tr><td><a href="https://github.com/noirebox/noirebox/blob/main/docs/ROADMAP-PLUGINS.md" target="_blank" rel="noopener">ROADMAP-PLUGINS.md</a></td><td>plugin ecosystem direction</td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ═══════════════ ADRS ═══════════════ -->
+<section id="adrs">
+<h2><a href="#adrs" class="anchor">§</a>ADR index</h2>
+<p>All 27 in <a href="https://github.com/noirebox/noirebox/blob/main/docs/ADRs.md" target="_blank" rel="noopener">docs/ADRs.md</a> — each with context, decision and what was rejected:</p
+><table class="adrs">
+  <tbody>
+    <tr><td class="mono">001</td><td>Guardrail: regex → ML micro-model → LLM judge last</td></tr>
+    <tr><td class="mono">002</td><td>Reject Meta's Llama Prompt Guard 2 as the engine</td></tr>
+    <tr><td class="mono">003</td><td>Third-party detectors: documented path, not embedded</td></tr>
+    <tr><td class="mono">004</td><td>OAuth2 (JWT bearer) + rate limiting, optional by config</td></tr>
+    <tr><td class="mono">005</td><td>PDF attestation: proof for humans, JSON for machines</td></tr>
+    <tr><td class="mono">006</td><td>RFC 3161 anchoring: close the "insider with the key" gap</td></tr>
+    <tr><td class="mono">007</td><td>Self-hosted TSA: root + leaf chain, not a single certificate</td></tr>
+    <tr><td class="mono">008</td><td>Multi-TSA anchoring with pinned roots</td></tr>
+    <tr><td class="mono">009</td><td>OpenTimestamps witness: the compute-grade layer</td></tr>
+    <tr><td class="mono">010</td><td>AI-Act-shaped events + audit-pack</td></tr>
+    <tr><td class="mono">011</td><td>Content-provenance events (model-collapse research, in journal form)</td></tr>
+    <tr><td class="mono">012</td><td>Model-trajectory sealing: the flight recorder's flight recorder</td></tr>
+    <tr><td class="mono">013</td><td>Transcript-agnostic sealing + per-project journals</td></tr>
+    <tr><td class="mono">014</td><td>JWT secret derived from private material, never public data</td></tr>
+    <tr><td class="mono">015</td><td>The tier-2 judge: local LLM, house taxonomy, JSON-pinned, honest when silent</td></tr>
+    <tr><td class="mono">016</td><td>The tiered scan: the judge pays only for doubt</td></tr>
+    <tr><td class="mono">017</td><td>Fleet hub v0: one seal covers N journals</td></tr>
+    <tr><td class="mono">018</td><td>Key via secret-manager injection, loud on mismatch</td></tr>
+    <tr><td class="mono">019</td><td>Receipt schema v0.2: verdict binds its check, evaluator, reach</td></tr>
+    <tr><td class="mono">020</td><td>The denominator: attempt-first sealing</td></tr>
+    <tr><td class="mono">021</td><td>Flow independence is a testable invariant</td></tr>
+    <tr><td class="mono">022</td><td>Custody vs anchoring: map the trust boundary, disclose the grade</td></tr>
+    <tr><td class="mono">023</td><td>Seal the belief, not only the action</td></tr>
+    <tr><td class="mono">024</td><td>Cross-chain reconciliation: consumption edges, partial order</td></tr>
+    <tr><td class="mono">025</td><td>Toolset baseline: tool descriptions are instructions, pin them</td></tr>
+    <tr><td class="mono">026</td><td>Admission receipts: seal the basis, not only the act</td></tr>
+    <tr><td class="mono">027</td><td>Post-quantum evidence: hybrid signing behind the signer interface</td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ═══════════════ CONTRIBUTING ═══════════════ -->
+<section id="contributing">
+<h2><a href="#contributing" class="anchor">§</a>Contributing</h2>
+<ul class="tight">
+  <li>Branches + pull requests; <code class="mono">main</code> is protected (PR + required checks). No direct pushes.</li>
+  <li><code class="mono">make test</code> — 392 tests, must stay green · <code class="mono">ruff</code> for lint (B/SIM/C4 enforced) · CI runs the suite + Bandit + a stub-LLM coverage pass.</li>
+  <li>The spec is the contract: a code change that diverges from <code class="mono">docs/SPECS.md</code> updates the spec in the same PR — or it's a bug.</li>
+  <li>Numbers cited in docs must be reproducible (<code class="mono">make bench</code>, <code class="mono">make test</code>) — measured, never rounded up.</li>
+  <li>MIT. Issues and PRs welcome; security issues go to SECURITY.md, not public issues.</li>
+</ul>
+<p class="dim">NoireBox is engineered in the Vosges, France 🇫🇷. NoireBox is a building block, not a certification — it proves the integrity of the record; data minimization and key-root decisions remain the deployer's.</p>
+</section>
+
+<footer class="foot">
+  <div><span class="cube"></span> <strong>NoireBox</strong> — the flight data recorder for AI agents.</div>
+  <div class="foot-links mono">
+    <a href="https://github.com/noirebox/noirebox" target="_blank" rel="noopener">GitHub</a>
+    <a href="https://pypi.org/project/noirebox/" target="_blank" rel="noopener">PyPI</a>
+    <a href="https://github.com/noirebox/noirebox/blob/main/docs/SPECS.md" target="_blank" rel="noopener">SPECS</a>
+    <a href="https://github.com/noirebox/noirebox/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Changelog</a>
+    <a href="fr.html" lang="fr">FR</a>
     <span>MIT</span>
-    <span>🇫🇷 Engineered in the Vosges</span>
   </div>
 </footer>
 
-<script src="script.js?v=27"></script>
+</main>
+
+<script src="script.js?v=30"></script>
 </body>
 </html>
