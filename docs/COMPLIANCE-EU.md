@@ -1,6 +1,6 @@
 # NoireBox × Europe — the compliance dossier
 
-*Research as of 25 September 2026. Goal: turn NoireBox into the integrity layer for AI accountability in the EU — not by becoming "an obligation" (no product is), but by becoming the standard instrument for obligations that already exist. Every date and article below was verified against current sources; the Digital Omnibus is factored in.*
+*Research as of 25 September 2026, cross-checked 17 October 2026 against the official consolidated French texts: GDPR CELEX 02016R0679 (04.05.2016) and AI Act CELEX 02024R1689 as consolidated 27.07.2026 (including Regulation (EU) 2026/1744). Goal: turn NoireBox into the integrity layer for AI accountability in the EU — not by becoming "an obligation" (no product is), but by becoming the standard instrument for obligations that already exist. Every date and article below was verified against current sources; the Digital Omnibus is factored in.*
 
 ---
 
@@ -18,7 +18,7 @@ The EU now **requires tamper-irrelevant logs — and rewards whoever makes them 
 
 ## 2. The verified calendar (post–Digital Omnibus)
 
-The **Digital Omnibus on AI was adopted as Regulation (EU) 2026/1744** — OJ 24 July 2026, in force **27 July 2026**. It moved the high-risk deadlines; it did **not** touch transparency, GPAI, or the prohibitions.
+The **Digital Omnibus on AI was adopted as Regulation (EU) 2026/1744** — OJ 24 July 2026, in force **27 July 2026**. It moved the high-risk deadlines; it did **not** touch transparency, GPAI, or the prohibitions. Every date below is the application date set by art. 113 as amended (consolidated text of 27 July 2026), re-verified against the official French consolidation.
 
 | Date | What applies | NoireBox angle |
 |---|---|---|
@@ -29,7 +29,7 @@ The **Digital Omnibus on AI was adopted as Regulation (EU) 2026/1744** — OJ 24
 | **2 Dec 2027** | **High-risk (Annex III) obligations** — incl. art. 12 logging, art. 19/26(6) log retention ≥ 6 months | **The big wave: 14 months out.** Build now, adopt early |
 | **2 Aug 2028** | High-risk embedded in regulated products (Annex I) | Second wave |
 
-Fines are unchanged in substance (art. 99): up to **€35 M / 7 %** of global turnover for prohibited practices; **€15 M / 3 %** tier for most obligations. The Omnibus hardened enforcement mechanics (reports cite per-day penalties until compliance).
+Fines are unchanged in substance (art. 99): up to **€35 M / 7 %** of global turnover for prohibited practices; **€15 M / 3 %** tier for most operator obligations (providers, deployers, mandated bodies, transparency); **€7.5 M / 1 %** for supplying inaccurate, incomplete or misleading information to notified bodies or competent authorities. For SMEs including startups each tier caps at the lower of the two amounts (art. 99(6)). The Omnibus hardened enforcement mechanics (reports cite per-day penalties until compliance).
 
 Why the deferral matters to us: the Commission deferred high-risk partly because **CEN-CENELEC JTC 21 harmonized standards aren't ready** — only one standard (EN 18286:2026, QMS) is published; the bulk lands late 2026 onward. **A logging-integrity standard is not yet published — the window to shape what "integrity of logs" means is open now.**
 
@@ -47,7 +47,7 @@ Why the deferral matters to us: the Commission deferred high-risk partly because
 | **Art. 11 + Annex IV (2)(f)** | Technical documentation must describe the **logging function and its characteristics** | You must be able to *describe and justify* the logging design — NoireBox becomes a citable component |
 | **Art. 19** | Providers keep technical documentation + art. 12 logs **≥ 6 months** | Retention floor |
 | **Art. 26(5)–(6)** | Deployers: monitor operation, inform provider; keep logs **≥ 6 months** | Same |
-| **Art. 72 / 73** | Post-market monitoring; **serious-incident reporting** to market surveillance authorities | When an incident is reported, the logs are the evidence — integrity decides credibility |
+| **Art. 72 / 73** | Post-market monitoring; **serious-incident reporting** to market surveillance authorities. Deadline: **15 days** after knowledge once the causal link is established or reasonably probable (73(2)); **2 days** for wide-scale infractions and art. 3(49)(b) incidents (73(3)); **10 days** in case of a person's death (73(4)). The clock runs from when the provider/deployer *had knowledge* | The deadlines are knowledge-relative: only a timestamped, tamper-evident record can prove *when* you knew — the sealed journal turns a 15-day obligation into a defensible fact |
 | **Art. 55(1)(c)** (GPAI systemic risk — **LIVE**) | "keep track of, document, and report, **without undue delay**, serious incidents" | A sealed journal is the cleanest possible "keep track of, document" |
 | **Art. 14(5)** | Human oversight: verifiers' actions must be traceable | Seal who verified what, when |
 
@@ -120,6 +120,7 @@ Not "we plug into Universign". **"Your AI journal, witnessed by third parties yo
 ## 6. Sources (verified 25 Sept 2026)
 
 - AI Act text & articles: artificialintelligenceact.eu (art. 12, 55); consolidated text: eur-lex.europa.eu/eli/reg/2024/1689/oj
+- Consolidated French texts cross-checked 17 Oct 2026: GDPR **CELEX 02016R0679** (FR, 04.05.2016) and AI Act **CELEX 02024R1689** (FR, consolidated 27.07.2026, incl. Reg. (EU) 2026/1744 amendments — art. 4 bis, art. 60 bis, art. 75 bis–quinquies, art. 99 d bis, art. 111(2), art. 113)
 - Digital Omnibus: Regulation (EU) 2026/1744 — OJ 24 July 2026, in force 27 July 2026 (Annex III → 2 Dec 2027; Annex I → 2 Aug 2028; transparency & GPAI untouched)
 - European Parliament, "AI Act: deal on simplification measures" (7 May 2026): high-risk obligations from 2 December 2027
 - Art. 19/26(6) six-month log retention: ActiveMind, Hannes Snellman, LexLint summaries
