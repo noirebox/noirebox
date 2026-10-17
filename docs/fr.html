@@ -5,10 +5,30 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NoireBox — référence technique (résumé en français)</title>
 <meta name="description" content="NoireBox en bref, en français : journal infalsifiable pour agents IA — chaînage SHA-256, signatures Ed25519, ancrage RFC 3161, vérification hors-ligne. La référence développeur complète est en anglais.">
-<link rel="stylesheet" href="style.css?v=30">
-<style>main { margin-left: 0; }</style>
+<link rel="stylesheet" href="style.css?v=31">
 </head>
 <body>
+
+<a class="skip" href="#content">Aller au contenu</a>
+
+<button class="menu-btn" id="menu-btn" aria-label="Ouvrir la navigation">☰</button>
+<nav class="sidebar" id="sidebar" aria-label="Sommaire">
+  <a class="brand" href="#pourquoi"><span class="cube"></span>NOIRE<span>BOX</span></a>
+  <p class="brand-sub">résumé en français</p>
+  <div class="toc">
+    <a href="#pourquoi">Pourquoi</a>
+    <a href="#demarrage">Démarrage</a>
+    <a href="#surface">La surface technique</a>
+    <a href="#liens">Liens</a>
+    <a href="index.html" class="toc-en"><strong>Référence complète (EN) →</strong></a>
+  </div>
+  <div class="side-foot">
+    <a href="https://github.com/noirebox/noirebox" target="_blank" rel="noopener">GitHub ↗</a>
+    <a href="https://pypi.org/project/noirebox/" target="_blank" rel="noopener">PyPI ↗</a>
+    <a href="index.html" lang="en" title="English reference">🇬🇧 EN</a>
+  </div>
+</nav>
+<div class="scrim" id="scrim" hidden></div>
 
 <main id="content">
 
@@ -34,7 +54,7 @@
   </div>
 </header>
 
-<section>
+<section id="pourquoi">
   <h2><a href="#pourquoi" class="anchor">§</a>Pourquoi</h2>
   <p>Votre agent IA rédige des comptes rendus qui <strong>engagent</strong>. Six mois plus tard, qui peut prouver
   <em>exactement</em> ce qu'il a produit, sur quel entrant, avec quel outil — et que le journal n'a pas été modifié depuis ?
@@ -63,7 +83,7 @@
   </div>
 </section>
 
-<section>
+<section id="demarrage">
   <h2><a href="#demarrage" class="anchor">§</a>Démarrage</h2>
   <pre class="code">pip install noirebox          <span class="c"># le moteur ML (FR + EN) est dans la roue</span>
 noirebox serve                <span class="c"># API sur http://127.0.0.1:8768 — OpenAPI à /docs</span>
@@ -78,23 +98,23 @@ python verifier/verifier.py export.json
   <p>Ou Docker : <code>docker run -p 8768:8768 ghcr.io/noirebox/noirebox:latest</code></p>
 </section>
 
-<section>
+<section id="surface">
   <h2><a href="#surface" class="anchor">§</a>La surface technique</h2>
   <ul class="tight">
-    <li><strong>API HTTP</strong> — 12 routes FastAPI, OpenAPI interactif, auth JWT optionnelle</li>
-    <li><strong>CLI</strong> — 20 sous-commandes : sceller, vérifier, réconcilier, ancrage de flotte, custody-grade…</li>
+    <li><strong>API HTTP</strong> — 12 routes FastAPI, OpenAPI interactif, auth JWT optionnelle <span class="dim">(<a href="index.html#api">détail EN</a>)</span></li>
+    <li><strong>CLI</strong> — 20 sous-commandes : sceller, vérifier, réconcilier, ancrage de flotte, custody-grade… <span class="dim">(<a href="index.html#cli">référence EN</a>)</span></li>
     <li><strong>Serveur MCP</strong> — 4 outils agents (scan, log_event, verify, attestation) sur stdio JSON-RPC</li>
     <li><strong>Hook éditeur/agent</strong> — sceller un tool-use ou une session entière ; extension VS Code / Cursor</li>
     <li><strong>Garde-fous</strong> — 3 moteurs (regex / ML / juge LLM local) ; le vôtre reste une source d'événements parmi d'autres</li>
-    <li><strong>Conformité UE</strong> — mapping RGPD art. 5(2)/15/20, AI Act art. 12/55(1)(c)/Annexe IV, eIDAS art. 41</li>
-    <li><strong>27 ADRs</strong> — chaque décision d'architecture, avec ce qui a été écarté et pourquoi</li>
+    <li><strong>Conformité UE</strong> — mapping RGPD art. 5(2)/15/20, AI Act art. 12/55(1)(c)/Annexe IV, eIDAS art. 41 <span class="dim">(<a href="index.html#compliance">mapping EN</a>)</span></li>
+    <li><strong>27 ADRs</strong> — chaque décision d'architecture, avec ce qui a été écarté et pourquoi <span class="dim">(<a href="index.html#adrs">index EN</a>)</span></li>
   </ul>
   <p>La documentation de référence — specs, schémas scellés, contrat de vérification, custody, benchmarks, ADRs —
   est maintenue <strong>en anglais</strong> dans le dépôt :</p>
-  <p><a href="index.html">Référence développeur complète →</a></p>
+  <p><a href="index.html"><strong>Référence développeur complète →</strong></a></p>
 </section>
 
-<section>
+<section id="liens">
   <h2><a href="#liens" class="anchor">§</a>Liens</h2>
   <table>
     <tbody>
@@ -120,6 +140,6 @@ python verifier/verifier.py export.json
 
 </main>
 
-<script src="script.js?v=30"></script>
+<script src="script.js?v=31"></script>
 </body>
 </html>
