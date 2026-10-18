@@ -973,3 +973,103 @@ the chain doesn't change; the anchors get newer, stronger witnesses.
 And the packaged form of this work — managed hybrid migration, PQ
 disclosure in audit-packs, the long-retention archiving tier — is
 service layer. The signer lands in the MIT core like the other three.
+
+## ADR 028 — Decision receipts: the System One layer under seal
+
+**Status**: accepted — vLLM v0.32.0 (2026-10-18, PR
+[#59299](https://github.com/vllm-project/vllm/pull/59299)) baked
+decision routing into the inference engine: `POST /v1/systemone`
+answers `choice` / `noul` / `score` questions over a state and returns
+a probability for EVERY allowed answer, computed from the labels'
+logprobs in one read. The wire format is TypeSafe's Jev ("System One")
+and it is already a layer, not a proposal: Ollama v0.35 serves it,
+Cloudflare ships Clef models for it, LiteLLM translates it, OpenAI
+serves the same seam as `/v1/decisions`, Databricks and Microsoft
+Foundry list decision models (reidmarlow, "Why vLLM 0.32 Baked
+Decision Routing Into the Engine"). Routing decisions are becoming
+engine primitives the way tool calls became API primitives — and this
+journal exists because primitives do not carry their own evidence.
+
+**The seam.** A decision model is a BETTER evidence substrate than a
+parsed prose label: the answer is bounded, the distribution over the
+allowed answers comes back with it, and vLLM even reports per-question
+diagnostics — `label_mass` (where the answer's mass actually went) and
+`argmax_is_label` (whether the reported answer was the argmax over the
+label tokens at all). It is a WORSE audit surface: the call happens
+inside the engine, the harness sees an enum, and nothing outside the
+engine remembers how the answer was reached. "The engine saw
+everything, the audit log sees an enum" is the ordering-vs-authenticity
+wedge one layer below the check-report gap receipt/0.2.x closed. The
+engine says the rest plainly in its own docs: probabilities can VARY
+between identical requests (batching, prefix-cache). Replay is not
+proof here. The seal is.
+
+**Decision** — decisions become first-class sealed events:
+
+1. **`decision/0.1`** (`noirebox/decision.py`): `{format (systemone |
+   openai-decisions), model, run_id, judged_by: "llm", state_sha256,
+   spec_hash, questions, answers, diagnostics?, requirement_ref?}`.
+   The state travels as a DIGEST, never as data (the `use_event`
+   rule). The answers carry the distribution the engine returned — a
+   bare label is what an attacker edits; a distribution is what they
+   must explain. The diagnostics are sealed VERBATIM and never
+   interpreted at build: the engine's confession is evidence, not a
+   verdict.
+2. **The SCAR-45 door is welded at birth.** `spec_hash` is REQUIRED
+   with no exception path — a decision model's question set IS its
+   predicate, and receipt/0.2.x spent v0.2.2 and v0.2.3 learning what
+   an LLM-judged verdict without its committed spec seals. The
+   embedded questions must hash back to `spec_hash`: the receipt
+   cannot claim a menu it does not carry.
+3. **`seal_decision_spec`** commits the canonical question set as a
+   spec/0.1 event, canary planted — the SCAR-PROC-114 machinery reused
+   unchanged. A caller that hallucinated the menu from priors, or was
+   handed a different one by an injected state, trips the canary
+   exactly like the judge that never read its bytecode.
+4. **`reconcile_decision`** — five findings, each the schema-level
+   version of an attack that used to need a reviewer:
+   `decision_spec_not_canonical`; `questions_not_canonical` (the
+   builder refuses this; a hand-forged event that skips the builder is
+   exactly the drift the re-check exists for); `answer_outside_spec`
+   (the chosen option is not in the sealed menu);
+   `decision_contradiction`; `label_not_argmax` (the engine's own
+   doubt, surfaced so a confession cannot sit in an archive nobody
+   reads).
+5. **The contradiction check judges the CHOICE, never the
+   distribution.** Two decisions on the same (state, spec) with
+   different chosen answers is the quiet flip, surfaced as a registry
+   join. Probabilities jitter between honest retries (batching,
+   prefix-cache — the engine documents it); a flip is not jitter.
+   Judging distributions would make the reconciler lie on the honest
+   path.
+6. **SCAR-DM-1** lands in the replay suite: the routing flip
+   (block→safe under injection), the swapped menu caught both ways
+   (builder bypass and the unsealed spec), the answer outside the
+   menu, the clean twin. The measured open-weights leg — a real
+   `/v1/systemone` endpoint, the SCAR-BENCH grid — is the frontier
+   leg: SCAR-BENCH §7 holds the landing pad, and no numbers exist
+   until a run happened (the honesty rules are not negotiable).
+7. **Admission rides the same train** (ADR 026's public promise,
+   kept): `admission/0.1` + `check_admission_basis` — Lin's four
+   invalid promotions named, the never-bases refused at seal time,
+   the decision failing closed, `admission_gap` firing when foreign
+   content is consumed with no earlier admitted basis.
+
+**Non-goals, stated so they can be refused in public**: noirebox does
+NOT proxy decision traffic — no `/v1/systemone` passthrough; we are
+the evidence layer, not the engine, and a proxy would put the witness
+inside the thing it witnesses. It does NOT stop a decision model being
+fooled — injection can still move probability mass; the receipt's job
+is to make that visible (the distribution and label_mass in the
+journal, the flip as a finding), not to pretend it cannot happen. And
+it does NOT judge distributions: calibration is the engine's problem;
+ordering and authenticity are ours.
+
+**Consequences**: `noirebox/decision.py`, `seal_decision_spec`,
+`reconcile_decision`, `seal_admission`, `check_admission_basis`, and
+the SCAR-DM-1 / SCAR-ADM-1 fixtures ship; 29 tests join the suite
+(428 collected). The AI Act tie is direct: a routing decision that
+gates a human review is an automated decision with logging obligations
+(art. 12) and oversight hooks (art. 14) — `requirement_ref` names
+which. The HTTP seal endpoint and the live-endpoint bench harness land
+with the first integration that needs them.
