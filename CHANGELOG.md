@@ -1,9 +1,11 @@
-## [0.22.0] — 2026-10-18
+## [0.23.0] — 2026-10-18
 
 ### Added
 
 Two receipt kinds land in the same train — the journal learns to seal
-DECISIONS and PROMOTIONS, not only check reports.
+DECISIONS and PROMOTIONS, not only check reports. (ADR 026 dated this
+landing 0.22.0; 0.22.0 became the paperwork release — the schema lands
+here instead, complete with its check and its fixtures.)
 
 - **`decision/0.1` — decision receipts (ADR 028)**. vLLM v0.32.0 baked
   decision routing into the engine: `POST /v1/systemone` answers
