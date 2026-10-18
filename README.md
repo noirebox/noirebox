@@ -12,6 +12,7 @@
 [![Lint: ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Image on GHCR](https://img.shields.io/badge/image-ghcr.io%2Fnoirebox%2Fnoirebox-blue)](https://github.com/noirebox/noirebox/pkgs/container/noirebox)
 [![Made in France](https://img.shields.io/badge/made%20in-France-blue)](#)
+[![Mirror: Codeberg](https://img.shields.io/badge/mirror-codeberg.org%2Fnoirebox-2185d0)](https://codeberg.org/noirebox)
 
 **Your AI agent writes meeting notes that bind your clients.
 Eighteen months from now — who can prove what it *exactly* produced, and why?**
@@ -29,7 +30,8 @@ an attestation anyone can verify offline — **without trusting you**.
 [Quickstart](#quickstart) · [Real LLM scene](#the-real-llm-scene-local-ollama) ·
 [Specs](docs/SPECS.md) · [Threat model](docs/THREAT-MODEL.md) ·
 [The authority ladder](docs/AUTHORITY-LADDER.md) ·
-[ADRs](docs/ADRs.md)
+[ADRs](docs/ADRs.md) ·
+[Read-only mirror on Codeberg](https://codeberg.org/noirebox/noirebox)
 
 </div>
 
