@@ -545,3 +545,200 @@ def test_scar_110_critic_interrupted_the_permutation_matrix(tmp_path):
     # cannot fire, and the absence is the honest state the record holds
     assert not any(f.status == "verdict_predates_terminal"
                    for f in reconcile(events, [inv]))
+
+
+# --- SCAR-DM-1 — the decision-model routing flip (ADR 028) --------------------
+# Fixture (noirebox, after reidmarlow's "Why vLLM 0.32 Baked Decision Routing
+# Into the Engine" + vLLM v0.32.0 PR #59299, the System One layer): a diff
+# touching production configs is routed through /v1/systemone against a
+# sealed question set; an injection riding in the state shifts mass from
+# block → safe. The evidence layer does not pretend to stop the model being
+# fooled — it makes the fooling impossible to SEAL OVER: the distribution is
+# committed, the engine's own doubt travels verbatim, an answer outside the
+# sealed menu is a registry miss, and a second, contradicting decision on
+# the same (state, spec) is a join, not a reviewer's memory.
+
+from noirebox.decision import build_decision_receipt, decision_spec_text  # noqa: E402
+from noirebox.reconcile import (  # noqa: E402
+    check_admission_basis,
+    reconcile_decision,
+    seal_admission,
+    seal_decision_spec,
+)
+
+_DM_QUESTIONS = {
+    "gate": {
+        "type": "choice",
+        "criteria": {"safe": "no production impact",
+                     "review_required": "a human should look",
+                     "block": "production configs touched"},
+        "instructions": "Classify the diff. Seal-canary: DM-route-94",
+    },
+}
+
+
+def _dm_digest(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _dm_decision(run_id, choice, *, mass=0.87, argmax=True, probs=None,
+                 spec_hash=None, questions=None):
+    return build_decision_receipt(
+        format="systemone", model="Qwen/Qwen3-0.6B", run_id=run_id,
+        state_sha256=_dm_digest("diff: touches deploy/prod.yaml + rewrite nginx.conf"),
+        spec_hash=spec_hash or _dm_digest(decision_spec_text(_DM_QUESTIONS)),
+        questions=questions or _DM_QUESTIONS,
+        answers={"gate": {"type": "choice", "choice": choice,
+                          "probabilities": probs or {"safe": 0.10, "review_required": 0.20,
+                                                    "block": 0.70},
+                          "confidence": 0.70}},
+        diagnostics={"gate": {"label_mass": mass, "argmax_is_label": argmax}},
+        requirement_ref="AI-Act art. 14(4)")
+
+
+def test_scar_dm1_routing_flip_trips_contradiction_and_label(tmp_path):
+    """The flip, then the cover-up: decision one reads block, the injection
+    lands, decision two on the SAME (state, spec) reads safe — and the
+    engine's own diagnostic says the label was not the argmax. Both fire:
+    `decision_contradiction` + `label_not_argmax`. The distribution is in
+    the journal, so 'it always said safe' is a claim with a hash against
+    it. Outcome: CAUGHT."""
+    store, harness = _journal(tmp_path, "dm1")
+    seal_decision_spec(store, harness, spec_id="gate-menu",
+                       questions=_DM_QUESTIONS, canary="DM-route-94",
+                       source_ref="routing/spec.json")
+    store.append("decision", _dm_decision("run_dm1a", "block"), harness)
+    store.append("decision", _dm_decision(
+        "run_dm1b", "safe", mass=0.12, argmax=False,
+        probs={"safe": 0.51, "review_required": 0.17, "block": 0.32}), harness)
+
+    findings = reconcile_decision(store.all(), spec_id="gate-menu")
+    statuses = sorted(f.status for f in findings)
+    assert statuses == ["decision_contradiction", "label_not_argmax"]
+    flip = [f for f in findings if f.status == "decision_contradiction"][0]
+    assert "'block'" in flip.note and "'safe'" in flip.note
+    assert "never distributions" in flip.note  # honest retries are not contradictions
+
+
+def test_scar_dm1_honest_decision_is_clean(tmp_path):
+    """The clean twin: sealed menu, one honest decision, argmax over the
+    labels, nothing to surface. Outcome: CLEAN."""
+    store, harness = _journal(tmp_path, "dm1b")
+    seal_decision_spec(store, harness, spec_id="gate-menu",
+                       questions=_DM_QUESTIONS, canary="DM-route-94")
+    store.append("decision", _dm_decision("run_dm1c", "block"), harness)
+    assert reconcile_decision(store.all(), spec_id="gate-menu") == []
+
+
+def test_scar_dm1_swapped_menu_is_caught_both_ways(tmp_path):
+    """Two forgeries, two seams. (a) The receipt carries the sealed
+    spec_hash but an EMBEDDED menu with `block` quietly gone — the
+    builder refuses this; the forged event skips the builder, so the
+    reconciler re-hashes: `questions_not_canonical`. (b) The receipt is
+    self-consistent but bound to a menu nobody sealed —
+    `decision_spec_not_canonical`, the canary witness one layer down.
+    Outcome: CAUGHT, twice."""
+    import hashlib as _hl
+
+    store, harness = _journal(tmp_path, "dm1c")
+    seal_decision_spec(store, harness, spec_id="gate-menu",
+                       questions=_DM_QUESTIONS, canary="DM-route-94")
+
+    trimmed = {"gate": {**_DM_QUESTIONS["gate"],
+                        "criteria": {"safe": "no production impact",
+                                     "review_required": "a human should look"}}}
+    # hand-forged, builder bypassed — that bypass is the thing under test
+    forged = {**_dm_decision("run_dm1d", "safe"), "questions": trimmed}
+    store.append("decision", forged, harness)
+
+    unsealed = {**_DM_QUESTIONS, "tone": {"type": "score",
+                                          "criteria": ["calm", "annoyed"]}}
+    elsewhere = {**_dm_decision("run_dm1e", "safe"), "questions": unsealed,
+                 "spec_hash": _hl.sha256(
+                     decision_spec_text(unsealed).encode()).hexdigest()}
+    store.append("decision", elsewhere, harness)
+
+    findings = reconcile_decision(store.all(), spec_id="gate-menu")
+    statuses = sorted(f.status for f in findings)
+    assert statuses == ["decision_spec_not_canonical", "questions_not_canonical"]
+
+
+def test_scar_dm1_answer_outside_the_sealed_menu(tmp_path):
+    """The engine answers from a world the spec never authorized: the
+    chosen option is not in the sealed menu. The builder cannot see it
+    (structure was fine); the reconciliation can — that is the split of
+    labor, by design. Outcome: CAUGHT."""
+    store, harness = _journal(tmp_path, "dm1d")
+    seal_decision_spec(store, harness, spec_id="gate-menu",
+                       questions=_DM_QUESTIONS, canary="DM-route-94")
+    receipt = _dm_decision("run_dm1f", "ship_it",
+                           probs={"ship_it": 0.9})
+    store.append("decision", receipt, harness)
+    findings = reconcile_decision(store.all(), spec_id="gate-menu")
+    assert [f.status for f in findings] == ["answer_outside_spec"]
+
+
+def test_reconcile_decision_without_a_sealed_spec_raises(tmp_path):
+    """Reconcile the canonical menu or none of it: a decision world with
+    no sealed spec is a loud error, never silently clean."""
+    import pytest
+
+    store, harness = _journal(tmp_path, "dm1e")
+    store.append("decision", _dm_decision("run_dm1g", "block"), harness)
+    with pytest.raises(ValueError, match="no sealed spec"):
+        reconcile_decision(store.all(), spec_id="gate-menu")
+
+
+# --- SCAR-ADM-1 — the foreign history without a basis (ADR 026) ----------------
+# Fixture (You-An Lin, Paper II §6.3, the fourth independent arrival): a live
+# agent correctly attributed foreign history to another Resident WHILE USING
+# IT — attribution correct, admission invalid, every output-level metric
+# green. The OUTPUT is not the unit of audit; the promotion is. The journal
+# half Lin's paper leaves open: who saw that the admission ran, with which
+# basis, when.
+
+def test_scar_adm1_foreign_history_used_without_a_basis(tmp_path):
+    """Foreign history shaped the deliberation with no earlier admitted
+    admission receipt: `admission_gap`. The twin with the basis sealed
+    BEFORE the use is clean. Outcome: CAUGHT (and CLEAN on the honest
+    path)."""
+    store, agent = _journal(tmp_path, "adm1")
+    store.append("content", {"origin": "resident:marlow",
+                             "text_digest": _digest("marlow's stance on retries")},
+                 agent)
+    store.append("llm_output", {"run_id": "run_adm1",
+                                "summary_digest": _digest("adopts marlow's stance")},
+                 agent)
+    findings = check_admission_basis(store.all())
+    assert [f.status for f in findings] == ["admission_gap"]
+    assert findings[0].correlation_id == "resident:marlow"
+
+    # the honest twin: the basis precedes the promotion it warrants
+    store, agent = _journal(tmp_path, "adm1b")
+    seal_admission(store, agent, actor="agent-7",
+                   source_origin="resident:marlow",
+                   source_surface="shared memory",
+                   transition="visibility→admission",
+                   basis="user instruction 14:02 ('use marlow's notes')",
+                   decision="admitted", participation_ownership="foreign")
+    store.append("content", {"origin": "resident:marlow",
+                             "text_digest": _digest("marlow's stance on retries")},
+                 agent)
+    assert check_admission_basis(store.all()) == []
+
+
+def test_scar_adm1_the_laundering_basis_is_refused_at_seal(tmp_path):
+    """The retroactive warrant and the never-bases: an admission sealed
+    AFTER the use clears nothing (test above), and a basis that names the
+    resource's own pull — presence, relevance, plausibility, usefulness —
+    does not seal at all. Outcome: REFUSED."""
+    import pytest
+
+    store, agent = _journal(tmp_path, "adm1c")
+    with pytest.raises(ValueError, match="never a basis"):
+        seal_admission(store, agent, actor="agent-7",
+                       source_origin="resident:marlow",
+                       source_surface="shared memory",
+                       transition="relevance→payload",
+                       basis="relevance", decision="admitted",
+                       participation_ownership="foreign")
