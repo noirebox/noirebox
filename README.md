@@ -13,6 +13,9 @@
 [![Image on GHCR](https://img.shields.io/badge/image-ghcr.io%2Fnoirebox%2Fnoirebox-blue)](https://github.com/noirebox/noirebox/pkgs/container/noirebox)
 [![Made in France](https://img.shields.io/badge/made%20in-France-blue)](#)
 
+<a href="https://futurium.ec.europa.eu/en/apply-ai-alliance"><img src="docs/assets/apply-ai-alliance.png" alt="Apply AI Alliance" width="56"></a><br>
+<sub>Member of the <a href="https://futurium.ec.europa.eu/en/apply-ai-alliance"><b>Apply AI Alliance</b></a></sub>
+
 **Your AI agent writes meeting notes that bind your clients.
 Eighteen months from now — who can prove what it *exactly* produced, and why?**
 NoireBox seals every decision in a SHA-256 hash-chained + Ed25519-signed

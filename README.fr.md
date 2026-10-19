@@ -13,6 +13,9 @@
 [![Image on GHCR](https://img.shields.io/badge/image-ghcr.io%2Fnoirebox%2Fnoirebox-blue)](https://github.com/noirebox/noirebox/pkgs/container/noirebox)
 [![Made in France](https://img.shields.io/badge/made%20in-France-blue)](#)
 
+<a href="https://futurium.ec.europa.eu/en/apply-ai-alliance"><img src="docs/assets/apply-ai-alliance.png" alt="Apply AI Alliance" width="56"></a><br>
+<sub>Membre de l'<a href="https://futurium.ec.europa.eu/en/apply-ai-alliance"><b>Apply AI Alliance</b></a></sub>
+
 **Un agent IA rédige des comptes rendus qui engagent vos clients.
 Qui prouve, dans 18 mois, ce qu'il a *exactement* produit et pourquoi ?**
 NoireBox scelle chaque décision dans un journal SHA-256 chaîné + Ed25519,
