@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="160" viewBox="0 0 720 160" role="img" aria-label="NoireBox">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#38bdf8"/>
+    </linearGradient>
+  </defs>
+  <rect x="24" y="24" width="112" height="112" rx="30" fill="url(#g)"/>
+  <text x="168" y="110" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-weight="700" font-size="84" letter-spacing="11" fill="#e9e7f2">NOIRE<tspan fill="#c4b5fd">BOX</tspan></text>
+</svg>

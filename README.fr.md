@@ -28,7 +28,8 @@ une attestation que n'importe qui vérifie hors-ligne — **sans vous faire conf
 
 [Quickstart](#quickstart) · [Démo LLM réelle](#la-scène-llm-réelle-ollama-local) ·
 [Specs](docs/SPECS.md) · [Threat model](docs/THREAT-MODEL.md) ·
-[ADRs](docs/ADRs.md) · [Vulgarisation](docs/VULGARISATION.md)
+[ADRs](docs/ADRs.md) · [Vulgarisation](docs/VULGARISATION.md) ·
+[Dossier de presse](https://code.noirebox.eu/presse.html)
 
 </div>
 

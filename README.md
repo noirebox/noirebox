@@ -31,7 +31,8 @@ an attestation anyone can verify offline — **without trusting you**.
 [Specs](docs/SPECS.md) · [Threat model](docs/THREAT-MODEL.md) ·
 [The authority ladder](docs/AUTHORITY-LADDER.md) ·
 [ADRs](docs/ADRs.md) ·
-[Read-only mirror on Codeberg](https://codeberg.org/noirebox/noirebox)
+[Read-only mirror on Codeberg](https://codeberg.org/noirebox/noirebox) ·
+[Press kit](https://code.noirebox.eu/press.html)
 
 </div>
 

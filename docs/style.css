@@ -157,6 +157,23 @@ table.adrs td { padding: 5px 12px 5px 0; }
 .foot a { color: var(--dim); text-decoration: none; }
 .foot a:hover { color: var(--violet-soft); }
 
+/* ── press kit (press.html / presse.html) ───── */
+.boiler {
+  position: relative; background: var(--bg-2); border: 1px solid var(--line);
+  border-radius: 10px; padding: 14px 52px 14px 16px; margin: 12px 0;
+}
+.boiler .label { display: block; font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--dimmer); margin-bottom: 6px; }
+.boiler p { margin: 0; color: var(--txt); }
+.boiler .copy-btn { position: absolute; top: 12px; right: 12px; }
+blockquote.quote { border-left: 2px solid var(--violet); padding: 4px 18px; margin: 16px 0; color: var(--txt); font-size: 17px; line-height: 1.5; }
+blockquote.quote cite { display: block; font-style: normal; font-family: var(--mono); font-size: 12.5px; color: var(--dimmer); margin-top: 8px; }
+.assets { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-top: 14px; }
+.assets figure { margin: 0; }
+.assets img { display: block; width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--bg-2); }
+.assets img.mark { width: 168px; padding: 20px; margin: 0 auto; }
+.assets figcaption { color: var(--dimmer); font-size: 13px; margin-top: 8px; line-height: 1.5; }
+.assets figcaption a { color: var(--violet-soft); }
+
 /* ── responsive ─────────────────────────────── */
 @media (max-width: 980px) {
   .sidebar { transform: translateX(-100%); transition: transform .22s ease; width: 280px; }

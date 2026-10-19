@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NoireBox — Press kit</title>
+<meta name="description" content="Press and media kit for NoireBox, the flight data recorder for AI agents: boilerplates, story angles, fact sheet, timeline, quotes, assets and press contact.">
+<meta property="og:title" content="NoireBox — Press kit">
+<meta property="og:description" content="The flight data recorder for AI agents: boilerplates, story angles, fact sheet, quotes, assets and press contact.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://code.noirebox.eu/press.html">
+<meta property="og:image" content="https://code.noirebox.eu/assets/banner.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="style.css?v=33">
+</head>
+<body>
+
+<a class="skip" href="#content">Skip to content</a>
+
+<button class="menu-btn" id="menu-btn" aria-label="Toggle navigation">☰</button>
+<nav class="sidebar" id="sidebar" aria-label="Table of contents">
+  <a class="brand" href="#boilerplate"><span class="cube"></span>NOIRE<span>BOX</span></a>
+  <p class="brand-sub">press &amp; media kit</p>
+  <div class="toc">
+    <a href="#boilerplate">Boilerplate</a>
+    <a href="#story">The story</a>
+    <a href="#angles">Story angles</a>
+    <a href="#facts">Fact sheet</a>
+    <a href="#timeline">Timeline</a>
+    <a href="#quotes">Quotes</a>
+    <a href="#coverage">Coverage</a>
+    <a href="#assets">Assets</a>
+    <a href="#contact">Contact</a>
+    <a href="index.html" class="toc-en"><strong>Developer reference →</strong></a>
+  </div>
+  <div class="side-foot">
+    <a href="https://github.com/noirebox/noirebox" target="_blank" rel="noopener">GitHub ↗</a>
+    <a href="https://pypi.org/project/noirebox/" target="_blank" rel="noopener">PyPI ↗</a>
+    <a href="presse.html" lang="fr" title="Dossier de presse en français">🇫🇷 FR</a>
+  </div>
+</nav>
+<div class="scrim" id="scrim" hidden></div>
+
+<main id="content">
+
+<header class="head">
+  <p class="kicker">// code.noirebox.eu/press — press &amp; media kit. Every figure on this page is checkable in the public repository.</p>
+  <h1>Press kit <span class="ver">v0.23.0</span></h1>
+  <p class="lede">
+    NoireBox is the <strong>flight data recorder for AI agents</strong>: an open-source,
+    tamper-evident journal where every decision an agent takes is sealed, signed and
+    time-stamped by external witnesses — and anyone can verify the record offline,
+    <strong>without trusting the operator</strong>.
+  </p>
+  <p class="head-links mono">
+    <a href="index.html">developer reference</a> ·
+    <a href="https://github.com/noirebox/noirebox" target="_blank" rel="noopener">source</a> ·
+    <a href="https://github.com/noirebox/noirebox/blob/main/CHANGELOG.md" target="_blank" rel="noopener">changelog</a> ·
+    <a href="presse.html" lang="fr">dossier de presse (FR)</a>
+  </p>
+</header>
+
+<!-- ═══════════════ BOILERPLATE ═══════════════ -->
+<section id="boilerplate">
+<h2><a href="#boilerplate" class="anchor">§</a>Boilerplate</h2>
+<p>Copy-paste ready. The ⧉ button copies each block verbatim.</p>
+
+<div class="boiler">
+  <span class="label">One line</span>
+  <p id="bp-line">NoireBox is the flight data recorder for AI agents: a tamper-evident, signed, externally time-stamped journal that anyone can verify offline — without trusting the operator.</p>
+  <button class="copy-btn" data-copy="bp-line" title="Copy" aria-label="Copy one-line boilerplate">⧉</button>
+</div>
+
+<div class="boiler">
+  <span class="label">Short — ~65 words</span>
+  <p id="bp-short">NoireBox is an open-source (MIT) black box for AI agents. Every decision an agent takes — model call, tool use, verification event — is sealed into an append-only journal: hash-chained with SHA-256, signed with Ed25519, anchored to external RFC 3161 time-stamp authorities. A standalone verifier lets an auditor, a DPO or a client re-check the whole record offline, without trusting the operator. Built in the Vosges, France.</p>
+  <button class="copy-btn" data-copy="bp-short" title="Copy" aria-label="Copy short boilerplate">⧉</button>
+</div>
+
+<div class="boiler">
+  <span class="label">Long — ~150 words</span>
+  <p id="bp-long">NoireBox is an open-source black box for AI agents, built solo in the Vosges, France, and published under the MIT licence. It answers one question: if someone contests a decision made by an AI agent tomorrow, who can prove what the agent exactly did — and that the record has not been touched since? Observability tools are built for debugging, and their logs stay editable by whoever holds the disk. NoireBox seals every event into an append-only journal that is hash-chained (SHA-256), signed (Ed25519) and anchored to external RFC 3161 time-stamp authorities, then exports an attestation a third party verifies offline, without trusting the operator. It is the integrity layer that the EU AI Act (art. 12, automatic logging) and the GDPR (art. 5(2), accountability) assume but do not specify. Since 19 September 2026: 21 releases, 428 automated tests, 28 public architecture decision records — each with the alternatives it rejected.</p>
+  <button class="copy-btn" data-copy="bp-long" title="Copy" aria-label="Copy long boilerplate">⧉</button>
+</div>
+
+<div class="cols">
+  <div>
+    <h3>What it does</h3>
+    <ul class="tight">
+      <li>Seals every agent event — append-only, no UPDATE, no DELETE; 0.17&nbsp;ms per sealed event</li>
+      <li>Localizes falsification — rewrite, insert, delete are detected at the exact event</li>
+      <li>Non-repudiation — Ed25519; the key can live off the agent's disk (key-holder daemon, HSM/PKCS#11)</li>
+      <li>External time — RFC 3161 multi-TSA anchoring + OpenTimestamps (Bitcoin); only 32-byte hashes leave the machine</li>
+      <li>Guards the transcript — 3 engines (regex, trained micro-models, local LLM judge), detection in French and English</li>
+      <li>Names every unprovable state instead of merging it into an OK</li>
+    </ul>
+  </div>
+  <div>
+    <h3>What it is not</h3>
+    <ul class="tight">
+      <li>Not a blockchain — one issuer, one verifier, no consensus tax</li>
+      <li>Not observability — debugging is not proving</li>
+      <li>Not a certification — a component that states its own scope (threat model)</li>
+      <li>Not SaaS — self-hosted, zero telemetry, one SQLite file per journal</li>
+      <li>Not a truth oracle — it proves a record was <em>not altered</em> and <em>when it existed</em>; a proof tool, not a talisman</li>
+    </ul>
+  </div>
+</div>
+</section>
+
+<!-- ═══════════════ STORY ═══════════════ -->
+<section id="story">
+<h2><a href="#story" class="anchor">§</a>The story</h2>
+<p><strong>The question.</strong> Your AI agent writes meeting notes that bind your clients, signs purchase orders, files tickets. Eighteen months from now — who can prove what it <em>exactly</em> produced, on which input, with which tool, and why?</p>
+<p><strong>The gap.</strong> Today's answers — application logs, databases, git histories, agent observability dashboards — share one flaw: they are editable by whoever holds the disk, and the operator can always re-sign. The EU AI Act requires automatic event logs for high-risk systems (art. 12) and the GDPR requires demonstrable accountability (art. 5(2)); neither says how a log proves it was not edited afterwards. No logging-integrity standard is published yet.</p>
+<p><strong>The answer.</strong> Apply the Certificate-Transparency model to agent journals. NoireBox seals events into an append-only SQLite journal, hash-chained and Ed25519-signed, and periodically anchors the chain head to independent time witnesses (RFC 3161 authorities, OpenTimestamps/Bitcoin). The verifier is a standalone script: an auditor recomputes the whole chain offline, without access to your server, your keys or your trust.</p>
+<p><strong>The scope, stated up front.</strong> NoireBox proves a record was not altered and when it existed. It does not prove the record was true when written. Every state it cannot prove is named — <em>undecidable</em> is a first-class outcome, never folded into a green check.</p>
+</section>
+
+<!-- ═══════════════ ANGLES ═══════════════ -->
+<section id="angles">
+<h2><a href="#angles" class="anchor">§</a>Story angles</h2>
+<p>Four angles that work, each with the sources a journalist can check in public.</p>
+
+<h3>1 — The black box, literally</h3>
+<p>Interpretability research asks <em>why</em> a model answered as it did — and the field itself warns that a model's self-explanation can be generated after the fact. NoireBox does not open the model. It seals what happened around it — what was asked, what came back, which tool ran, who judged the output and against which specification — and makes that record provable to a third party. The AI Act requires that second kind of transparency now, including where the first remains out of reach.
+<span class="dim">Sources: <a href="https://github.com/noirebox/noirebox/blob/main/docs/ART12-MAPPING.md" target="_blank" rel="noopener">ART12-MAPPING.md</a>, <a href="https://github.com/noirebox/noirebox/blob/main/docs/COMPLIANCE-EU.md" target="_blank" rel="noopener">COMPLIANCE-EU.md</a>, decision receipts (ADR 028 in <a href="https://github.com/noirebox/noirebox/blob/main/docs/ADRs.md" target="_blank" rel="noopener">ADRs.md</a>).</span></p>
+
+<h3>2 — AI agents' logs are editable — and the AI Act demands logs</h3>
+<p>The Digital Omnibus on AI (Regulation (EU) 2026/1744, in force 27 July 2026) set the high-risk (Annex III) obligations — including art. 12 logging and ≥ 6-month log retention — for 2 December 2027. It did not defer art. 12 or GDPR art. 5(2). Fines reach €35 M or 7% of global turnover. And no standard yet says what "integrity of logs" means — a solo developer shipped a working answer under MIT, fourteen months before the deadline.
+<span class="dim">Sources: <a href="https://github.com/noirebox/noirebox/blob/main/docs/COMPLIANCE-EU.md" target="_blank" rel="noopener">COMPLIANCE-EU.md</a> (verified against consolidated texts, cross-checked 17 Oct 2026), <a href="https://github.com/noirebox/noirebox/blob/main/docs/ART12-MAPPING.md" target="_blank" rel="noopener">ART12-MAPPING.md</a>, the essay <a href="https://dev.to/slabb/the-ai-act-went-live-two-months-ago-your-agents-logs-are-still-editable-46dn" target="_blank" rel="noopener">"The AI Act went live two months ago. Your agent's logs are still editable."</a></span></p>
+
+<h3>3 — Audited in public, by its critics</h3>
+<p>The project applies "proof, not promises" to itself. Unix veteran Randal L. Schwartz published a catalog of attacks on AI coding-agent gates; NoireBox replayed it as tests in the open — five attack fixtures, sixteen tests, the caught attacks visible in the test names and the gaps named in code rather than smoothed over. Schwartz then named the underlying principle "Sam LABBE's Corollary": two engineers, two stacks (Unix primitives vs cryptographic ledgers), the same four defenses. An independent reviewer on dev.to re-ran the verifier release after release; each finding became a shipped answer within days, and the full audit of v0.20.0 — ten findings — was answered publicly, point by point.
+<span class="dim">Sources: <a href="https://github.com/noirebox/noirebox/blob/main/tests/test_scar_replay.py" target="_blank" rel="noopener">test_scar_replay.py</a>, <a href="https://github.com/noirebox/noirebox/blob/main/docs/SCAR-BENCH.md" target="_blank" rel="noopener">SCAR-BENCH.md</a>, <a href="https://github.com/noirebox/noirebox/blob/main/docs/AUTHORITY-LADDER.md" target="_blank" rel="noopener">AUTHORITY-LADDER.md</a>, <a href="https://dev.to/slabb/ten-findings-ten-answers-publishing-the-audit-of-our-own-black-box-1d29" target="_blank" rel="noopener">"Ten findings, ten answers"</a>.</span></p>
+
+<h3>4 — A proof tool, not a talisman</h3>
+<p>The rare story of a product that states what it cannot do. NoireBox proves integrity and existence-in-time; it refuses to vouch for truth. Twenty-one releases in one month, every architectural decision public — twenty-eight ADRs, each with what was rejected and why — and the whole method MIT-licensed, because the maker's position is: the journal stays local, the repo ships the method, verification stays free forever.
+<span class="dim">Sources: <a href="https://github.com/noirebox/noirebox/blob/main/docs/ADRs.md" target="_blank" rel="noopener">ADRs.md</a>, <a href="https://github.com/noirebox/noirebox/blob/main/docs/THREAT-MODEL.md" target="_blank" rel="noopener">THREAT-MODEL.md</a>, <a href="https://github.com/noirebox/noirebox/blob/main/CHANGELOG.md" target="_blank" rel="noopener">CHANGELOG.md</a>.</span></p>
+</section>
+
+<!-- ═══════════════ FACTS ═══════════════ -->
+<section id="facts">
+<h2><a href="#facts" class="anchor">§</a>Fact sheet</h2>
+<table>
+  <tbody>
+    <tr><td class="mono">Name</td><td>NoireBox — one word, capital N and B; <code>noirebox</code> in code, URLs and package names</td></tr>
+    <tr><td class="mono">What</td><td>Tamper-evident journal + guardrails + verifiable proof for AI agents</td></tr>
+    <tr><td class="mono">Category</td><td>Accountability / compliance infrastructure for agentic AI (open source)</td></tr>
+    <tr><td class="mono">First release</td><td>0.1.0 — 19 September 2026</td></tr>
+    <tr><td class="mono">Current version</td><td>0.23.0 — 18 October 2026</td></tr>
+    <tr><td class="mono">Releases</td><td>21, every one in the <a href="https://github.com/noirebox/noirebox/blob/main/CHANGELOG.md" target="_blank" rel="noopener">changelog</a></td></tr>
+    <tr><td class="mono">Tests</td><td>428 automated, 0 failing (CI)</td></tr>
+    <tr><td class="mono">ADRs</td><td>28 public architecture decision records, each with the alternatives rejected</td></tr>
+    <tr><td class="mono">Sealed record families</td><td>6 — receipt/0.2.2, decision/0.1, admission/0.1, retention/0.1, writer/0.1, spec/0.1</td></tr>
+    <tr><td class="mono">Attack fixtures replayed</td><td>5 SCAR ids (43, 45, 89, 110, 114) — 16 tests</td></tr>
+    <tr><td class="mono">Cryptography</td><td>SHA-256 hash chain · Ed25519 signatures · RFC 3161 multi-TSA + OpenTimestamps (Bitcoin); post-quantum migration path documented (ADR 027)</td></tr>
+    <tr><td class="mono">Performance</td><td>0.17 ms per sealed append (public benchmark, <code>make bench</code>)</td></tr>
+    <tr><td class="mono">Guardrail detection</td><td>French + English (regex, trained micro-models, local LLM judge)</td></tr>
+    <tr><td class="mono">Licence</td><td>MIT</td></tr>
+    <tr><td class="mono">Distribution</td><td><a href="https://pypi.org/project/noirebox/" target="_blank" rel="noopener">PyPI</a> (<code>pip install noirebox</code>) · <a href="https://github.com/noirebox/noirebox/pkgs/container/noirebox" target="_blank" rel="noopener">Docker image on GHCR</a> · <a href="https://marketplace.visualstudio.com/items?itemName=noirebox.noirebox" target="_blank" rel="noopener">VS Code extension</a> 0.10.1 (Marketplace + <a href="https://open-vsx.org/extension/noirebox/noirebox" target="_blank" rel="noopener">Open VSX</a>) · <a href="https://github.com/marketplace/actions/noirebox-verify" target="_blank" rel="noopener">noirebox-verify GitHub Action</a> · read-only mirror on <a href="https://codeberg.org/noirebox/noirebox" target="_blank" rel="noopener">Codeberg</a></td></tr>
+    <tr><td class="mono">Compliance mapping</td><td>GDPR art. 5(2)/15/20 · AI Act art. 12, 14(5), 55(1)(c), 73, Annex IV · eIDAS art. 41 — <a href="https://github.com/noirebox/noirebox/blob/main/docs/COMPLIANCE-EU.md" target="_blank" rel="noopener">COMPLIANCE-EU.md</a></td></tr>
+    <tr><td class="mono">Memberships</td><td><a href="https://futurium.ec.europa.eu/en/apply-ai-alliance" target="_blank" rel="noopener">Apply AI Alliance</a> (European Commission, Futurium)</td></tr>
+    <tr><td class="mono">Creator</td><td>Sam Labbé (<a href="https://github.com/slabbdev" target="_blank" rel="noopener">@slabbdev</a>) — built solo</td></tr>
+    <tr><td class="mono">Location</td><td>Vosges, France 🇫🇷</td></tr>
+    <tr><td class="mono">Website · source</td><td><a href="https://code.noirebox.eu/">code.noirebox.eu</a> · <a href="https://github.com/noirebox/noirebox" target="_blank" rel="noopener">github.com/noirebox/noirebox</a></td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ═══════════════ TIMELINE ═══════════════ -->
+<section id="timeline">
+<h2><a href="#timeline" class="anchor">§</a>Timeline</h2>
+<table>
+  <tbody>
+    <tr><td class="mono">2026-09-19</td><td><strong>0.1.0</strong> — append-only SQLite journal, SHA-256 chain, Ed25519 signatures</td></tr>
+    <tr><td class="mono">2026-09-20</td><td><strong>0.3.0</strong> — external time: RFC 3161 anchoring</td></tr>
+    <tr><td class="mono">2026-09-26</td><td><strong>0.6.0</strong> — on PyPI (trusted publishing), Docker image on GHCR</td></tr>
+    <tr><td class="mono">2026-10-04</td><td><strong>0.7.0 → 0.10.0</strong> — the guardrail: tiered scanning with a local LLM judge; detection in French and English</td></tr>
+    <tr><td class="mono">2026-10-10</td><td>Randal L. Schwartz publishes his gate-attack catalog; NoireBox replays it as open tests; he names the ordering-vs-authenticity principle <em>"Sam LABBE's Corollary"</em></td></tr>
+    <tr><td class="mono">2026-10-11</td><td><strong>0.11.0 / 0.12.0</strong> — receipts v0.2.x: a verdict cannot be sealed without the specification it was judged against; Schwartz's <em>"Pre-Training Gravity"</em> piece cites NoireBox fifteen times; SCAR-BENCH claims format and an open-weights measurement published</td></tr>
+    <tr><td class="mono">2026-10-13 → 14</td><td><strong>0.14.0 → 0.20.0</strong> — the custody ladder: key-holder daemon the agent is not, HSM/PKCS#11 signing, the write-race pin, the custody grade — seven releases in two days</td></tr>
+    <tr><td class="mono">2026-10-15</td><td><strong>0.21.0</strong> — the external audit of 0.20.0 answered in public: ten findings, ten answers, none breaking</td></tr>
+    <tr><td class="mono">2026-10-18</td><td><strong>0.23.0</strong> — decision + admission receipts: the decision itself becomes a signed event (ADR 026 / ADR 028)</td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ═══════════════ QUOTES ═══════════════ -->
+<section id="quotes">
+<h2><a href="#quotes" class="anchor">§</a>Quotes</h2>
+<p>All four lines are already public. Quote freely, attributed as shown.</p>
+
+<blockquote class="quote">Prevention varies per stack. Proof is universal.
+  <cite>— Sam Labbé, README</cite>
+</blockquote>
+
+<blockquote class="quote">A Makefile DAG proves topological ordering, not evidence authenticity — an agent can never be the notary of its own handwriting.
+  <cite>— Sam Labbé; the line Randal L. Schwartz named "Sam LABBE's Corollary"</cite>
+</blockquote>
+
+<blockquote class="quote">NoireBox proves a record was not altered and when it existed. It does not prove the record was true when written. A proof tool, not a talisman.
+  <cite>— Sam Labbé, project positioning</cite>
+</blockquote>
+
+<blockquote class="quote">The journal stays local — the repo ships the method. Verification stays free, forever.
+  <cite>— Sam Labbé, project motto</cite>
+</blockquote>
+</section>
+
+<!-- ═══════════════ COVERAGE ═══════════════ -->
+<section id="coverage">
+<h2><a href="#coverage" class="anchor">§</a>Coverage</h2>
+<p>NoireBox is young: no mainstream-press piece yet — this kit exists to change that. What exists today is verifiable community coverage.</p>
+
+<h3>What others wrote</h3>
+<ul class="tight">
+  <li><strong>Randal L. Schwartz</strong> — <a href="https://dev.to/gde/what-llms-know-that-you-dont-know-they-know-stop-inventing-prompt-dsls-and-ride-50-years-of-2bl6" target="_blank" rel="noopener">"What LLMs 'Know' That You Don't Know They Know: Stop Inventing Prompt DSLs and Ride 50 Years of Unix Pre-Training Gravity"</a> (dev.to, 11 Oct 2026) — cites NoireBox fifteen times, including the SCAR replay suite.</li>
+  <li><strong>Randal L. Schwartz</strong> — <a href="https://dev.to/gde/surviving-the-200k-token-lobotomy-how-unix-initd-and-memento-made-my-ai-coding-agent-immune-to-2f74" target="_blank" rel="noopener">"Surviving the 200k-Token Lobotomy"</a> (dev.to, 10 Oct 2026) — the section <em>"The Ordering vs. Authenticity Principle (Sam LABBE's Corollary)"</em>.</li>
+  <li><strong>Randal L. Schwartz</strong>, <a href="https://dev.to/randalschwartz/comment/3h86j" target="_blank" rel="noopener">comment on the SCAR replay</a> (10 Oct 2026): <em>"I just read tests/test_scar_replay.py and Issue #53 from top to bottom—this made my whole weekend."</em></li>
+  <li><strong>James Anderson H.</strong> — <a href="https://dev.to/james_anderson_h/the-witness-was-the-suspect-why-ai-audit-logs-cant-be-trusted-2190" target="_blank" rel="noopener">"The Witness Was the Suspect: Why AI Audit Logs Can't Be Trusted"</a> (dev.to, 5 Oct 2026) — credits the cross-stream reconciliation principle to <em>@slabb</em>.</li>
+</ul>
+
+<h3>What we published</h3>
+<ul class="tight">
+  <li><a href="https://dev.to/slabb/i-built-the-flight-data-recorder-for-ai-agents-38f6" target="_blank" rel="noopener">"I built the flight data recorder for AI agents."</a> (22 Sep 2026) — the founding article.</li>
+  <li><a href="https://dev.to/slabb/the-ai-act-went-live-two-months-ago-your-agents-logs-are-still-editable-46dn" target="_blank" rel="noopener">"The AI Act went live two months ago. Your agent's logs are still editable."</a> (30 Sep 2026)</li>
+  <li><a href="https://dev.to/slabb/a-hash-chain-proves-the-ordering-four-attacks-prove-its-not-enough-59oe" target="_blank" rel="noopener">"A hash chain proves the ordering. Four attacks prove it's not enough."</a> (10 Oct 2026)</li>
+  <li><a href="https://dev.to/slabb/we-tested-pre-training-gravity-on-open-weights-it-stayed-home-243i" target="_blank" rel="noopener">"We tested pre-training gravity on open weights. It stayed home."</a> (11 Oct 2026) — the SCAR-BENCH open-weights measurement.</li>
+  <li><a href="https://dev.to/slabb/the-authority-ladder-five-rungs-down-four-premises-standing-4p5f" target="_blank" rel="noopener">"The authority ladder: five rungs down, four premises standing"</a> (13 Oct 2026)</li>
+  <li><a href="https://dev.to/slabb/ten-findings-ten-answers-publishing-the-audit-of-our-own-black-box-1d29" target="_blank" rel="noopener">"Ten findings, ten answers — publishing the audit of our own black box"</a> (15 Oct 2026)</li>
+  <li>European Commission Futurium — <a href="https://futurium.ec.europa.eu/en/apply-ai-alliance" target="_blank" rel="noopener">Apply AI Alliance</a>: member introduction post "NoireBox — tamper-evident accountability infrastructure for AI agents" (1 Oct 2026; reading community posts on Futurium requires a free EU Login).</li>
+</ul>
+</section>
+
+<!-- ═══════════════ ASSETS ═══════════════ -->
+<section id="assets">
+<h2><a href="#assets" class="anchor">§</a>Assets</h2>
+<div class="assets">
+  <figure>
+    <img src="assets/banner.jpg" alt="NoireBox banner" width="1672" height="941" loading="lazy">
+    <figcaption><strong>Banner</strong> — 1672 × 941.<br>
+      <a href="assets/banner.jpg" target="_blank" rel="noopener">JPG</a> · <a href="assets/banner.png" target="_blank" rel="noopener">PNG</a> · <a href="assets/banner.webp" target="_blank" rel="noopener">WebP</a> — social cards use the JPG.</figcaption>
+  </figure>
+  <figure>
+    <img src="assets/architecture.png" alt="NoireBox architecture diagram" width="1774" height="887" loading="lazy">
+    <figcaption><strong>Architecture diagram</strong> — 1774 × 887.<br>
+      <a href="assets/architecture.png" target="_blank" rel="noopener">PNG</a> — for technical pieces.</figcaption>
+  </figure>
+  <figure>
+    <img src="assets/logo.svg" alt="NoireBox logo lockup" width="720" height="160" loading="lazy">
+    <figcaption><strong>Logo lockup</strong> — vector, for dark backgrounds.<br>
+      <a href="assets/logo.svg" target="_blank" rel="noopener">SVG</a></figcaption>
+  </figure>
+  <figure>
+    <img class="mark" src="assets/logo-mark.svg" alt="NoireBox mark" width="256" height="256" loading="lazy">
+    <figcaption><strong>Mark</strong> — vector, works on any background.<br>
+      <a href="assets/logo-mark.svg" target="_blank" rel="noopener">SVG</a></figcaption>
+  </figure>
+</div>
+<h3>Usage rules</h3>
+<ul class="tight">
+  <li>Name: <strong>NoireBox</strong> — one word, capital N and B; lowercase <code>noirebox</code> only in code, URLs and package names.</li>
+  <li>The lockup is drawn for dark backgrounds; on light ones, use the mark on a dark tile rather than recoloring.</li>
+  <li>Don't restyle the gradient, stretch, tilt or add effects.</li>
+  <li>Everything on this page is MIT-licensed or original project art — usable in coverage without asking.</li>
+</ul>
+</section>
+
+<!-- ═══════════════ CONTACT ═══════════════ -->
+<section id="contact">
+<h2><a href="#contact" class="anchor">§</a>Contact</h2>
+<table>
+  <tbody>
+    <tr><td class="mono">Press contact</td><td><a href="mailto:press@noirebox.eu">press@noirebox.eu</a></td></tr>
+    <tr><td class="mono">Spokesperson</td><td>Sam Labbé — creator &amp; maintainer</td></tr>
+    <tr><td class="mono">Languages</td><td>French, English</td></tr>
+    <tr><td class="mono">Location</td><td>Vosges, France (CET)</td></tr>
+    <tr><td class="mono">Elsewhere</td><td><a href="https://github.com/slabbdev" target="_blank" rel="noopener">GitHub @slabbdev</a> · <a href="https://dev.to/slabb" target="_blank" rel="noopener">dev.to @slabb</a></td></tr>
+  </tbody>
+</table>
+<p>Available on short notice:</p>
+<ul class="tight">
+  <li><strong>Interview</strong> — FR or EN, on the AI Act art. 12 evidence gap, the custody ladder, or building in public.</li>
+  <li><strong>Falsification demo, 5 minutes</strong> — we export a journal, tamper one event live, and the standalone verifier names the exact event and position.</li>
+  <li><strong>Hands-on verification</strong> — run the verifier on your own laptop against our exports; nothing to trust, everything to recompute.</li>
+</ul>
+</section>
+
+<footer class="foot">
+  <div><span class="cube"></span> <strong>NoireBox</strong> — the flight data recorder for AI agents.</div>
+  <div class="foot-links mono">
+    <a href="index.html">Developer reference</a>
+    <a href="presse.html" lang="fr">Presse (FR)</a>
+    <a href="https://github.com/noirebox/noirebox" target="_blank" rel="noopener">GitHub</a>
+    <a href="https://github.com/noirebox/noirebox/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Changelog</a>
+    <span>MIT</span>
+  </div>
+</footer>
+
+</main>
+
+<script src="script.js?v=33"></script>
+</body>
+</html>
