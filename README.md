@@ -14,6 +14,9 @@
 [![Made in France](https://img.shields.io/badge/made%20in-France-blue)](#)
 [![Mirror: Codeberg](https://img.shields.io/badge/mirror-codeberg.org%2Fnoirebox-2185d0)](https://codeberg.org/noirebox)
 
+<a href="https://futurium.ec.europa.eu/en/apply-ai-alliance"><img src="docs/assets/apply-ai-alliance.png" alt="Apply AI Alliance" width="56"></a><br>
+<sub>Member of the <a href="https://futurium.ec.europa.eu/en/apply-ai-alliance"><b>Apply AI Alliance</b></a></sub>
+
 **Your AI agent writes meeting notes that bind your clients.
 Eighteen months from now — who can prove what it *exactly* produced, and why?**
 NoireBox seals every decision in a SHA-256 hash-chained + Ed25519-signed
