@@ -18,14 +18,14 @@ The EU now **requires tamper-irrelevant logs — and rewards whoever makes them 
 
 ## 2. The verified calendar (post–Digital Omnibus)
 
-The **Digital Omnibus on AI was adopted as Regulation (EU) 2026/1744** — OJ 24 July 2026, in force **27 July 2026**. It moved the high-risk deadlines; it did **not** touch transparency, GPAI, or the prohibitions. Every date below is the application date set by art. 113 as amended (consolidated text of 27 July 2026), re-verified against the official French consolidation.
+The **Digital Omnibus on AI was adopted as Regulation (EU) 2026/1744** — OJ 24 July 2026, in force **27 July 2026**. It moved the high-risk deadlines and added two prohibitions; it left the transparency and GPAI application dates alone — with **one narrow exception on transparency**: the new **art. 111(4)** (inserted by art. 1(39)(b); recital 38, "a transitional period of four months") gives providers of generative AI systems **already placed on the market before 2 August 2026** until **2 December 2026** to comply with the art. 50(2) marking obligation. Everyone else — every system placed on the market from 2 August 2026, and every art. 50 obligation other than 50(2) — has been in scope since **2 August 2026**. Every date below is the application date set by art. 113 as amended (consolidated text of 27 July 2026), re-verified against the official French consolidation; the art. 111(4) transition was re-verified on 21 October 2026 against the OJ English text.
 
 | Date | What applies | NoireBox angle |
 |---|---|---|
 | **2 Aug 2025** | GPAI systemic-risk obligations (art. 55): evaluate, mitigate, **"keep track of, document, and report serious incidents"** | **LIVE TODAY** — sealed incident journals are exactly "keep track + document" |
 | **2 Feb 2025** | Prohibited practices (art. 5) + AI literacy | LIVE — enforcement needs evidence |
-| **2 Aug 2026** | Art. 50 transparency (chatbot disclosure, deepfake/watermark labelling) | **LIVE TODAY** — labelling decisions are events to seal |
-| **2 Dec 2026** | Two new prohibitions (incl. "nudifier"-type apps) enter into force | Enforcement wave in **2 months** — authorities will demand evidence |
+| **2 Aug 2026** | Art. 50 transparency (chatbot disclosure, deepfake/watermark labelling) | **LIVE TODAY** — labelling decisions are events to seal; `marking/0.1` seals the art. 50(2) marking of each generated output, bound to its digest (ADR 030). The only deferral is art. 111(4), next row |
+| **2 Dec 2026** | Two new prohibitions (incl. "nudifier"-type apps) enter into force; **end of the art. 111(4) transition** — art. 50(2) marking becomes due for generative systems that were already on the market before 2 Aug 2026 | **Enforcement wave: 2 December 2026** — authorities will demand evidence, and "we marked it" needs a receipt that outlives the file |
 | **2 Dec 2027** | **High-risk (Annex III) obligations** — incl. art. 12 logging, art. 19/26(6) log retention ≥ 6 months | **The big wave: 14 months out.** Build now, adopt early |
 | **2 Aug 2028** | High-risk embedded in regulated products (Annex I) | Second wave |
 
@@ -50,6 +50,7 @@ Why the deferral matters to us: the Commission deferred high-risk partly because
 | **Art. 72 / 73** | Post-market monitoring; **serious-incident reporting** to market surveillance authorities. Deadline: **15 days** after knowledge once the causal link is established or reasonably probable (73(2)); **2 days** for wide-scale infractions and art. 3(49)(b) incidents (73(3)); **10 days** in case of a person's death (73(4)). The clock runs from when the provider/deployer *had knowledge* | The deadlines are knowledge-relative: only a timestamped, tamper-evident record can prove *when* you knew — the sealed journal turns a 15-day obligation into a defensible fact |
 | **Art. 55(1)(c)** (GPAI systemic risk — **LIVE**) | "keep track of, document, and report, **without undue delay**, serious incidents" | A sealed journal is the cleanest possible "keep track of, document" |
 | **Art. 14(5)** | Human oversight: verifiers' actions must be traceable | Seal who verified what, when |
+| **Art. 50(2)** (transparency — **LIVE** since 2 Aug 2026; art. 111(4) transition to 2 Dec 2026 for generative systems on the market before 2 Aug 2026) | Providers of systems generating synthetic audio, image, video or text: outputs **marked in a machine-readable format and detectable** as artificially generated or manipulated; three carve-outs (assistive editing, no substantial alteration, authorised by law) | The mark lives in the file and dies with it — the evidence that the marking *happened* must live elsewhere. `marking/0.1` seals it bound to the output's digest, status fails closed, an exemption names its carve-out; `marking_gap` names the output that left unmarked (ADR 030) |
 
 **The gap, stated once and loudly:** every one of these articles presumes the logs are *faithful*. None of them makes falsification *detectable*. The AI Act regulates how logs are produced and kept; it does not regulate whether a methodical insider can rewrite them. That is precisely the NoireBox threat model (`docs/THREAT-MODEL.md`), now closed with external anchoring (ADR 006).
 
@@ -102,7 +103,7 @@ NoireBox's differentiators, all already in the codebase: agent-native (hooks, MC
 
 ### ADR 010 — AI-Act-shaped events ("ai-act" event vocabulary)
 
-- Map art. 12(3) fields onto first-class event types/payload keys: `use_period` (start/end), `reference_db`, `matched_input_hash` (hash, never raw personal data), `human_verifier` (art. 14(5)), `incident` (art. 55(1)(c) / art. 73), `transparency_label` (art. 50). Payload hashes give per-prediction provenance without GDPR leakage.
+- Map art. 12(3) fields onto first-class event types/payload keys: `use_period` (start/end), `reference_db`, `matched_input_hash` (hash, never raw personal data), `human_verifier` (art. 14(5)), `incident` (art. 55(1)(c) / art. 73), `transparency_label` (art. 50 — shipped as `marking/0.1` for the 50(2) marking obligation, ADR 030). Payload hashes give per-prediction provenance without GDPR leakage.
 - `noirebox export --audit-pack`: journal export + verifier report + a generated "Annexe IV §2(f) logging characteristics" description of the logging design — the artefact an auditor or notified body asks for.
 
 ### Positioning (what we put forward)
@@ -121,7 +122,8 @@ Not "we plug into Universign". **"Your AI journal, witnessed by third parties yo
 
 - AI Act text & articles: artificialintelligenceact.eu (art. 12, 55); consolidated text: eur-lex.europa.eu/eli/reg/2024/1689/oj
 - Consolidated French texts cross-checked 17 Oct 2026: GDPR **CELEX 02016R0679** (FR, 04.05.2016) and AI Act **CELEX 02024R1689** (FR, consolidated 27.07.2026, incl. Reg. (EU) 2026/1744 amendments — art. 4 bis, art. 60 bis, art. 75 bis–quinquies, art. 99 d bis, art. 111(2), art. 113)
-- Digital Omnibus: Regulation (EU) 2026/1744 — OJ 24 July 2026, in force 27 July 2026 (Annex III → 2 Dec 2027; Annex I → 2 Aug 2028; transparency & GPAI untouched)
+- Digital Omnibus: Regulation (EU) 2026/1744 — OJ 24 July 2026, in force 27 July 2026 (Annex III → 2 Dec 2027; Annex I → 2 Aug 2028; transparency and GPAI application dates untouched)
+- Art. 50(2) transition: Reg. (EU) 2026/1744 art. 1(39)(b) inserting **art. 111(4)** + recital 38 — generative systems placed on the market before 2 Aug 2026 comply with art. 50(2) by 2 Dec 2026; verified 21 Oct 2026 against the OJ English text (eur-lex.europa.eu, OJ:L_202601744)
 - European Parliament, "AI Act: deal on simplification measures" (7 May 2026): high-risk obligations from 2 December 2027
 - Art. 19/26(6) six-month log retention: ActiveMind, Hannes Snellman, LexLint summaries
 - CEN-CENELEC JTC 21: first harmonized standard EN 18286:2026 (22 July 2026, OJ citation pending); bulk expected late 2026+

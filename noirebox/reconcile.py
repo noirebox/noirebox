@@ -1869,3 +1869,158 @@ def custody_grade(events: list[dict], *, max_tail_events: int = 1000,
                       "the TSA's signing duty (RFC 3161) covers the "
                       "anchored prefix; the tail rests on the operator",
     }
+
+
+# --- ADR 030 — marking receipts: art. 50(2) under seal -------------------------
+
+_HEX64 = re.compile(r"^[0-9a-f]{64}$")
+_MARKING_MODALITIES = ("text", "image", "audio", "video")
+_MARKING_STATUSES = ("marked", "not_marked", "exempt")
+_MARKING_METHODS = ("watermark", "metadata", "c2pa_manifest", "fingerprint",
+                    "visible_label")
+_MARKING_EXEMPTIONS = ("assistive_editing", "no_substantial_alteration",
+                       "authorised_by_law")
+
+
+def seal_marking(store, key, *, output_digest: str, modality: str,
+                 status: str, system_ref: str,
+                 methods: list[str] | None = None,
+                 manifest_digest: str | None = None,
+                 exemption: str | None = None,
+                 detector: str | None = None) -> dict:
+    """Seals one MARKING RECEIPT as a `marking` event (ADR 030 — AI Act
+    art. 50(2), Reg. (EU) 2024/1689 as amended by 2026/1744): the proof
+    that one generated output WAS marked, kept where the mark itself
+    cannot be stripped — in the anchored journal, not in the file. The
+    output travels as its sha256 DIGEST, never as content (the
+    `use_event` rule): stripping the label changes the bytes, not the
+    receipt, and the receipt still names the bytes that carried it.
+
+    `status` fails closed, house vocabulary: `marked` | `not_marked` |
+    `exempt`. An output that left unmarked is sealed as exactly that —
+    the gap on the record, like `admission_check_not_run` — and an
+    exemption names which of art. 50(2)'s three carve-outs it claims
+    (`assistive_editing`, `no_substantial_alteration`,
+    `authorised_by_law`); a bare "exempt" is refused. `methods` are the
+    marks actually applied, a closed set (a new kind of mark is a schema
+    bump, not a free string): `c2pa_manifest` binds `manifest_digest`
+    (the sha256 of the manifest) and refuses to travel without it, and a
+    manifest digest with no manifest method is refused the other way.
+    `detector`, when given, names how a third party re-detects the mark
+    — "machine-readable AND detectable" is two halves, and a mark nobody
+    can find satisfies neither."""
+    digest = str(output_digest or "").strip().lower()
+    if not _HEX64.match(digest):
+        raise ValueError("marking: output_digest must be a sha256 hex digest "
+                         "(64 hex chars) — seal the DIGEST, not the content")
+    if modality not in _MARKING_MODALITIES:
+        raise ValueError(
+            f"marking: modality must be one of {_MARKING_MODALITIES}, got "
+            f"{modality!r} (art. 50(2) names four: audio, image, video, text)")
+    if status not in _MARKING_STATUSES:
+        raise ValueError(
+            f"marking: status must be one of {_MARKING_STATUSES}, got "
+            f"{status!r} (unmarked is never clean — say so)")
+    if not str(system_ref or "").strip():
+        raise ValueError("marking: system_ref is required — which system "
+                         "generated the output")
+    if methods is not None and not isinstance(methods, list):
+        raise ValueError("marking: methods must be a list of method names")
+    clean_methods = list(methods or [])
+    if status == "marked":
+        if not clean_methods:
+            raise ValueError("marking: a `marked` receipt names at least one "
+                             "method — a mark with no method is a label")
+        for method in clean_methods:
+            if method not in _MARKING_METHODS:
+                raise ValueError(
+                    f"marking: method must be one of {_MARKING_METHODS}, "
+                    f"got {method!r}")
+    elif clean_methods:
+        raise ValueError(f"marking: status {status!r} carries no methods — "
+                         "only `marked` names what was applied")
+    clean_manifest = str(manifest_digest or "").strip().lower()
+    if "c2pa_manifest" in clean_methods:
+        if not _HEX64.match(clean_manifest):
+            raise ValueError("marking: c2pa_manifest requires manifest_digest "
+                             "— the sha256 of the manifest bound to the output")
+    elif clean_manifest:
+        raise ValueError("marking: manifest_digest without the c2pa_manifest "
+                         "method is a manifest nobody applied")
+    if status == "exempt":
+        if exemption not in _MARKING_EXEMPTIONS:
+            raise ValueError(
+                f"marking: exempt requires exemption in {_MARKING_EXEMPTIONS}, "
+                f"got {exemption!r} (art. 50(2)'s three carve-outs, named)")
+    elif exemption is not None:
+        raise ValueError(f"marking: exemption travels only with status "
+                         f"`exempt`, got status {status!r}")
+    if detector is not None and not str(detector).strip():
+        raise ValueError("marking: detector, when given, names how the mark "
+                         "is re-detected — not a blank")
+    payload: dict = {
+        "schema": "marking/0.1",
+        "article": "50(2)",
+        "output_digest": digest,
+        "modality": modality,
+        "status": status,
+        "system_ref": system_ref.strip(),
+    }
+    if clean_methods:
+        payload["methods"] = clean_methods
+    if clean_manifest:
+        payload["manifest_digest"] = clean_manifest
+    if exemption is not None:
+        payload["exemption"] = exemption
+    if detector is not None:
+        payload["detector"] = detector.strip()
+    return store.append("marking", payload, key)
+
+
+def check_marking_coverage(events: list[dict],
+                           *, generation_type: str = "llm_output") -> list[Finding]:
+    """The ADR 030 reconciler join: every generated output the journal
+    knows by digest must meet a marking receipt that says `marked` or
+    `exempt` for that same digest — anything else is `marking_gap`. Two
+    ways to earn it: a generation event (default type `llm_output`)
+    carrying an `output_digest` with no such receipt — the output left
+    with no mark on the record; or a receipt sealed `not_marked` — the
+    gap the operator wrote down, surfaced rather than filed, and NOT
+    erased by a later `marked` receipt for the same digest (the unmarked
+    release happened; a later mark does not un-happen it). One finding
+    per digest. Order is not checked in 0.1: a mark sealed after the
+    generation event still covers it — delivery is not an event the
+    journal sees yet, and ADR 030 names that limit rather than inventing
+    one. Generation events without an `output_digest` are out of scope:
+    nothing to join."""
+    covered: set[str] = set()
+    gapped: set[str] = set()
+    findings: list[Finding] = []
+    for e in events:
+        if e.get("type") != "marking":
+            continue
+        payload = e.get("payload", {})
+        digest = str(payload.get("output_digest", "")).strip().lower()
+        if not digest:
+            continue
+        if payload.get("status") in ("marked", "exempt"):
+            covered.add(digest)
+        elif payload.get("status") == "not_marked" and digest not in gapped:
+            gapped.add(digest)
+            findings.append(Finding(
+                "marking", "marking_gap", digest, decision_seq=e["seq"],
+                note="output sealed `not_marked` — the gap on the record, "
+                     "not forgotten (art. 50(2))"))
+    for e in events:
+        if e.get("type") != generation_type:
+            continue
+        digest = str(e.get("payload", {}).get("output_digest", "")).strip().lower()
+        if not digest or digest in covered or digest in gapped:
+            continue
+        gapped.add(digest)
+        findings.append(Finding(
+            "marking", "marking_gap", digest, decision_seq=e["seq"],
+            note="generated output with no marking receipt `marked` or "
+                 "`exempt` for its digest — unmarked on the record "
+                 "(art. 50(2))"))
+    return findings

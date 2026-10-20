@@ -1207,3 +1207,124 @@ actually asks for and a pipeline cannot produce after the fact. The
 C2PA bridge inherits for free: a chunk receipt is a `noirebox.sealed`
 assertion binding a content hash to a cut action — vocabulary C2PA 2.4
 has no word for, the journal provides.
+
+## ADR 030 — Marking receipts: the label can be stripped, the receipt can't
+
+**Status**: accepted — implemented (`seal_marking`,
+`check_marking_coverage`, `noirebox seal-marking`, with tests). Lineage:
+AI Act art. 50(2) (Reg. (EU) 2024/1689) has applied since **2 August
+2026** — providers of systems generating synthetic audio, image, video
+or text must ensure the outputs are marked machine-readably and are
+detectable as generated. Reg. (EU) 2026/1744 (the Digital Omnibus on
+AI, in force 27 July 2026) left that date alone and added one narrow
+transition, art. 111(4) via its art. 1(39)(b): providers whose systems
+were already on the market before 2 August 2026 have until **2 December
+2026** for 50(2) (recital 38: "a transitional period of four months").
+That second date is now a marketing deadline, and a wave of marking
+SDKs is arriving for it with a hosted "evidence log" as the proof leg
+(October 2026). A hosted log is the custodian's own record, editable by
+the custodian, with a vendor inserted between a provider and its own
+evidence — the exact trust boundary `THREAT-MODEL.md` refuses. The gap
+is not the mark. It is the receipt for the marking.
+
+**The seam.** Art. 50(2) asks two things of an output, and both live
+INSIDE the artifact: a machine-readable mark, and detectability.
+Anything inside the artifact dies with the artifact. Re-encode the
+image and the C2PA manifest is gone; crop the frame and the visible
+watermark is gone; paste the paragraph into a mail and the text
+watermark survives only as long as the tokens do. The provider's
+obligation was met at generation time; the evidence that it was met
+evaporates at the first hostile edit — and the edit is the whole
+threat, because a stripped label is indistinguishable from a label that
+never existed. Vendors answer with a log: "we recorded that we marked
+it". A log is grade 3 at best (ADR 022: the operator's own record,
+voluntary, editable); a hosted log is grade 3 with a second operator.
+What survives the stripping is not the mark and not the log: it is a
+receipt, bound to the output's digest, in a chain the operator cannot
+reorder, anchored to a witness the operator does not control. **A label
+can be stripped, a log can be edited, an anchored receipt can't.**
+
+**Decision** — the marking becomes a sealed event:
+
+1. **`marking/0.1`**: `{article: "50(2)", output_digest, modality,
+   status, system_ref, methods?, manifest_digest?, exemption?,
+   detector?}`. The output travels as its sha256 DIGEST, never as
+   content (the `use_event` rule, ADR 010). The digest is the point:
+   stripping the mark changes the bytes, not the receipt, and the
+   receipt still names the bytes that carried the mark — the one fact
+   that honestly survives. `modality` is closed to art. 50(2)'s four
+   (`text | image | audio | video`); `system_ref` names which system
+   generated the output, because 50(2) binds the PROVIDER of a system,
+   not an operator in the abstract.
+2. **`status` fails closed**: `marked | not_marked | exempt`. An output
+   that left unmarked is sealed as exactly that — `not_marked` is a
+   receipt, the gap on the record, the house rule since
+   `admission_check_not_run`. `exempt` must name WHICH of art. 50(2)'s
+   three carve-outs it claims — `assistive_editing`,
+   `no_substantial_alteration`, `authorised_by_law` — as vocabulary; a
+   bare "exempt" is the laundering word and is refused at the gate. The
+   receipt records the claim; the regulator judges it.
+3. **`methods` is a CLOSED set** — the opposite call from ADR 029's
+   open `strategy`, for a reason: the reader of this field is an auditor
+   asking "how do I re-detect this mark", and detection techniques
+   enumerate where chunking strategies churn. `watermark | metadata |
+   c2pa_manifest | fingerprint | visible_label`; a new KIND of mark is a
+   schema bump, not a free string. `c2pa_manifest` binds
+   `manifest_digest` (the sha256 of the manifest) and refuses to travel
+   without it; a manifest digest with no manifest method is refused the
+   other way — two fields, one fact, or neither. `detector`, when
+   given, names how a third party re-detects the mark: "machine-readable
+   AND detectable" is two halves, and a mark nobody can find satisfies
+   neither.
+4. **The join** — `check_marking_coverage`: every generation event the
+   journal knows by `output_digest` must meet a receipt that says
+   `marked` or `exempt` for that digest; anything else is
+   `marking_gap`. A `not_marked` receipt IS the gap, surfaced at its
+   own seq and never erased by a later `marked` receipt for the same
+   digest (the unmarked release happened; a later mark does not
+   un-happen it — admission's direction, applied here). One finding per
+   digest. Order is NOT checked in 0.1, and the limit is named rather
+   than hidden: delivery is not an event the journal sees yet, so a mark
+   sealed after the generation event still covers it. The day a
+   `delivery/0.x` lands, the rule becomes "receipt before delivery" —
+   the basis-precedes-the-act shape, nothing new to invent.
+5. **The C2PA bridge keeps its own namespace.** `c2pa_action("marking")`
+   is `noirebox.marking`, not a borrowed verb: C2PA marks the FILE, the
+   receipt seals that the marking HAPPENED — the act of complying is not
+   a media edit, and we do not spend a verb the standard defines for
+   something else. Two artifacts, one digest binding them: the manifest
+   is the mark, the receipt is its proof, and the receipt outlives the
+   manifest.
+6. **The shell surface ships with the schema** — `noirebox
+   seal-marking`, same function, same refusals verbatim (exit 2, no
+   event lands). Lesson of #122, kept: a schema without its command is a
+   schema the generic `noirebox seal` will happily write with none of
+   the checks.
+7. **Grade stated, not inflated.** A marking receipt is grade 3 (ADR
+   022: anchored self) — the operator says it marked. The anchor lifts
+   WHEN to grade 2; what would lift WHETHER is a counterparty's own
+   detection record — a platform that re-detects the mark and seals the
+   detection — reconciled against this receipt: the two-journal shape
+   of ADR 020, named here, not built here.
+
+**Non-goals, stated so they can be refused in public**: noirebox does
+NOT mark — no watermarking, no C2PA signing, no detector ships here; we
+are the evidence layer and (ADR 028's refusal, again) a witness inside
+the thing it witnesses is no witness. We do not verify that a mark is
+present in the bytes — we never hold the bytes, only the digest — and a
+receipt that says `marked` is the operator's claim under seal, not our
+inspection. We do not adjudicate the carve-outs. Art. 50(1), 50(3) and
+50(4) — interaction disclosure, emotion/biometric disclosure, deepfake
+and published-text disclosure — bind DEPLOYERS with a different
+vocabulary and are a sibling `disclosure/0.x`, not folded in. And we do
+not compute the 2 December question: whether a system was on the market
+before 2 August 2026 is a fact about the system, not about an output.
+
+**Consequences**: `seal_marking` + `check_marking_coverage` in
+`noirebox/reconcile.py`, the `seal-marking` subcommand, `marking_gap` in
+the named-states vocabulary, tests, this record. `COMPLIANCE-EU.md`'s
+calendar is corrected in the same train — the Omnibus DID touch
+transparency, in exactly one narrow way (art. 111(4)), and a compliance
+dossier that says otherwise is a dossier with a date wrong. The French
+developer guide to art. 50 on noirebox.eu carries the sentence this ADR
+is named after; the sentence is the product.
