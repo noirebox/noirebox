@@ -973,3 +973,237 @@ the chain doesn't change; the anchors get newer, stronger witnesses.
 And the packaged form of this work — managed hybrid migration, PQ
 disclosure in audit-packs, the long-retention archiving tier — is
 service layer. The signer lands in the MIT core like the other three.
+
+## ADR 028 — Decision receipts: the System One layer under seal
+
+**Status**: accepted — vLLM v0.32.0 (2026-10-18, PR
+[#59299](https://github.com/vllm-project/vllm/pull/59299)) baked
+decision routing into the inference engine: `POST /v1/systemone`
+answers `choice` / `noul` / `score` questions over a state and returns
+a probability for EVERY allowed answer, computed from the labels'
+logprobs in one read. The wire format is TypeSafe's Jev ("System One")
+and it is already a layer, not a proposal: Ollama v0.35 serves it,
+Cloudflare ships Clef models for it, LiteLLM translates it, OpenAI
+serves the same seam as `/v1/decisions`, Databricks and Microsoft
+Foundry list decision models (reidmarlow, "Why vLLM 0.32 Baked
+Decision Routing Into the Engine"). Routing decisions are becoming
+engine primitives the way tool calls became API primitives — and this
+journal exists because primitives do not carry their own evidence.
+
+**The seam.** A decision model is a BETTER evidence substrate than a
+parsed prose label: the answer is bounded, the distribution over the
+allowed answers comes back with it, and vLLM even reports per-question
+diagnostics — `label_mass` (where the answer's mass actually went) and
+`argmax_is_label` (whether the reported answer was the argmax over the
+label tokens at all). It is a WORSE audit surface: the call happens
+inside the engine, the harness sees an enum, and nothing outside the
+engine remembers how the answer was reached. "The engine saw
+everything, the audit log sees an enum" is the ordering-vs-authenticity
+wedge one layer below the check-report gap receipt/0.2.x closed. The
+engine says the rest plainly in its own docs: probabilities can VARY
+between identical requests (batching, prefix-cache). Replay is not
+proof here. The seal is.
+
+**Decision** — decisions become first-class sealed events:
+
+1. **`decision/0.1`** (`noirebox/decision.py`): `{format (systemone |
+   openai-decisions), model, run_id, judged_by: "llm", state_sha256,
+   spec_hash, questions, answers, diagnostics?, requirement_ref?}`.
+   The state travels as a DIGEST, never as data (the `use_event`
+   rule). The answers carry the distribution the engine returned — a
+   bare label is what an attacker edits; a distribution is what they
+   must explain. The diagnostics are sealed VERBATIM and never
+   interpreted at build: the engine's confession is evidence, not a
+   verdict.
+2. **The SCAR-45 door is welded at birth.** `spec_hash` is REQUIRED
+   with no exception path — a decision model's question set IS its
+   predicate, and receipt/0.2.x spent v0.2.2 and v0.2.3 learning what
+   an LLM-judged verdict without its committed spec seals. The
+   embedded questions must hash back to `spec_hash`: the receipt
+   cannot claim a menu it does not carry.
+3. **`seal_decision_spec`** commits the canonical question set as a
+   spec/0.1 event, canary planted — the SCAR-PROC-114 machinery reused
+   unchanged. A caller that hallucinated the menu from priors, or was
+   handed a different one by an injected state, trips the canary
+   exactly like the judge that never read its bytecode.
+4. **`reconcile_decision`** — five findings, each the schema-level
+   version of an attack that used to need a reviewer:
+   `decision_spec_not_canonical`; `questions_not_canonical` (the
+   builder refuses this; a hand-forged event that skips the builder is
+   exactly the drift the re-check exists for); `answer_outside_spec`
+   (the chosen option is not in the sealed menu);
+   `decision_contradiction`; `label_not_argmax` (the engine's own
+   doubt, surfaced so a confession cannot sit in an archive nobody
+   reads).
+5. **The contradiction check judges the CHOICE, never the
+   distribution.** Two decisions on the same (state, spec) with
+   different chosen answers is the quiet flip, surfaced as a registry
+   join. Probabilities jitter between honest retries (batching,
+   prefix-cache — the engine documents it); a flip is not jitter.
+   Judging distributions would make the reconciler lie on the honest
+   path.
+6. **SCAR-DM-1** lands in the replay suite: the routing flip
+   (block→safe under injection), the swapped menu caught both ways
+   (builder bypass and the unsealed spec), the answer outside the
+   menu, the clean twin. The measured open-weights leg — a real
+   `/v1/systemone` endpoint, the SCAR-BENCH grid — is the frontier
+   leg: SCAR-BENCH §7 holds the landing pad, and no numbers exist
+   until a run happened (the honesty rules are not negotiable).
+7. **Admission rides the same train** (ADR 026's public promise,
+   kept): `admission/0.1` + `check_admission_basis` — Lin's four
+   invalid promotions named, the never-bases refused at seal time,
+   the decision failing closed, `admission_gap` firing when foreign
+   content is consumed with no earlier admitted basis.
+
+**Non-goals, stated so they can be refused in public**: noirebox does
+NOT proxy decision traffic — no `/v1/systemone` passthrough; we are
+the evidence layer, not the engine, and a proxy would put the witness
+inside the thing it witnesses. It does NOT stop a decision model being
+fooled — injection can still move probability mass; the receipt's job
+is to make that visible (the distribution and label_mass in the
+journal, the flip as a finding), not to pretend it cannot happen. And
+it does NOT judge distributions: calibration is the engine's problem;
+ordering and authenticity are ours.
+
+**Consequences**: `noirebox/decision.py`, `seal_decision_spec`,
+`reconcile_decision`, `seal_admission`, `check_admission_basis`, and
+the SCAR-DM-1 / SCAR-ADM-1 fixtures ship; 29 tests join the suite
+(428 collected). The AI Act tie is direct: a routing decision that
+gates a human review is an automated decision with logging obligations
+(art. 12) and oversight hooks (art. 14) — `requirement_ref` names
+which. The HTTP seal endpoint and the live-endpoint bench harness land
+with the first integration that needs them.
+
+---
+
+## ADR 029 — Chunking receipts: the cut is a decision, the corpus is a chain
+
+**Status**: accepted (direction) — lineage: ByteByteGo EP#229, *"8
+Chunking Strategies for RAG"*, and the thread's provenance comment:
+with agentic chunking, the method choice is invisible at retrieval
+time — a paragraph-cut contract clause and a row-cut table look
+identical in the index — so each chunk should carry its label and its
+splitter. That comment is the check-report gap one artifact lower, and
+it lands here because no one else is holding the seam. Implementation
+(`noirebox/chunking.py`, the manifest seal, the drift check, SCAR-CK-1)
+lands with the first integration that needs it — no schema ships
+without its tests.
+
+**The seam.** Retrieval-augmented systems cut a corpus into chunks
+before anything else happens, and from that moment the cut decides
+what the model CAN read: retrieval never sees a sentence the cut
+destroyed, never keeps a clause with its exception if the splitter put
+them in different chunks. Three facts about the cut are unwitnessed
+end to end. WHAT each chunk contains — corpora mutate silently between
+the evaluation run and the production run, and the index id does not
+change. HOW each chunk was cut — strategy and parameters (size,
+overlap, threshold, prompt) live only in the pipeline's memory, and
+the EP#229 taxonomy names eight live strategies with more arriving.
+WHO chose the strategy, when the chunker is agentic — a model makes
+the choice, and the choice is a decision in exactly ADR 028's sense:
+taken from a state, under a menu, load-bearing downstream. The
+decision receipt sealed what was DECIDED; admission sealed the BASIS
+of an act; nothing seals what was READ. Retrieval moves the read into
+the decision loop — the corpus is the least witnessed artifact in the
+agentic stack, and ordering-vs-authenticity does not even get to
+start: a vector index attests neither.
+
+**Decision** — the cut becomes a sealed event family:
+
+1. **`chunking/0.1`**, the chunk receipt: `{doc_sha256, chunk_sha256,
+   chunk_index, chunk_count, strategy, splitter, params?, corpus_id?,
+   decided_by?, requirement_ref?}`. The document and the chunk travel
+   as DIGESTS, never as text (the `use_event` rule — the chunk's
+   custody stays with the pipeline's store; ADR 022 already mapped
+   that boundary and this ADR does not move it). `strategy` is the
+   named cut method — an open string, not an enum: strategies churn
+   faster than schemas, and the receipt's job is to bind what RAN, not
+   to adjudicate a taxonomy (the EP#229 eight — fixed, recursive,
+   document-based, semantic, LLM-based, agentic, late, hierarchical —
+   are values, not vocabulary). `splitter` is the implementation
+   identity (library and version): the label-vs-implementation seam
+   receipt/0.2.x closed for `judged_by`, closed again one artifact
+   lower. `params` are the cut's knobs VERBATIM — a strategy without
+   its parameters is a label, and labels are what attackers edit.
+   `decided_by`, when present, names the decision receipt that sealed
+   the strategy choice; absent means the pipeline chose
+   deterministically — the receipt still seals the cut, it just has
+   nobody to blame for it.
+2. **The corpus manifest is a hash chain in cut order.** Chunk
+   receipts append in document order; `corpus_sha256` is the chain
+   head at seal time. A chunk edited, inserted, dropped, or reordered
+   trips the chain — the one primitive this project is, applied to the
+   artifact that currently has nothing. `check_corpus_drift` (the
+   `check_custody_drift` pattern): manifest against live store, and
+   every chunk whose digest no longer matches is a finding —
+   eval-versus-prod corpus drift as a named result, not a vibe.
+3. **Agentic chunking rides ADR 028 unchanged.** When a model picks
+   the strategy for a document, that pick IS a decision receipt:
+   `decision/0.1`, questions = the strategy menu (a `choice`
+   question), `state_sha256` = the document digest, `spec_hash` welded
+   with no exception path — the SCAR-45 door starts welded, house rule
+   since ADR 028. The chunk receipt's `decided_by` names that decision
+   receipt's identity — two receipts, one fact: what was chosen, and
+   what the choice produced. No new trust primitive is invented here;
+   reusing the 028 machinery unchanged is the point.
+4. **The join is admission's, not a new schema.** When a grounded act
+   consumes retrieved content, the chunk digest travels in the
+   admission receipt's `basis` — an independent warrant by
+   construction (it cites a sealed artifact, not the resource's own
+   pull), and `admission_gap` ALREADY enforces that the basis precedes
+   the use: a chunk receipt sealed after the act clears nothing, the
+   same fail-closed direction as every basis check. A standalone
+   `retrieval/0.1` (query, scores, ranking provenance) is the frontier
+   leg, named and refused for now: witnessing the query moment needs a
+   witness at query time — an integration seam, not a schema.
+5. **SCAR-CK-1** joins the replay suite: the swapped chunk (same index
+   id, different bytes), the strategy laundering (manifest says
+   paragraph-cut, the bytes say row-cut), the post-eval mutation
+   (corpus changed between the benchmark and the deployment, receipts
+   not re-sealed), the unsplit corpus (nothing was ever sealed — the
+   honest absence, surfaced like `admission_gap` rather than
+   forgotten), and the clean twin. No numbers exist until a run
+   happened; the honesty rules are not negotiable.
+6. **SCAR-BENCH gets its reproducibility pin.** Semantic-beats-
+   fixed-size is today an unbenchmarked claim — the EP#229 thread's
+   open question (whether a good reranker recovers most of what clever
+   boundaries buy) has no numbers attached, and none are citable
+   without pinning the cut. Chunk receipts make a chunking grid
+   replayable: same `doc_sha256` + same `strategy` + same `params` =
+   byte-comparable chunks; a benchmark claim that pins its manifest is
+   falsifiable, one that does not is a mood. Evidence grades apply to
+   chunking claims like any other claim.
+7. **The model-collapse lineage closes at the right grain.** ADR 011
+   sealed content-provenance events for ingestion; this ADR gives that
+   ingestion its unit — the chunk — and a confrontable identity at the
+   grain that actually enters the context window.
+   Agent-consumes-agent-generated-text is witnessed where it happens:
+   not at the document (nobody reads whole documents) and not at the
+   token (nobody attests tokens), at the chunk.
+
+**Non-goals, stated so they can be refused in public**: noirebox does
+NOT chunk, embed, retrieve, or rank — no vector store, no embedding
+model, no reranker; we are the evidence layer, not the index, and (ADR
+028's own refusal, restated) a witness inside the thing it witnesses
+is no witness. We do not measure retrieval quality; we make the cut
+confrontable so that OTHERS' quality claims become falsifiable. We do
+not stop a bad cut from degrading an answer — a wrong strategy sealed
+honestly is still a wrong strategy; the receipt's job is to make the
+choice attributable, not to make it wise. And we do not seal chunk
+text: digests bind identity, custody of the bytes stays with the store
+(ADR 022's line, not a new one).
+
+**Consequences**: `noirebox/chunking.py` (builder, validators, manifest
+head), `seal_corpus_manifest`, `check_corpus_drift`, and the SCAR-CK-1
+fixtures ship together, with tests, at the first integration; the
+builder follows the house gate — a chunk receipt without `doc_sha256`,
+without `strategy`, or with params that contradict the splitter's
+identity does not seal. The AI Act tie is direct: for a high-risk
+system, the retrieval corpus is data the system consumes at inference,
+inside art. 10's data-governance reach (relevance, examination) and
+art. 12's logging duty — a corpus manifest with document versions, cut
+provenance, and per-chunk digests is the audit-pack page a regulator
+actually asks for and a pipeline cannot produce after the fact. The
+C2PA bridge inherits for free: a chunk receipt is a `noirebox.sealed`
+assertion binding a content hash to a cut action — vocabulary C2PA 2.4
+has no word for, the journal provides.

@@ -57,7 +57,7 @@
 
 <header class="head">
   <p class="kicker">// code.noirebox.eu — the technical reference. The marketing page is gone on purpose.</p>
-  <h1>NoireBox <span class="ver">v0.21.0</span></h1>
+  <h1>NoireBox <span class="ver">v0.23.0</span></h1>
   <p class="lede">
     A tamper-evident journal for AI agents: every event hash-chained (SHA-256),
     signed (Ed25519), append-only on SQLite, anchored to external RFC 3161
@@ -68,7 +68,7 @@
     <a href="https://pypi.org/project/noirebox/" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/v/noirebox" alt="PyPI"></a>
     <img src="https://img.shields.io/badge/python-3.11%2B-blue" alt="Python 3.11+">
     <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT">
-    <a href="https://github.com/noirebox/noirebox/actions/workflows/ci.yml" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/tests-392%20·%200%20failing-brightgreen" alt="tests"></a>
+    <a href="https://github.com/noirebox/noirebox/actions/workflows/ci.yml" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/tests-428%20·%200%20failing-brightgreen" alt="tests"></a>
     <a href="https://github.com/noirebox/noirebox/pkgs/container/noirebox" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/GHCR-noirebox%2Fnoirebox-blue" alt="GHCR"></a>
   </div>
   <div class="install-pill">
@@ -80,7 +80,7 @@
     <a href="https://github.com/noirebox/noirebox/blob/main/docs/SPECS.md" target="_blank" rel="noopener">SPECS.md</a> ·
     <a href="https://github.com/noirebox/noirebox/blob/main/docs/THREAT-MODEL.md" target="_blank" rel="noopener">threat model</a> ·
     <a href="https://github.com/noirebox/noirebox/blob/main/CHANGELOG.md" target="_blank" rel="noopener">changelog</a> ·
-    <a href="https://github.com/noirebox/noirebox/blob/main/docs/ADRs.md" target="_blank" rel="noopener">27 ADRs</a>
+    <a href="https://github.com/noirebox/noirebox/blob/main/docs/ADRs.md" target="_blank" rel="noopener">28 ADRs</a>
   </p>
 </header>
 
@@ -229,12 +229,14 @@ python verifier/verifier.py export.json
   <thead><tr><th>Schema</th><th>Sealed by</th><th>Carries</th></tr></thead>
   <tbody>
     <tr><td class="mono">receipt/0.2.2</td><td>any writer</td><td><code>judged_by</code> (an <code>llm</code> judge requires <code>spec_hash</code> — it read its sealed spec, or the seal refuses), <code>reason</code>, optional <code>requirement_ref</code></td></tr>
+    <tr><td class="mono">decision/0.1</td><td>any writer</td><td>decision receipts (ADR 028): the System One layer (<code>/v1/systemone</code>) under seal — state as digest, question set hash-bound to its sealed spec (<code>spec_hash</code> required, no exception path), the full distribution, the engine's doubt (<code>label_mass</code>, <code>argmax_is_label</code>) verbatim</td></tr>
+    <tr><td class="mono">admission/0.1</td><td>any writer</td><td>admission receipts (ADR 026): the promotion itself — Lin's four invalid transitions named, the never-bases refused at seal time, decision fails closed (<code>admitted | denied | admission_undecidable | admission_check_not_run</code>)</td></tr>
     <tr><td class="mono">writer/0.1</td><td>the registrar</td><td>known-writers registry: <code>public_hex</code> → <code>domain</code>, <code>declared_by</code> — resolved against the PINNED registrar key (out-of-band); non-registrar entries can't vote; a key under two domains = <code>registry_duplicate_undecidable</code>, never first-wins</td></tr>
     <tr><td class="mono">registry-disclosure/0.2</td><td>the report</td><td>registrant + evidence grade — disclosure, never violation; never touches <code>clean_pass</code></td></tr>
     <tr><td class="mono">retention/0.1</td><td><code>noirebox seal-retention</code></td><td>prune / migrate / policy-change / restore — retention changes are custody events journaled like any other, not ops-layer edits</td></tr>
   </tbody>
 </table>
-<p><strong>Named states, never silence:</strong> <code>unverified_label</code> · <code>independence_undecidable</code> · <code>label_llm_call_mismatch</code> · <code>registry_duplicate_undecidable</code> · <code>scope_check_not_run</code> — an undecidable outcome is never reported as clean, and a skipped check is reported as skipped.</p>
+<p><strong>Named states, never silence:</strong> <code>admission_gap</code> · <code>decision_contradiction</code> · <code>label_not_argmax</code> · <code>unverified_label</code> · <code>independence_undecidable</code> · <code>label_llm_call_mismatch</code> · <code>registry_duplicate_undecidable</code> · <code>scope_check_not_run</code> — an undecidable outcome is never reported as clean, and a skipped check is reported as skipped.</p>
 <p>The doctrine behind these schemas — who may judge what, and which verdict outranks which — is written up as the <a href="https://github.com/noirebox/noirebox/blob/main/docs/AUTHORITY-LADDER.md" target="_blank" rel="noopener">authority ladder</a> <span class="dim">(ADR 019–022)</span>.</p>
 </section>
 
@@ -361,7 +363,7 @@ python verifier/verifier.py export.json
 <!-- ═══════════════ CLI ═══════════════ -->
 <section id="cli">
 <h2><a href="#cli" class="anchor">§</a>CLI reference</h2>
-<p><code class="mono">noirebox --version</code> → 0.21.0. Twenty subcommands; every journal path resolves the same way (<code>--db</code> → <code>NOIREBOX_DB</code> → nearest <code>.noirebox/</code> → <code>data/noirebox.db</code>).</p>
+<p><code class="mono">noirebox --version</code> → 0.23.0. Twenty subcommands; every journal path resolves the same way (<code>--db</code> → <code>NOIREBOX_DB</code> → nearest <code>.noirebox/</code> → <code>data/noirebox.db</code>).</p>
 <table>
   <thead><tr><th>Command</th><th>What it does</th></tr></thead>
   <tbody>
@@ -403,7 +405,7 @@ python verifier/verifier.py export.json
     <tr><td>Full chain verification, 100 events (incl. JSON load)</td><td class="mono">44 ms</td><td class="mono">verifier/verifier.py</td></tr>
     <tr><td>Bundled detectors, FR + EN</td><td class="mono">293 + 243 KB</td><td class="mono">make train · make train-en</td></tr>
     <tr><td>Held-out attack sentences, FR + EN</td><td class="mono">12/12</td><td class="mono">tests/test_ml_guardrail.py</td></tr>
-    <tr><td>Test suite</td><td class="mono">392 · 0 failing</td><td class="mono">make test</td></tr>
+    <tr><td>Test suite</td><td class="mono">428 · 0 failing</td><td class="mono">make test</td></tr>
   </tbody>
 </table>
 <p class="dim">MacBook M-series, local venv — sealing/verification rows 2026-10-04. Absolute values vary with hardware; <code>make bench</code> on your machine is the reference.</p>
@@ -437,7 +439,7 @@ verifier/verifier.py  standalone third-party verifier (+ tsa_roots/ pinned certi
 bench/                SCAR-BENCH harness + published results (scar114)
 tsa/                  self-hosted OpenSSL witness (root + leaf chain)
 plugins/              VS Code extension · Claude Code hooks · ZCode plugin
-tests/                392 tests — the invariant suite, incl. SCAR replay
+tests/                428 tests — the invariant suite, incl. SCAR replay
 docs/                 SPECS · THREAT-MODEL · ADRs · compliance &amp; bench docs (this site)
 demo/                 runnable end-to-end scenes</pre>
 </section>
@@ -457,6 +459,7 @@ demo/                 runnable end-to-end scenes</pre>
 <h3>History</h3>
 <p>21 releases since 2026-09-19, every one in the <a href="https://github.com/noirebox/noirebox/blob/main/CHANGELOG.md" target="_blank" rel="noopener">changelog</a>. Recent arc:</p>
 <ul class="tight">
+  <li><strong>0.23.0</strong> — 2026-10-18 — two new receipt kinds: <code>decision/0.1</code> (ADR 028 — the System One decision-model layer under seal: /v1/systemone state→probabilities, five reconciler findings, SCAR-DM-1) and <code>admission/0.1</code> (ADR 026 — seal the basis of a promotion, <code>admission_gap</code>, SCAR-ADM-1)</li>
   <li><strong>0.21.0</strong> — 2026-10-15 — external audit round: 10 findings, 0 breaking the cryptography; 8 fixed outright, NB-05/NB-08 closed in their compatible halves, each with a named test. Fail-closed defaults everywhere (<code>unverifiable witness → exit 2</code>, unparseable <code>NOIREBOX_CLIENTS</code> refuses to boot)</li>
   <li><strong>0.20.0</strong> — 2026-10-14 — retention sealing + custody grade: <code>witness = min(authoring, retention)</code></li>
   <li><strong>0.19.0 / 0.18.0</strong> — 2026-10-14 — uid-gate as a tri-state disclosure (off / enforced / unavailable), custody protocol 0.2, PIN moved out of argv</li>
@@ -506,7 +509,7 @@ demo/                 runnable end-to-end scenes</pre>
   <thead><tr><th>Document</th><th>Contents</th></tr></thead>
   <tbody>
     <tr><td><a href="https://github.com/noirebox/noirebox/blob/main/docs/SPECS.md" target="_blank" rel="noopener">SPECS.md</a></td><td>the source of truth: data contracts, crypto, API contract, measured performance — divergence between code and spec is a bug</td></tr>
-    <tr><td><a href="https://github.com/noirebox/noirebox/blob/main/docs/ADRs.md" target="_blank" rel="noopener">ADRs.md</a></td><td>27 architecture decision records with their context and rejected options</td></tr>
+    <tr><td><a href="https://github.com/noirebox/noirebox/blob/main/docs/ADRs.md" target="_blank" rel="noopener">ADRs.md</a></td><td>28 architecture decision records with their context and rejected options</td></tr>
     <tr><td><a href="https://github.com/noirebox/noirebox/blob/main/docs/THREAT-MODEL.md" target="_blank" rel="noopener">THREAT-MODEL.md</a></td><td>adversary model, trust boundaries, open residuals</td></tr>
     <tr><td><a href="https://github.com/noirebox/noirebox/blob/main/docs/AUTHORITY-LADDER.md" target="_blank" rel="noopener">AUTHORITY-LADDER.md</a></td><td>who may judge what — the verdict-precedence doctrine behind receipt schemas</td></tr>
     <tr><td><a href="https://github.com/noirebox/noirebox/blob/main/docs/SCAR-BENCH.md" target="_blank" rel="noopener">SCAR-BENCH.md</a></td><td>the published measurement protocol: taxonomy, claims format, differential harness</td></tr>
@@ -561,7 +564,7 @@ demo/                 runnable end-to-end scenes</pre>
 <h2><a href="#contributing" class="anchor">§</a>Contributing</h2>
 <ul class="tight">
   <li>Branches + pull requests; <code class="mono">main</code> is protected (PR + required checks). No direct pushes.</li>
-  <li><code class="mono">make test</code> — 392 tests, must stay green · <code class="mono">ruff</code> for lint (B/SIM/C4 enforced) · CI runs the suite + Bandit + a stub-LLM coverage pass.</li>
+  <li><code class="mono">make test</code> — 428 tests, must stay green · <code class="mono">ruff</code> for lint (B/SIM/C4 enforced) · CI runs the suite + Bandit + a stub-LLM coverage pass.</li>
   <li>The spec is the contract: a code change that diverges from <code class="mono">docs/SPECS.md</code> updates the spec in the same PR — or it's a bug.</li>
   <li>Numbers cited in docs must be reproducible (<code class="mono">make bench</code>, <code class="mono">make test</code>) — measured, never rounded up.</li>
   <li>MIT. Issues and PRs welcome; security issues go to SECURITY.md, not public issues.</li>
@@ -578,6 +581,10 @@ demo/                 runnable end-to-end scenes</pre>
     <a href="https://github.com/noirebox/noirebox/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Changelog</a>
     <a href="fr.html" lang="fr">FR</a>
     <span>MIT</span>
+  </div>
+  <div style="flex-basis:100%; display:flex; align-items:center; gap:8px; margin-top:4px; font-size:12px;">
+    <img src="assets/apply-ai-alliance.png" alt="Apply AI Alliance" width="22" height="22" style="border-radius:6px">
+    <span>Member of the <a href="https://futurium.ec.europa.eu/en/apply-ai-alliance" target="_blank" rel="noopener">Apply AI Alliance</a></span>
   </div>
 </footer>
 

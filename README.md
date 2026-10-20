@@ -13,6 +13,10 @@
 [![Image on GHCR](https://img.shields.io/badge/image-ghcr.io%2Fnoirebox%2Fnoirebox-blue)](https://github.com/noirebox/noirebox/pkgs/container/noirebox)
 [![Made in France](https://img.shields.io/badge/made%20in-France-blue)](#)
 [![DOI](https://zenodo.org/badge/1380362407.svg)](https://doi.org/10.5281/zenodo.23442280)
+[![Mirror: Codeberg](https://img.shields.io/badge/mirror-codeberg.org%2Fnoirebox-2185d0)](https://codeberg.org/noirebox)
+
+<a href="https://futurium.ec.europa.eu/en/apply-ai-alliance"><img src="docs/assets/apply-ai-alliance.png" alt="Apply AI Alliance" width="56"></a><br>
+<sub>Member of the <a href="https://futurium.ec.europa.eu/en/apply-ai-alliance"><b>Apply AI Alliance</b></a></sub>
 
 **Your AI agent writes meeting notes that bind your clients.
 Eighteen months from now — who can prove what it *exactly* produced, and why?**
@@ -30,7 +34,8 @@ an attestation anyone can verify offline — **without trusting you**.
 [Quickstart](#quickstart) · [Real LLM scene](#the-real-llm-scene-local-ollama) ·
 [Specs](docs/SPECS.md) · [Threat model](docs/THREAT-MODEL.md) ·
 [The authority ladder](docs/AUTHORITY-LADDER.md) ·
-[ADRs](docs/ADRs.md)
+[ADRs](docs/ADRs.md) ·
+[Read-only mirror on Codeberg](https://codeberg.org/noirebox/noirebox)
 
 </div>
 
@@ -366,7 +371,7 @@ examples, then `make train`.
 
 ## Tests
 
-392 tests: cryptography (tampering, reordering, wrong key), regex and **ML
+428 tests: cryptography (tampering, reordering, wrong key), regex and **ML
 guardrails on held-out sentences in FR and EN**, the guarded pipeline with a
 stub LLM (no Ollama needed, runs in CI), API agent, MCP server, SDK
 client against a **real uvicorn server** (ephemeral port), real LLM agent

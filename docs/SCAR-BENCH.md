@@ -178,3 +178,39 @@ fixtures are model-agnostic by construction; the join with Randal's canary
 corpus on open-weights models, with the replay as witness, would separate
 "works because it's Unix" from "works because it's frontier". Collaboration
 stage — no core code.
+
+## 7. New axes (0.22.0): decision models (SCAR-DM-1) and admission (SCAR-ADM-1)
+
+Two receipt kinds landed in the replay suite, both from the corridor's
+October arrivals.
+
+**SCAR-DM-1 — the decision-model routing flip** (ADR 028, after vLLM
+v0.32.0's `POST /v1/systemone` and the System One adoption wave:
+Ollama v0.35, Cloudflare Clef, LiteLLM, OpenAI `/v1/decisions`). The
+attack: an injection riding in the state shifts mass from `block` to
+`safe` on a sealed question set. The evidence layer does not pretend
+to stop the model being fooled — it makes the fooling impossible to
+seal over. Five findings, each the schema-level version of an attack
+that used to need a reviewer:
+
+| Finding | The attack it surfaces |
+|---|---|
+| `decision_spec_not_canonical` | the decision answers from a menu nobody sealed (the canary witness, one layer down) |
+| `questions_not_canonical` | the embedded questions don't hash to the receipt's own spec_hash — the builder refuses this; a forged event that skips the builder is what the re-check exists for |
+| `answer_outside_spec` | the chosen option is not in the sealed menu — the answer came from a world the spec never authorized |
+| `decision_contradiction` | two decisions, same (state, spec), different choice — judged on CHOICES, never distributions: probabilities jitter between honest retries, a flip is not jitter |
+| `label_not_argmax` | the engine's own diagnostic confesses the reported answer was not the argmax over the labels — sealed verbatim, surfaced here |
+
+The measured open-weights leg is OPEN, same merge contract as §5: a
+reachable System One endpoint (vLLM ≥ 0.32 with raw logprobs, or
+Ollama ≥ 0.35 with a decision model), per-cell N and seeds disclosed,
+grading stays `seal_decision_spec` + `reconcile_decision` — no
+judgment calls, and NO NUMBERS until a run happened.
+
+**SCAR-ADM-1 — foreign history without a basis** (ADR 026, You-An Lin
+Paper II §6.3, the fourth independent arrival). The attack:
+foreign-sourced content shapes deliberation with no EARLIER admitted
+admission receipt. Caught: `admission_gap` — the basis must precede
+the promotion it warrants, `denied` / `admission_undecidable` /
+`admission_check_not_run` clear nothing, and the never-bases
+(presence, relevance, plausibility, usefulness) refuse to seal.

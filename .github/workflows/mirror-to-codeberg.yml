@@ -1,0 +1,30 @@
+name: mirror-to-codeberg
+
+# Codeberg disabled server-side pull mirrors (abuse), so GitHub pushes the
+# mirror itself after every change to main or a tag. Codeberg is read-only:
+# issues and PRs live here on GitHub.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mirror-codeberg
+  cancel-in-progress: true
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Push mirror to Codeberg
+        env:
+          CODEBERG_TOKEN: ${{ secrets.CODEBERG_TOKEN }}
+        run: |
+          git init --bare mirror.git
+          git -C mirror.git remote add origin "https://github.com/${{ github.repository }}.git"
+          git -C mirror.git fetch origin "+refs/heads/*:refs/heads/*" "+refs/tags/*:refs/tags/*"
+          git -C mirror.git push --mirror "https://slabb:${CODEBERG_TOKEN}@codeberg.org/noirebox/${{ github.event.repository.name }}.git"

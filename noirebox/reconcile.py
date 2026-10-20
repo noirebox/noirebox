@@ -780,6 +780,273 @@ def reconcile_spec(events: list[dict], *, spec_id: str) -> list[Finding]:
     return findings
 
 
+# --- ADR 026 / ADR 028 — admission + decision receipts -----------------------
+
+_ADMISSION_TRANSITIONS = ("visibility→admission", "capability→move",
+                          "relevance→payload", "style→stance")
+_ADMISSION_DECISIONS = ("admitted", "denied", "admission_undecidable",
+                        "admission_check_not_run")
+_PARTICIPATION_OWNERSHIP = ("same", "foreign", "shared")
+_LAUUNDERING_BASES = ("presence", "relevance", "plausibility", "usefulness")
+
+
+def seal_admission(store, key, *, actor: str, source_origin: str,
+                   source_surface: str, transition: str, basis: str,
+                   decision: str, participation_ownership: str,
+                   scope: list[str] | None = None) -> dict:
+    """Seals one ADMISSION RECEIPT as an `admission` event (ADR 026 —
+    You-An Lin, *Capability Is Not Authority*): the receipt for the
+    promotion itself, not the act that followed it. `transition` is one
+    of Lin's four invalid promotions, named; `basis` is the independent
+    warrant — a user-instruction ref, a prior receipt seq, an explicit
+    scope grant. The four resources that are NEVER a basis (the
+    resource's own `presence`, `relevance`, `plausibility`,
+    `usefulness`) are refused at seal time: the laundering vocabulary
+    does not get to ride in the field that exists to refuse it.
+
+    `decision` fails closed, house vocabulary: `admitted` | `denied` |
+    `admission_undecidable` | `admission_check_not_run` — undecidable is
+    never clean, a check that did not run is named as skipped.
+    `participation_ownership` ∈ {same, foreign, shared} — the
+    false-first-person-ownership guard as a field discipline: a receipt
+    proves an earlier actor's decision; it never makes it the citing
+    actor's autobiography."""
+    if not str(actor or "").strip():
+        raise ValueError("admission: actor is required — who promotes")
+    if not str(source_origin or "").strip():
+        raise ValueError("admission: source_origin is required — where the "
+                         "material came from")
+    if not str(source_surface or "").strip():
+        raise ValueError("admission: source_surface is required — the surface "
+                         "it arrived on")
+    if transition not in _ADMISSION_TRANSITIONS:
+        raise ValueError(
+            f"admission: transition must be one of {_ADMISSION_TRANSITIONS}, "
+            f"got {transition!r} (Lin's four invalid promotions, named)")
+    clean_basis = str(basis or "").strip()
+    if not clean_basis:
+        raise ValueError("admission: basis is required — the independent "
+                         "warrant, never the resource's own pull")
+    if clean_basis.lower() in _LAUUNDERING_BASES:
+        raise ValueError(
+            f"admission: basis {clean_basis!r} is one of the resources that "
+            "are never a basis (laws 1–8) — name the independent warrant")
+    if decision not in _ADMISSION_DECISIONS:
+        raise ValueError(
+            f"admission: decision must be one of {_ADMISSION_DECISIONS}, "
+            f"got {decision!r} (undecidable is never clean)")
+    if participation_ownership not in _PARTICIPATION_OWNERSHIP:
+        raise ValueError(
+            f"admission: participation_ownership must be one of "
+            f"{_PARTICIPATION_OWNERSHIP}, got {participation_ownership!r}")
+    payload: dict = {
+        "schema": "admission/0.1",
+        "actor": actor.strip(),
+        "source": {"origin": source_origin.strip(),
+                   "surface": source_surface.strip()},
+        "transition": transition,
+        "basis": clean_basis,
+        "decision": decision,
+        "participation_ownership": participation_ownership,
+    }
+    if scope is not None:
+        if not isinstance(scope, list) or not scope or \
+                any(not isinstance(p, str) or not p.strip() for p in scope):
+            raise ValueError("admission: scope must be a non-empty list of "
+                             "non-empty paths")
+        payload["scope"] = [p.strip() for p in scope]
+    return store.append("admission", payload, key)
+
+
+def check_admission_basis(events: list[dict],
+                          *, content_type: str = "content") -> list[Finding]:
+    """The ADR 026 reconciler join (§6.3 — the finding that matters): a
+    live agent correctly attributed foreign history to another Resident
+    WHILE USING IT — attribution correct, admission invalid, every
+    output-level metric green. The check confronts each `content` event
+    carrying a foreign `origin` with the admission registry: no EARLIER
+    `admitted` admission receipt for that origin is the finding
+    `admission_gap` — the record shaped the deliberation without a
+    basis. Failures close shut: `denied`, `admission_undecidable`,
+    `admission_check_not_run` and admissions sealed AFTER the use clear
+    nothing — the basis must precede the promotion it warrants."""
+    admitted: dict[str, int] = {}
+    for e in events:
+        payload = e.get("payload", {})
+        if e.get("type") == "admission" and payload.get("decision") == "admitted":
+            origin = str(payload.get("source", {}).get("origin", "")).strip()
+            if origin:
+                admitted.setdefault(origin, e["seq"])
+    findings: list[Finding] = []
+    for e in events:
+        if e.get("type") != content_type:
+            continue
+        payload = e.get("payload", {})
+        origin = str(payload.get("origin", "")).strip()
+        if not origin:
+            continue
+        seq = admitted.get(origin)
+        if seq is None or seq > e["seq"]:
+            findings.append(Finding(
+                "admission", "admission_gap", origin,
+                decision_seq=e["seq"],
+                note="content from a foreign origin consumed with no "
+                     "admission receipt ADMITTED BEFORE the use — the "
+                     "record shaped the deliberation without a basis "
+                     "(Lin §6.3: attribution correct, admission invalid)"))
+    return findings
+
+
+def seal_decision_spec(store, key, *, spec_id: str, questions: dict,
+                       canary: str, source_ref: str = "") -> dict:
+    """Seals the canonical QUESTION SET of a decision model as a `spec`
+    event (ADR 028 — the SCAR-PROC-114 canary machinery, reused
+    unchanged): the menu of allowed answers is the decision's predicate,
+    so it is committed with a CANARY TOKEN planted inside one of its
+    strings before any decision binds to it. A caller that hallucinated
+    the menu from priors — or was handed a different one by an injected
+    state — trips the canary exactly like the judge that never read its
+    bytecode. The text is `decision_spec_text(questions)`: the same
+    canonical bytes the decision's embedded questions must hash back
+    to."""
+    from .decision import decision_spec_text, validate_questions
+
+    validate_questions(questions)
+    return seal_spec(store, key, spec_id=spec_id,
+                     text=decision_spec_text(questions),
+                     canary=canary, source_ref=source_ref)
+
+
+def reconcile_decision(events: list[dict], *, spec_id: str) -> list[Finding]:
+    """The decision-model joins (ADR 028): every `decision` event is
+    confronted with the sealed question spec for `spec_id` — raises
+    ValueError when no sealed spec exists (reconcile the canonical menu
+    or none of it). Five findings:
+
+    1. **decision_spec_not_canonical** — the decision's spec_hash
+       matches no sealed spec: the menu it was judged against was never
+       committed (the canary witness, one layer down from
+       `spec_not_canonical`).
+    2. **questions_not_canonical** — the questions embedded in the
+       receipt do not hash to its own spec_hash: the builder refuses
+       this; a hand-forged event that skips the builder is exactly the
+       drift this re-check exists for.
+    3. **answer_outside_spec** — an answer's chosen option or score
+       level is not in the sealed menu: the engine was fed, or returned,
+       a world the spec never authorized.
+    4. **decision_contradiction** — two decisions on the same
+       (state, spec) chose DIFFERENT options for the same question: the
+       quiet flip, surfaced as a registry join instead of a reviewer's
+       memory. The check judges the CHOICE, never the distribution —
+       probabilities jitter between identical requests (batching,
+       prefix-cache) and an honest retry is not a contradiction.
+    5. **label_not_argmax** — the engine's own diagnostic says the
+       reported answer was not the argmax over the label tokens: sealed
+       verbatim in the receipt, surfaced here so a confession cannot sit
+       in an archive nobody reads."""
+    import hashlib
+
+    from .decision import decision_spec_text
+
+    specs: dict[str, dict] = {}
+    for e in events:
+        if e.get("type") == "spec":
+            sid = str(e.get("payload", {}).get("spec_id", "")).strip()
+            if sid:
+                specs.setdefault(sid, e)
+    canonical = specs.get(spec_id)
+    if canonical is None:
+        raise ValueError(f"decision: no sealed spec {spec_id!r} — reconcile "
+                         f"the canonical question set or none of it")
+    sealed_sha = str(canonical["payload"]["sha256"])
+
+    findings: list[Finding] = []
+    seen: dict[tuple[str, str], dict[str, dict]] = {}
+    for e in events:
+        if e.get("type") != "decision":
+            continue
+        payload = e.get("payload", {})
+        bound = str(payload.get("spec_hash", ""))
+        questions = payload.get("questions")
+        if bound != sealed_sha:
+            findings.append(Finding(
+                "decision", "decision_spec_not_canonical", spec_id,
+                decision_seq=e["seq"],
+                note="the decision's spec hash matches no sealed canonical "
+                     "question set — the menu it answers from was never "
+                     "committed to the journal"))
+            continue
+        text = decision_spec_text(questions) if isinstance(questions, dict) else None
+        if text is None or hashlib.sha256(text.encode("utf-8")).hexdigest() != bound:
+            findings.append(Finding(
+                "decision", "questions_not_canonical", spec_id,
+                decision_seq=e["seq"],
+                note="the embedded questions do not hash to the receipt's "
+                     "own spec_hash — the menu it carries is not the menu "
+                     "it claims (the builder refuses this; a forged event "
+                     "does not)"))
+            continue
+        for qid, answer in (payload.get("answers") or {}).items():
+            question = questions.get(qid)
+            if question is None:
+                findings.append(Finding(
+                    "decision", "answer_outside_spec", f"{spec_id}:{qid}",
+                    decision_seq=e["seq"],
+                    note="an answer to a question the sealed menu never "
+                         "asked — refuse at the reconciliation layer what "
+                         "the builder cannot see around"))
+                continue
+            if not isinstance(answer, dict) or answer.get("type") == "refusal":
+                continue
+            if question.get("type") == "choice":
+                chosen = answer.get("choice")
+                if chosen is not None and chosen not in (question.get("criteria") or {}):
+                    findings.append(Finding(
+                        "decision", "answer_outside_spec", f"{spec_id}:{qid}",
+                        decision_seq=e["seq"],
+                        note=f"the chosen option {chosen!r} is not in the "
+                             "sealed menu — the answer came from a world "
+                             "the spec never authorized"))
+            elif question.get("type") == "score":
+                score = answer.get("score")
+                levels = question.get("criteria") or []
+                if isinstance(score, int) and not isinstance(score, bool) \
+                        and not 0 <= score < len(levels):
+                    findings.append(Finding(
+                        "decision", "answer_outside_spec", f"{spec_id}:{qid}",
+                        decision_seq=e["seq"],
+                        note=f"the score level {score!r} is outside the "
+                             f"sealed {len(levels)}-level scale"))
+        for qid, answer in (payload.get("answers") or {}).items():
+            chosen = answer.get("choice") if isinstance(answer, dict) else None
+            if chosen is None:
+                continue
+            key = (str(payload.get("state_sha256", "")), bound)
+            prior = seen.setdefault(key, {})
+            if qid in prior and prior[qid]["choice"] != chosen:
+                findings.append(Finding(
+                    "decision", "decision_contradiction", f"{spec_id}:{qid}",
+                    decision_seq=e["seq"],
+                    note=f"two decisions on the same (state, spec) chose "
+                         f"{prior[qid]['choice']!r} at seq {prior[qid]['seq']} "
+                         f"and {chosen!r} here — the quiet flip, surfaced as "
+                         "a registry join (choices are judged, never "
+                         "distributions: an honest retry is not a "
+                         "contradiction)"))
+            prior.setdefault(qid, {"choice": chosen, "seq": e["seq"]})
+        for qid, diagnostic in (payload.get("diagnostics") or {}).items():
+            if isinstance(diagnostic, dict) and \
+                    diagnostic.get("argmax_is_label") is False:
+                findings.append(Finding(
+                    "decision", "label_not_argmax", f"{spec_id}:{qid}",
+                    decision_seq=e["seq"],
+                    note="the engine's own diagnostic says the reported "
+                         "answer was not the argmax over the label tokens "
+                         "— the confession is sealed verbatim; here it "
+                         "becomes impossible to miss"))
+    return findings
+
+
 def seal_writer(store, key, *, public_hex: str, domain: str,
                 declared_by: str) -> dict:
     """Seals one entry of the KNOWN-WRITERS REGISTRY as a `writer` event

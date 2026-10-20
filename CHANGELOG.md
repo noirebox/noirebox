@@ -1,3 +1,53 @@
+## [0.23.0] — 2026-10-18
+
+### Added
+
+Two receipt kinds land in the same train — the journal learns to seal
+DECISIONS and PROMOTIONS, not only check reports. (ADR 026 dated this
+landing 0.22.0; 0.22.0 became the paperwork release — the schema lands
+here instead, complete with its check and its fixtures.)
+
+- **`decision/0.1` — decision receipts (ADR 028)**. vLLM v0.32.0 baked
+  decision routing into the engine: `POST /v1/systemone` answers
+  choice / noul / score questions over a state and returns a
+  probability for every allowed answer (TypeSafe's Jev format, already
+  served by Ollama v0.35 and Cloudflare Clef, translated by LiteLLM;
+  OpenAI's `/v1/decisions` is the same seam). The engine sees
+  everything, the harness sees an enum — the receipt commits what
+  makes the verdict meaningful: the state as a digest (never the
+  data), the question set hash-bound to its sealed spec (the SCAR-45
+  door welded at birth: `spec_hash` required with no exception path),
+  the full distribution over allowed answers, and the engine's own
+  doubt (`label_mass`, `argmax_is_label`) sealed verbatim. The
+  canonical question set seals via `seal_decision_spec` — the
+  SCAR-PROC-114 canary machinery, reused unchanged. `reconcile_decision`
+  ships five findings: `decision_spec_not_canonical`,
+  `questions_not_canonical` (the builder refuses this; a forged event
+  that skips the builder is what the re-check exists for),
+  `answer_outside_spec`, `decision_contradiction`,
+  `label_not_argmax`. The contradiction check judges CHOICES, never
+  distributions — probabilities jitter between honest retries
+  (batching, prefix-cache; the engine documents it), a flip is not
+  jitter. SCAR-DM-1 lands in the replay suite; the measured
+  open-weights leg is the open frontier leg (SCAR-BENCH §7, no
+  numbers until a run happened).
+- **`admission/0.1` — admission receipts (ADR 026, the promise
+  kept)**. You-An Lin's *Capability Is Not Authority*, Paper II §6.3:
+  a live agent used foreign history it had correctly ATTRIBUTED but
+  never ADMITTED — attribution correct, admission invalid, every
+  output-level metric green. The output is not the unit of audit; the
+  promotion is. `seal_admission` seals the promotion itself: Lin's
+  four invalid transitions named (visibility→admission,
+  capability→move, relevance→payload, style→stance); the never-bases
+  (presence, relevance, plausibility, usefulness) refused at seal
+  time; the decision fails closed — `admitted` | `denied` |
+  `admission_undecidable` | `admission_check_not_run`;
+  `participation_ownership` ∈ {same, foreign, shared}.
+  `check_admission_basis` fires `admission_gap` when foreign-sourced
+  content is consumed with no EARLIER admitted admission receipt —
+  retroactive warrants and undecidable admissions clear nothing.
+  SCAR-ADM-1 lands in the replay suite.
+
 # Changelog
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
