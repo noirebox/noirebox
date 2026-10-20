@@ -12,6 +12,8 @@
 [![Lint: ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Image on GHCR](https://img.shields.io/badge/image-ghcr.io%2Fnoirebox%2Fnoirebox-blue)](https://github.com/noirebox/noirebox/pkgs/container/noirebox)
 [![Made in France](https://img.shields.io/badge/made%20in-France-blue)](#)
+[![DOI](https://zenodo.org/badge/1380362407.svg)](https://doi.org/10.5281/zenodo.23442280)
+[![Mirror: Codeberg](https://img.shields.io/badge/mirror-codeberg.org%2Fnoirebox-2185d0)](https://codeberg.org/noirebox)
 
 <a href="https://futurium.ec.europa.eu/en/apply-ai-alliance"><img src="docs/assets/apply-ai-alliance.png" alt="Apply AI Alliance" width="56"></a><br>
 <sub>Membre de l'<a href="https://futurium.ec.europa.eu/en/apply-ai-alliance"><b>Apply AI Alliance</b></a></sub>
@@ -31,7 +33,8 @@ une attestation que n'importe qui vérifie hors-ligne — **sans vous faire conf
 
 [Quickstart](#quickstart) · [Démo LLM réelle](#la-scène-llm-réelle-ollama-local) ·
 [Specs](docs/SPECS.md) · [Threat model](docs/THREAT-MODEL.md) ·
-[ADRs](docs/ADRs.md) · [Vulgarisation](docs/VULGARISATION.md)
+[ADRs](docs/ADRs.md) · [Vulgarisation](docs/VULGARISATION.md) ·
+[Miroir en lecture seule sur Codeberg](https://codeberg.org/noirebox/noirebox)
 
 </div>
 
