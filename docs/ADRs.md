@@ -1073,3 +1073,137 @@ gates a human review is an automated decision with logging obligations
 (art. 12) and oversight hooks (art. 14) — `requirement_ref` names
 which. The HTTP seal endpoint and the live-endpoint bench harness land
 with the first integration that needs them.
+
+---
+
+## ADR 029 — Chunking receipts: the cut is a decision, the corpus is a chain
+
+**Status**: accepted (direction) — lineage: ByteByteGo EP#229, *"8
+Chunking Strategies for RAG"*, and the thread's provenance comment:
+with agentic chunking, the method choice is invisible at retrieval
+time — a paragraph-cut contract clause and a row-cut table look
+identical in the index — so each chunk should carry its label and its
+splitter. That comment is the check-report gap one artifact lower, and
+it lands here because no one else is holding the seam. Implementation
+(`noirebox/chunking.py`, the manifest seal, the drift check, SCAR-CK-1)
+lands with the first integration that needs it — no schema ships
+without its tests.
+
+**The seam.** Retrieval-augmented systems cut a corpus into chunks
+before anything else happens, and from that moment the cut decides
+what the model CAN read: retrieval never sees a sentence the cut
+destroyed, never keeps a clause with its exception if the splitter put
+them in different chunks. Three facts about the cut are unwitnessed
+end to end. WHAT each chunk contains — corpora mutate silently between
+the evaluation run and the production run, and the index id does not
+change. HOW each chunk was cut — strategy and parameters (size,
+overlap, threshold, prompt) live only in the pipeline's memory, and
+the EP#229 taxonomy names eight live strategies with more arriving.
+WHO chose the strategy, when the chunker is agentic — a model makes
+the choice, and the choice is a decision in exactly ADR 028's sense:
+taken from a state, under a menu, load-bearing downstream. The
+decision receipt sealed what was DECIDED; admission sealed the BASIS
+of an act; nothing seals what was READ. Retrieval moves the read into
+the decision loop — the corpus is the least witnessed artifact in the
+agentic stack, and ordering-vs-authenticity does not even get to
+start: a vector index attests neither.
+
+**Decision** — the cut becomes a sealed event family:
+
+1. **`chunking/0.1`**, the chunk receipt: `{doc_sha256, chunk_sha256,
+   chunk_index, chunk_count, strategy, splitter, params?, corpus_id?,
+   decided_by?, requirement_ref?}`. The document and the chunk travel
+   as DIGESTS, never as text (the `use_event` rule — the chunk's
+   custody stays with the pipeline's store; ADR 022 already mapped
+   that boundary and this ADR does not move it). `strategy` is the
+   named cut method — an open string, not an enum: strategies churn
+   faster than schemas, and the receipt's job is to bind what RAN, not
+   to adjudicate a taxonomy (the EP#229 eight — fixed, recursive,
+   document-based, semantic, LLM-based, agentic, late, hierarchical —
+   are values, not vocabulary). `splitter` is the implementation
+   identity (library and version): the label-vs-implementation seam
+   receipt/0.2.x closed for `judged_by`, closed again one artifact
+   lower. `params` are the cut's knobs VERBATIM — a strategy without
+   its parameters is a label, and labels are what attackers edit.
+   `decided_by`, when present, names the decision receipt that sealed
+   the strategy choice; absent means the pipeline chose
+   deterministically — the receipt still seals the cut, it just has
+   nobody to blame for it.
+2. **The corpus manifest is a hash chain in cut order.** Chunk
+   receipts append in document order; `corpus_sha256` is the chain
+   head at seal time. A chunk edited, inserted, dropped, or reordered
+   trips the chain — the one primitive this project is, applied to the
+   artifact that currently has nothing. `check_corpus_drift` (the
+   `check_custody_drift` pattern): manifest against live store, and
+   every chunk whose digest no longer matches is a finding —
+   eval-versus-prod corpus drift as a named result, not a vibe.
+3. **Agentic chunking rides ADR 028 unchanged.** When a model picks
+   the strategy for a document, that pick IS a decision receipt:
+   `decision/0.1`, questions = the strategy menu (a `choice`
+   question), `state_sha256` = the document digest, `spec_hash` welded
+   with no exception path — the SCAR-45 door starts welded, house rule
+   since ADR 028. The chunk receipt's `decided_by` names that decision
+   receipt's identity — two receipts, one fact: what was chosen, and
+   what the choice produced. No new trust primitive is invented here;
+   reusing the 028 machinery unchanged is the point.
+4. **The join is admission's, not a new schema.** When a grounded act
+   consumes retrieved content, the chunk digest travels in the
+   admission receipt's `basis` — an independent warrant by
+   construction (it cites a sealed artifact, not the resource's own
+   pull), and `admission_gap` ALREADY enforces that the basis precedes
+   the use: a chunk receipt sealed after the act clears nothing, the
+   same fail-closed direction as every basis check. A standalone
+   `retrieval/0.1` (query, scores, ranking provenance) is the frontier
+   leg, named and refused for now: witnessing the query moment needs a
+   witness at query time — an integration seam, not a schema.
+5. **SCAR-CK-1** joins the replay suite: the swapped chunk (same index
+   id, different bytes), the strategy laundering (manifest says
+   paragraph-cut, the bytes say row-cut), the post-eval mutation
+   (corpus changed between the benchmark and the deployment, receipts
+   not re-sealed), the unsplit corpus (nothing was ever sealed — the
+   honest absence, surfaced like `admission_gap` rather than
+   forgotten), and the clean twin. No numbers exist until a run
+   happened; the honesty rules are not negotiable.
+6. **SCAR-BENCH gets its reproducibility pin.** Semantic-beats-
+   fixed-size is today an unbenchmarked claim — the EP#229 thread's
+   open question (whether a good reranker recovers most of what clever
+   boundaries buy) has no numbers attached, and none are citable
+   without pinning the cut. Chunk receipts make a chunking grid
+   replayable: same `doc_sha256` + same `strategy` + same `params` =
+   byte-comparable chunks; a benchmark claim that pins its manifest is
+   falsifiable, one that does not is a mood. Evidence grades apply to
+   chunking claims like any other claim.
+7. **The model-collapse lineage closes at the right grain.** ADR 011
+   sealed content-provenance events for ingestion; this ADR gives that
+   ingestion its unit — the chunk — and a confrontable identity at the
+   grain that actually enters the context window.
+   Agent-consumes-agent-generated-text is witnessed where it happens:
+   not at the document (nobody reads whole documents) and not at the
+   token (nobody attests tokens), at the chunk.
+
+**Non-goals, stated so they can be refused in public**: noirebox does
+NOT chunk, embed, retrieve, or rank — no vector store, no embedding
+model, no reranker; we are the evidence layer, not the index, and (ADR
+028's own refusal, restated) a witness inside the thing it witnesses
+is no witness. We do not measure retrieval quality; we make the cut
+confrontable so that OTHERS' quality claims become falsifiable. We do
+not stop a bad cut from degrading an answer — a wrong strategy sealed
+honestly is still a wrong strategy; the receipt's job is to make the
+choice attributable, not to make it wise. And we do not seal chunk
+text: digests bind identity, custody of the bytes stays with the store
+(ADR 022's line, not a new one).
+
+**Consequences**: `noirebox/chunking.py` (builder, validators, manifest
+head), `seal_corpus_manifest`, `check_corpus_drift`, and the SCAR-CK-1
+fixtures ship together, with tests, at the first integration; the
+builder follows the house gate — a chunk receipt without `doc_sha256`,
+without `strategy`, or with params that contradict the splitter's
+identity does not seal. The AI Act tie is direct: for a high-risk
+system, the retrieval corpus is data the system consumes at inference,
+inside art. 10's data-governance reach (relevance, examination) and
+art. 12's logging duty — a corpus manifest with document versions, cut
+provenance, and per-chunk digests is the audit-pack page a regulator
+actually asks for and a pipeline cannot produce after the fact. The
+C2PA bridge inherits for free: a chunk receipt is a `noirebox.sealed`
+assertion binding a content hash to a cut action — vocabulary C2PA 2.4
+has no word for, the journal provides.
