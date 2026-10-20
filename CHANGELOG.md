@@ -1,3 +1,25 @@
+## [Unreleased]
+
+### Added
+
+- **`noirebox seal-admission` — the admission receipt gets its shell
+  surface.** 0.23.0 shipped `admission/0.1` as a Python function only:
+  `seal_admission()` refuses the laundering vocabulary at seal time
+  (presence / relevance / plausibility / usefulness as a basis, a
+  transition outside Lin's four, a decision outside the fail-closed set),
+  but nothing on the command line reached it — and the generic
+  `noirebox seal <type> <payload>` would happily write an admission-shaped
+  event with none of those checks. The subcommand closes that gap:
+  `--actor --origin --surface --transition --basis --decision --ownership
+  [--scope …]`, wired to the same function, same refusals verbatim (exit 2,
+  no event lands), `->` accepted for the arrow in `--transition`. This is
+  the one delta #108 carried over main, carved out as #122. 428 → 439
+  tests; the site's CLI table and the FR count follow.
+- **`tools/sync_test_count.py` covers every published spot again** — the
+  shields on both pages, the metrics cell, the two prose mentions, and
+  CONTRIBUTING's drifted phrasing had all escaped the regexes; the count
+  is one command again, as the docstring promises.
+
 ## [0.23.0] — 2026-10-18
 
 ### Added
@@ -966,8 +988,7 @@ fixtures.
 - ADR 002: Llama Prompt Guard 2 (Meta) evaluated and rejected (language, binary output,
   gated licensing, dependencies)
 
-[Unreleased]: https://github.com/noirebox/noirebox/compare/v0.16.0...HEAD
-[Unreleased]: https://github.com/noirebox/noirebox/compare/v0.19.0...HEAD
+[Unreleased]: https://github.com/noirebox/noirebox/compare/v0.23.0...HEAD
 [0.20.0]: https://github.com/noirebox/noirebox/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/noirebox/noirebox/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/noirebox/noirebox/compare/v0.17.0...v0.18.0

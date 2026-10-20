@@ -20,13 +20,19 @@ ROOT = Path(__file__).resolve().parent.parent
 SPOTS = [
     ("README.md", r"\b\d+ tests: cryptography", "{n} tests: cryptography"),
     ("README.fr.md", r"\b\d+ tests : cryptographie", "{n} tests : cryptographie"),
-    ("CONTRIBUTING.md", r"\(\d+ tests\)", "({n} tests)"),
+    ("CONTRIBUTING.md", r"\(\d+ tests( —|\))", "({n} tests\\1"),
     ("docs/index.html", r"<strong>\d+</strong><span>tests green</span>",
      "<strong>{n}</strong><span>tests green</span>"),
     ("docs/index.html", r'<td class="m-val">\d+ green</td>', '<td class="m-val">{n} green</td>'),
     ("docs/fr.html", r"<strong>\d+</strong><span>tests verts</span>",
      "<strong>{n}</strong><span>tests verts</span>"),
     ("docs/fr.html", r'<td class="m-val">\d+ verts</td>', '<td class="m-val">{n} verts</td>'),
+    # the shields.io badge URL on both pages, and the two prose mentions
+    ("docs/index.html", r"tests-\d+%20·%200%20failing", "tests-{n}%20·%200%20failing"),
+    ("docs/fr.html", r"tests-\d+%20·%200%20failing", "tests-{n}%20·%200%20failing"),
+    ("docs/index.html", r"\b\d+ tests — the invariant suite", "{n} tests — the invariant suite"),
+    ("docs/index.html", r"— \d+ tests, must stay green", "— {n} tests, must stay green"),
+    ("docs/index.html", r'<td class="mono">\d+ · 0 failing</td>', '<td class="mono">{n} · 0 failing</td>'),
 ]
 
 
