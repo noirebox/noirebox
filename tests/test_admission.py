@@ -157,3 +157,108 @@ def test_content_without_origin_is_out_of_scope(tmp_path):
     store, key = _journal(tmp_path, "adm-j5")
     store.append("content", {"text_digest": "b" * 64}, key)
     assert check_admission_basis(store.all()) == []
+
+
+# --- the shell surface: `noirebox seal-admission` -------------------------------
+
+_CLI_OK = {
+    "--actor": "agent-7",
+    "--origin": "resident:marlow",
+    "--surface": "shared memory",
+    "--transition": "visibility→admission",
+    "--basis": "user instruction 2026-10-17 14:02 ('use marlow's notes')",
+    "--decision": "admitted",
+    "--ownership": "foreign",
+}
+
+
+def _cli(tmp_path, monkeypatch, over: dict | None = None,
+         extra: list[str] | None = None) -> tuple[int, EventStore]:
+    """`noirebox seal-admission --db <fresh journal>` with the happy flags,
+    `over` replacing flags by name; returns (rc, the journal)."""
+    from noirebox.cli import main as cli_main
+    monkeypatch.delenv("NOIREBOX_KEY_PEM", raising=False)
+    db = str(tmp_path / "cli.db")
+    KeyPair.load_or_create(db + ".key")
+    flags = dict(_CLI_OK)
+    flags.update(over or {})
+    argv = ["seal-admission", "--db", db]
+    for flag, value in flags.items():
+        argv += [flag, value]
+    argv += list(extra or [])
+    return cli_main(argv), EventStore(db)
+
+
+def test_cli_seals_what_the_api_seals(tmp_path, monkeypatch, capsys):
+    """The shell surface is the same gate: one event, the API's payload shape."""
+    rc, store = _cli(tmp_path, monkeypatch)
+    assert rc == 0
+    events = store.all()
+    assert len(events) == 1 and events[0]["type"] == "admission"
+    payload = events[0]["payload"]
+    assert payload["schema"] == "admission/0.1"
+    assert payload["source"] == {"origin": "resident:marlow",
+                                 "surface": "shared memory"}
+    assert payload["transition"] == "visibility→admission"
+    assert payload["decision"] == "admitted"
+    assert payload["participation_ownership"] == "foreign"
+    assert "scope" not in payload
+    assert "[admission] sealed seq=1" in capsys.readouterr().out
+
+
+def test_cli_accepts_the_ascii_arrow(tmp_path, monkeypatch):
+    """`->` on a keyboard, `→` in the receipt — the vocabulary stays the
+    function's, the shell just gets a way to type it."""
+    rc, store = _cli(tmp_path, monkeypatch,
+                     over={"--transition": "capability->move"})
+    assert rc == 0
+    assert store.all()[0]["payload"]["transition"] == "capability→move"
+
+
+def test_cli_scope_is_repeatable(tmp_path, monkeypatch):
+    rc, store = _cli(tmp_path, monkeypatch,
+                     extra=["--scope", "notes/", "--scope", "plan.md"])
+    assert rc == 0
+    assert store.all()[0]["payload"]["scope"] == ["notes/", "plan.md"]
+
+
+@pytest.mark.parametrize("basis", ["presence", "relevance", "plausibility",
+                                   "usefulness"])
+def test_cli_refuses_the_laundering_bases_and_writes_nothing(
+        tmp_path, monkeypatch, capsys, basis):
+    """The generic `noirebox seal` would take this JSON; this command must
+    not — the refusal is the function's, verbatim, and no event lands."""
+    rc, store = _cli(tmp_path, monkeypatch, over={"--basis": basis})
+    assert rc == 2
+    assert store.all() == []
+    err = capsys.readouterr().err
+    assert err.startswith("[admission] refused:") and "never a basis" in err
+
+
+@pytest.mark.parametrize("over", [
+    {"--transition": "visibility→payload"},
+    {"--decision": "approved"},
+    {"--ownership": "mine"},
+])
+def test_cli_refuses_out_of_vocabulary_fields(tmp_path, monkeypatch, capsys,
+                                              over):
+    rc, store = _cli(tmp_path, monkeypatch, over=over)
+    assert rc == 2
+    assert store.all() == []
+    assert "[admission] refused: admission:" in capsys.readouterr().err
+
+
+def test_cli_requires_every_field(tmp_path, monkeypatch):
+    """argparse owns the missing-flag refusal — exit 2 before any key or
+    journal is touched."""
+    from noirebox.cli import main as cli_main
+    monkeypatch.delenv("NOIREBOX_KEY_PEM", raising=False)
+    db = tmp_path / "cli-missing.db"
+    argv = ["seal-admission", "--db", str(db)]
+    for flag, value in _CLI_OK.items():
+        if flag != "--decision":
+            argv += [flag, value]
+    with pytest.raises(SystemExit) as exc:
+        cli_main(argv)
+    assert exc.value.code == 2
+    assert not db.exists() and not db.with_suffix(".db.key").exists()
