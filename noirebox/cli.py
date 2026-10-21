@@ -273,6 +273,36 @@ def main(argv: list[str] | None = None) -> int:
     adm.add_argument("--scope", action="append", default=None, metavar="PATH",
                      help="what the admission covers (repeatable)")
     adm.add_argument("--db", default=None, help="journal path")
+    mk = sub.add_parser("seal-marking",
+                        help="seal a MARKING receipt (ADR 030, AI Act art. "
+                             "50(2)) — the proof that one generated output "
+                             "was marked becomes a signed event: the "
+                             "output's digest, its modality, the methods "
+                             "applied, the fail-closed status. A label can "
+                             "be stripped and a log can be edited; this "
+                             "cannot")
+    mk.add_argument("--output-digest", required=True,
+                    help="sha256 hex of the output as delivered — the "
+                         "DIGEST, never the content")
+    mk.add_argument("--modality", required=True,
+                    help="text | image | audio | video (art. 50(2)'s four)")
+    mk.add_argument("--status", required=True,
+                    help="marked | not_marked | exempt (fails closed — an "
+                         "unmarked output is sealed as unmarked)")
+    mk.add_argument("--system-ref", required=True,
+                    help="which AI system generated the output")
+    mk.add_argument("--method", action="append", default=None, metavar="METHOD",
+                    help="a mark applied (repeatable): watermark | metadata | "
+                         "c2pa_manifest | fingerprint | visible_label")
+    mk.add_argument("--manifest-digest", default=None,
+                    help="sha256 hex of the C2PA manifest (required with "
+                         "--method c2pa_manifest, refused without it)")
+    mk.add_argument("--exemption", default=None,
+                    help="with --status exempt only: assistive_editing | "
+                         "no_substantial_alteration | authorised_by_law")
+    mk.add_argument("--detector", default=None,
+                    help="how a third party re-detects the mark (tool, version)")
+    mk.add_argument("--db", default=None, help="journal path")
     khs = sub.add_parser("keyholder-status",
                          help="describe a running keyholder: its public key "
                               "(the out-of-band pin value) and the peer check")
@@ -744,6 +774,32 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         print(f"[admission] sealed seq={event.seq} actor={args.actor} "
               f"decision={args.decision} origin={args.origin}")
+        return 0
+
+    if args.command == "seal-marking":
+        import sys
+
+        from noirebox import locate
+        from noirebox.chain import load_instance_key
+        from noirebox.reconcile import seal_marking
+        from noirebox.store import EventStore
+
+        db = args.db or locate.resolve_journal()
+        store = EventStore(db)
+        key = load_instance_key(db)
+        try:
+            event = seal_marking(
+                store, key, output_digest=args.output_digest,
+                modality=args.modality, status=args.status,
+                system_ref=args.system_ref, methods=args.method,
+                manifest_digest=args.manifest_digest,
+                exemption=args.exemption, detector=args.detector)
+        except ValueError as exc:
+            print(f"[marking] refused: {exc}", file=sys.stderr)
+            return 2
+        print(f"[marking] sealed seq={event.seq} status={args.status} "
+              f"modality={args.modality} "
+              f"digest={event.payload['output_digest'][:16]}…")
         return 0
 
     if args.command == "keyholder-status":

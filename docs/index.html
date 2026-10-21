@@ -68,7 +68,7 @@
     <a href="https://pypi.org/project/noirebox/" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/v/noirebox" alt="PyPI"></a>
     <img src="https://img.shields.io/badge/python-3.11%2B-blue" alt="Python 3.11+">
     <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT">
-    <a href="https://github.com/noirebox/noirebox/actions/workflows/ci.yml" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/tests-439%20·%200%20failing-brightgreen" alt="tests"></a>
+    <a href="https://github.com/noirebox/noirebox/actions/workflows/ci.yml" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/tests-473%20·%200%20failing-brightgreen" alt="tests"></a>
     <a href="https://github.com/noirebox/noirebox/pkgs/container/noirebox" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/GHCR-noirebox%2Fnoirebox-blue" alt="GHCR"></a>
   </div>
   <div class="install-pill">
@@ -80,7 +80,7 @@
     <a href="https://github.com/noirebox/noirebox/blob/main/docs/SPECS.md" target="_blank" rel="noopener">SPECS.md</a> ·
     <a href="https://github.com/noirebox/noirebox/blob/main/docs/THREAT-MODEL.md" target="_blank" rel="noopener">threat model</a> ·
     <a href="https://github.com/noirebox/noirebox/blob/main/CHANGELOG.md" target="_blank" rel="noopener">changelog</a> ·
-    <a href="https://github.com/noirebox/noirebox/blob/main/docs/ADRs.md" target="_blank" rel="noopener">29 ADRs</a>
+    <a href="https://github.com/noirebox/noirebox/blob/main/docs/ADRs.md" target="_blank" rel="noopener">30 ADRs</a>
   </p>
 </header>
 
@@ -231,12 +231,13 @@ python verifier/verifier.py export.json
     <tr><td class="mono">receipt/0.2.2</td><td>any writer</td><td><code>judged_by</code> (an <code>llm</code> judge requires <code>spec_hash</code> — it read its sealed spec, or the seal refuses), <code>reason</code>, optional <code>requirement_ref</code></td></tr>
     <tr><td class="mono">decision/0.1</td><td>any writer</td><td>decision receipts (ADR 028): the System One layer (<code>/v1/systemone</code>) under seal — state as digest, question set hash-bound to its sealed spec (<code>spec_hash</code> required, no exception path), the full distribution, the engine's doubt (<code>label_mass</code>, <code>argmax_is_label</code>) verbatim</td></tr>
     <tr><td class="mono">admission/0.1</td><td>any writer · <code>noirebox seal-admission</code></td><td>admission receipts (ADR 026): the promotion itself — Lin's four invalid transitions named, the never-bases refused at seal time, decision fails closed (<code>admitted | denied | admission_undecidable | admission_check_not_run</code>)</td></tr>
+    <tr><td class="mono">marking/0.1</td><td>any writer · <code>noirebox seal-marking</code></td><td>marking receipts (ADR 030, AI Act art. 50(2)): the proof that one generated output was marked, bound to the output's digest (never the content) — modality closed to art. 50(2)'s four, methods a closed set (<code>c2pa_manifest</code> binds <code>manifest_digest</code>), status fails closed (<code>marked | not_marked | exempt</code>, an exemption names its carve-out). A label can be stripped, a log can be edited, an anchored receipt can't</td></tr>
     <tr><td class="mono">writer/0.1</td><td>the registrar</td><td>known-writers registry: <code>public_hex</code> → <code>domain</code>, <code>declared_by</code> — resolved against the PINNED registrar key (out-of-band); non-registrar entries can't vote; a key under two domains = <code>registry_duplicate_undecidable</code>, never first-wins</td></tr>
     <tr><td class="mono">registry-disclosure/0.2</td><td>the report</td><td>registrant + evidence grade — disclosure, never violation; never touches <code>clean_pass</code></td></tr>
     <tr><td class="mono">retention/0.1</td><td><code>noirebox seal-retention</code></td><td>prune / migrate / policy-change / restore — retention changes are custody events journaled like any other, not ops-layer edits</td></tr>
   </tbody>
 </table>
-<p><strong>Named states, never silence:</strong> <code>admission_gap</code> · <code>decision_contradiction</code> · <code>label_not_argmax</code> · <code>unverified_label</code> · <code>independence_undecidable</code> · <code>label_llm_call_mismatch</code> · <code>registry_duplicate_undecidable</code> · <code>scope_check_not_run</code> — an undecidable outcome is never reported as clean, and a skipped check is reported as skipped.</p>
+<p><strong>Named states, never silence:</strong> <code>admission_gap</code> · <code>marking_gap</code> · <code>decision_contradiction</code> · <code>label_not_argmax</code> · <code>unverified_label</code> · <code>independence_undecidable</code> · <code>label_llm_call_mismatch</code> · <code>registry_duplicate_undecidable</code> · <code>scope_check_not_run</code> — an undecidable outcome is never reported as clean, and a skipped check is reported as skipped.</p>
 <p>The doctrine behind these schemas — who may judge what, and which verdict outranks which — is written up as the <a href="https://github.com/noirebox/noirebox/blob/main/docs/AUTHORITY-LADDER.md" target="_blank" rel="noopener">authority ladder</a> <span class="dim">(ADR 019–022)</span>.</p>
 </section>
 
@@ -363,7 +364,7 @@ python verifier/verifier.py export.json
 <!-- ═══════════════ CLI ═══════════════ -->
 <section id="cli">
 <h2><a href="#cli" class="anchor">§</a>CLI reference</h2>
-<p><code class="mono">noirebox --version</code> → 0.23.0. Twenty subcommands; every journal path resolves the same way (<code>--db</code> → <code>NOIREBOX_DB</code> → nearest <code>.noirebox/</code> → <code>data/noirebox.db</code>).</p>
+<p><code class="mono">noirebox --version</code> → 0.23.0. Twenty-two subcommands; every journal path resolves the same way (<code>--db</code> → <code>NOIREBOX_DB</code> → nearest <code>.noirebox/</code> → <code>data/noirebox.db</code>).</p>
 <table>
   <thead><tr><th>Command</th><th>What it does</th></tr></thead>
   <tbody>
@@ -388,6 +389,7 @@ python verifier/verifier.py export.json
     <tr><td class="mono">keyholder-status</td><td>describe a running keyholder: public key (the out-of-band pin value) + peer check</td></tr>
     <tr><td class="mono">seal-retention</td><td>seal a retention change INTO the journal (prune | migrate | policy-change | restore)</td></tr>
     <tr><td class="mono">seal-admission</td><td>seal an admission receipt (ADR 026): actor, origin + surface, one of Lin's four transitions, the independent basis, the fail-closed decision — the laundering bases are refused at the shell, same as the API</td></tr>
+    <tr><td class="mono">seal-marking</td><td>seal a marking receipt (ADR 030, AI Act art. 50(2)): the output's sha256 digest, its modality, the methods applied (repeatable <code>--method</code>), the fail-closed status, an exemption that names its carve-out — same function as the API, same refusals: exit 2 and no event lands</td></tr>
     <tr><td class="mono">custody-grade</td><td>print the custody disclosure: witness = min(authoring, retention)</td></tr>
   </tbody>
 </table>
@@ -406,7 +408,7 @@ python verifier/verifier.py export.json
     <tr><td>Full chain verification, 100 events (incl. JSON load)</td><td class="mono">44 ms</td><td class="mono">verifier/verifier.py</td></tr>
     <tr><td>Bundled detectors, FR + EN</td><td class="mono">293 + 243 KB</td><td class="mono">make train · make train-en</td></tr>
     <tr><td>Held-out attack sentences, FR + EN</td><td class="mono">12/12</td><td class="mono">tests/test_ml_guardrail.py</td></tr>
-    <tr><td>Test suite</td><td class="mono">439 · 0 failing</td><td class="mono">make test</td></tr>
+    <tr><td>Test suite</td><td class="mono">473 · 0 failing</td><td class="mono">make test</td></tr>
   </tbody>
 </table>
 <p class="dim">MacBook M-series, local venv — sealing/verification rows 2026-10-04. Absolute values vary with hardware; <code>make bench</code> on your machine is the reference.</p>
@@ -440,7 +442,7 @@ verifier/verifier.py  standalone third-party verifier (+ tsa_roots/ pinned certi
 bench/                SCAR-BENCH harness + published results (scar114)
 tsa/                  self-hosted OpenSSL witness (root + leaf chain)
 plugins/              VS Code extension · Claude Code hooks · ZCode plugin
-tests/                439 tests — the invariant suite, incl. SCAR replay
+tests/                473 tests — the invariant suite, incl. SCAR replay
 docs/                 SPECS · THREAT-MODEL · ADRs · compliance &amp; bench docs (this site)
 demo/                 runnable end-to-end scenes</pre>
 </section>
@@ -565,7 +567,7 @@ demo/                 runnable end-to-end scenes</pre>
 <h2><a href="#contributing" class="anchor">§</a>Contributing</h2>
 <ul class="tight">
   <li>Branches + pull requests; <code class="mono">main</code> is protected (PR + required checks). No direct pushes.</li>
-  <li><code class="mono">make test</code> — 439 tests, must stay green · <code class="mono">ruff</code> for lint (B/SIM/C4 enforced) · CI runs the suite + Bandit + a stub-LLM coverage pass.</li>
+  <li><code class="mono">make test</code> — 473 tests, must stay green · <code class="mono">ruff</code> for lint (B/SIM/C4 enforced) · CI runs the suite + Bandit + a stub-LLM coverage pass.</li>
   <li>The spec is the contract: a code change that diverges from <code class="mono">docs/SPECS.md</code> updates the spec in the same PR — or it's a bug.</li>
   <li>Numbers cited in docs must be reproducible (<code class="mono">make bench</code>, <code class="mono">make test</code>) — measured, never rounded up.</li>
   <li>MIT. Issues and PRs welcome; security issues go to SECURITY.md, not public issues.</li>

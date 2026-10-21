@@ -2,6 +2,38 @@
 
 ### Added
 
+- **`marking/0.1` — marking receipts (ADR 030, AI Act art. 50(2)).** Art.
+  50(2) has applied since 2 August 2026; Reg. (EU) 2026/1744 added one
+  narrow transition (art. 111(4): generative systems already on the
+  market before 2 August 2026 have until 2 December 2026), and a wave of
+  marking SDKs is arriving for that date with a hosted "evidence log" as
+  the proof leg. A mark lives inside the artifact and dies with it — a
+  stripped label is indistinguishable from one that never existed — and a
+  log is the operator's own record, editable by whoever holds it. The
+  receipt is what survives: `seal_marking` binds the output's sha256
+  DIGEST (never the content) to its modality (art. 50(2)'s four), the
+  methods applied (a closed set — `c2pa_manifest` binds `manifest_digest`
+  both ways), `system_ref`, and a fail-closed status (`marked |
+  not_marked | exempt` — an exemption names which of the three carve-outs
+  it claims; a bare "exempt" is refused). `check_marking_coverage` is the
+  join: every generation event carrying an `output_digest` must meet a
+  `marked` or `exempt` receipt for that digest; a `not_marked` receipt IS
+  the gap and a later mark does not erase it — `marking_gap`, one per
+  digest. Order is not checked in 0.1 and the limit is named rather than
+  hidden. `noirebox seal-marking` ships with the schema (lesson of #122),
+  same refusals verbatim, exit 2 and no event lands. The C2PA bridge keeps
+  `noirebox.marking` in its own namespace — the act of complying is not a
+  media edit. 439 → 473 tests; the site's schema and CLI tables, the
+  named states, the ADR count (30) and both subcommand counts follow —
+  the EN prose had still said "Twenty" after #124. A label can be
+  stripped, a log can be edited, an anchored receipt can't.
+- **`COMPLIANCE-EU.md` calendar corrected.** The dossier said the Omnibus
+  "did not touch transparency"; it did, in exactly one narrow way — art.
+  111(4), the four-month transition for art. 50(2) marking of generative
+  systems on the market before 2 August 2026 (recital 38). Verified
+  against the OJ English text on 21 October 2026; the 2 August / 2
+  December rows and the sources say so now, and the obligations table
+  gains its art. 50(2) row.
 - **`noirebox seal-admission` — the admission receipt gets its shell
   surface.** 0.23.0 shipped `admission/0.1` as a Python function only:
   `seal_admission()` refuses the laundering vocabulary at seal time
