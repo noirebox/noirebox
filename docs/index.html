@@ -81,7 +81,7 @@
     <a href="https://github.com/noirebox/noirebox/blob/main/docs/SPECS.md" target="_blank" rel="noopener">SPECS.md</a> ·
     <a href="https://github.com/noirebox/noirebox/blob/main/docs/THREAT-MODEL.md" target="_blank" rel="noopener">threat model</a> ·
     <a href="https://github.com/noirebox/noirebox/blob/main/CHANGELOG.md" target="_blank" rel="noopener">changelog</a> ·
-    <a href="https://github.com/noirebox/noirebox/blob/main/docs/ADRs.md" target="_blank" rel="noopener">30 ADRs</a>
+    <a href="https://github.com/noirebox/noirebox/blob/main/docs/ADRs.md" target="_blank" rel="noopener">31 ADRs</a>
   </p>
 </header>
 
@@ -233,6 +233,7 @@ python verifier/verifier.py export.json
     <tr><td class="mono">decision/0.1</td><td>any writer</td><td>decision receipts (ADR 028): the System One layer (<code>/v1/systemone</code>) under seal — state as digest, question set hash-bound to its sealed spec (<code>spec_hash</code> required, no exception path), the full distribution, the engine's doubt (<code>label_mass</code>, <code>argmax_is_label</code>) verbatim</td></tr>
     <tr><td class="mono">admission/0.1</td><td>any writer · <code>noirebox seal-admission</code></td><td>admission receipts (ADR 026): the promotion itself — Lin's four invalid transitions named, the never-bases refused at seal time, decision fails closed (<code>admitted | denied | admission_undecidable | admission_check_not_run</code>)</td></tr>
     <tr><td class="mono">marking/0.1</td><td>any writer · <code>noirebox seal-marking</code></td><td>marking receipts (ADR 030, AI Act art. 50(2)): the proof that one generated output was marked, bound to the output's digest (never the content) — modality closed to art. 50(2)'s four, methods a closed set (<code>c2pa_manifest</code> binds <code>manifest_digest</code>), status fails closed (<code>marked | not_marked | exempt</code>, an exemption names its carve-out). A label can be stripped, a log can be edited, an anchored receipt can't</td></tr>
+    <tr><td class="mono">authorization/0.1</td><td>any writer · <code>noirebox seal-authorization</code></td><td>authorization receipts (ADR 031): one gate decision under seal — the agent identity <em>as verified at execution time</em> (SO_PEERCRED / TLS, not a claimed name), the action, the resource, a fail-closed decision (<code>allowed | denied | gate_error</code> — a failed gate is named, never retried into an allow), and for every allow the independent warrant (the never-bases are refused at seal time, laws 1–8)</td></tr>
     <tr><td class="mono">writer/0.1</td><td>the registrar</td><td>known-writers registry: <code>public_hex</code> → <code>domain</code>, <code>declared_by</code> — resolved against the PINNED registrar key (out-of-band); non-registrar entries can't vote; a key under two domains = <code>registry_duplicate_undecidable</code>, never first-wins</td></tr>
     <tr><td class="mono">registry-disclosure/0.2</td><td>the report</td><td>registrant + evidence grade — disclosure, never violation; never touches <code>clean_pass</code></td></tr>
     <tr><td class="mono">retention/0.1</td><td><code>noirebox seal-retention</code></td><td>prune / migrate / policy-change / restore — retention changes are custody events journaled like any other, not ops-layer edits</td></tr>
@@ -391,6 +392,7 @@ python verifier/verifier.py export.json
     <tr><td class="mono">seal-retention</td><td>seal a retention change INTO the journal (prune | migrate | policy-change | restore)</td></tr>
     <tr><td class="mono">seal-admission</td><td>seal an admission receipt (ADR 026): actor, origin + surface, one of Lin's four transitions, the independent basis, the fail-closed decision — the laundering bases are refused at the shell, same as the API</td></tr>
     <tr><td class="mono">seal-marking</td><td>seal a marking receipt (ADR 030, AI Act art. 50(2)): the output's sha256 digest, its modality, the methods applied (repeatable <code>--method</code>), the fail-closed status, an exemption that names its carve-out — same function as the API, same refusals: exit 2 and no event lands</td></tr>
+    <tr><td class="mono">seal-authorization</td><td>seal an authorization receipt (ADR 031): the verified agent identity, action, resource, the fail-closed decision, the warrant behind an allow — same function as the API, same refusals: exit 2 and no event lands</td></tr>
     <tr><td class="mono">custody-grade</td><td>print the custody disclosure: witness = min(authoring, retention)</td></tr>
   </tbody>
 </table>

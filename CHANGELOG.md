@@ -34,6 +34,23 @@
   against the OJ English text on 21 October 2026; the 2 August / 2
   December rows and the sources say so now, and the obligations table
   gains its art. 50(2) row.
+- **`authorization` receipts — the enforcement layer gets its journal
+  (ADR 031).** The 2026 standards wave (OWASP ACS, NIST agent identity,
+  KedgeFlow, UAI-BLOCK) builds gates; none of them seals what the gate
+  decided. `seal_authorization()` journals one gate decision — agent
+  identity *as verified at execution time* (SO_PEERCRED/TLS, not a claimed
+  name), action, resource, `allowed | denied | gate_error`, and — for an
+  allow — the independent `warrant`, with the laundering vocabulary
+  (presence/relevance/plausibility/usefulness) refused at seal time, same
+  discipline as admission receipts. `noirebox seal-authorization` ships with the schema
+  (lesson of #122), same refusals verbatim, exit 2 and no event lands.
+  `replay_authorization()` is the
+  auditor's pass: allows without warrants, laundered warrants, malformed
+  events sealed around the refusals, and gate flips (a triple denied then
+  silently allowed). 17 new tests. Docs: `docs/RELATED-WORK.md` maps the
+  evidence layer against every enforcement effort above, with Bunic's
+  four tests self-scored honestly (scale and durability: open gaps).
+
 - **`noirebox seal-admission` — the admission receipt gets its shell
   surface.** 0.23.0 shipped `admission/0.1` as a Python function only:
   `seal_admission()` refuses the laundering vocabulary at seal time

@@ -273,6 +273,36 @@ def main(argv: list[str] | None = None) -> int:
     adm.add_argument("--scope", action="append", default=None, metavar="PATH",
                      help="what the admission covers (repeatable)")
     adm.add_argument("--db", default=None, help="journal path")
+    az = sub.add_parser("seal-authorization",
+                        help="seal an AUTHORIZATION receipt (ADR 031) — one "
+                             "gate decision becomes a signed event: the agent "
+                             "identity as verified at execution time, the "
+                             "action, the resource, allow/deny/gate_error, "
+                             "and the independent warrant behind an allow")
+    az.add_argument("--agent", required=True,
+                    help="the requester identity AS VERIFIED at execution "
+                         "time (e.g. 'os:uid=942 via SO_PEERCRED') — not a "
+                         "claimed name")
+    az.add_argument("--action", required=True,
+                    help="the requested operation (read, send_email…)")
+    az.add_argument("--resource", required=True,
+                    help="the target of the operation")
+    az.add_argument("--decision", required=True,
+                    help="allowed | denied | gate_error (fails closed — a "
+                         "failed gate is named, never silently retried)")
+    az.add_argument("--warrant", default=None,
+                    help="REQUIRED for --decision allowed: the independent "
+                         "authority (user-instruction ref, prior receipt "
+                         "seq, scope grant); presence / relevance / "
+                         "plausibility / usefulness are refused by name")
+    az.add_argument("--rule", default=None,
+                    help="the policy rule id that decided (e.g. "
+                         "allowlist:read_approved)")
+    az.add_argument("--gate", default=None,
+                    help="the enforcing component (e.g. 'uai-broker T04-v06')")
+    az.add_argument("--reason", default=None,
+                    help="free text — especially for a deny")
+    az.add_argument("--db", default=None, help="journal path")
     mk = sub.add_parser("seal-marking",
                         help="seal a MARKING receipt (ADR 030, AI Act art. "
                              "50(2)) — the proof that one generated output "
@@ -774,6 +804,30 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         print(f"[admission] sealed seq={event.seq} actor={args.actor} "
               f"decision={args.decision} origin={args.origin}")
+        return 0
+
+    if args.command == "seal-authorization":
+        import sys
+
+        from noirebox import locate
+        from noirebox.authorization import seal_authorization
+        from noirebox.chain import load_instance_key
+        from noirebox.store import EventStore
+
+        db = args.db or locate.resolve_journal()
+        store = EventStore(db)
+        key = load_instance_key(db)
+        try:
+            event = seal_authorization(
+                store, key, agent=args.agent, action=args.action,
+                resource=args.resource, decision=args.decision,
+                warrant=args.warrant, rule=args.rule, gate=args.gate,
+                reason=args.reason)
+        except ValueError as exc:
+            print(f"[authorization] refused: {exc}", file=sys.stderr)
+            return 2
+        print(f"[authorization] sealed seq={event.seq} agent={args.agent} "
+              f"decision={args.decision} resource={args.resource}")
         return 0
 
     if args.command == "seal-marking":
