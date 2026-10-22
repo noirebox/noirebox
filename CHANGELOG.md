@@ -1,4 +1,4 @@
-## [Unreleased]
+## [0.24.0] — 2026-10-21
 
 ### Added
 
@@ -1037,7 +1037,10 @@ fixtures.
 - ADR 002: Llama Prompt Guard 2 (Meta) evaluated and rejected (language, binary output,
   gated licensing, dependencies)
 
-[Unreleased]: https://github.com/noirebox/noirebox/compare/v0.23.0...HEAD
+[Unreleased]: https://github.com/noirebox/noirebox/compare/v0.24.0...HEAD
+[0.24.0]: https://github.com/noirebox/noirebox/compare/v0.23.0...v0.24.0
+[0.23.0]: https://github.com/noirebox/noirebox/compare/v0.22.0...v0.23.0
+[0.21.0]: https://github.com/noirebox/noirebox/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/noirebox/noirebox/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/noirebox/noirebox/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/noirebox/noirebox/compare/v0.17.0...v0.18.0
