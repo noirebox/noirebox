@@ -302,6 +302,44 @@ nb.verify()                            # check the chain
 Stdio JSON-RPC implementation with no external SDK: the protocol stays
 readable end to end (`demo/demo_mcp.py`).
 
+### The MCP custody matrix — one server, every client
+
+The same stdio server (`noirebox-mcp`, or `python -m noirebox.mcp_server`)
+plugs into every MCP host; only the config file moves:
+
+| Client | Config file |
+|---|---|
+| Claude Desktop / Claude Code | `claude_desktop_config.json` (above) — Claude Code also gets the full plugin (`plugins/claude/`) |
+| Cursor | `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (project) |
+| Windsurf | `~/.codeium/windsurf/mcp_config.json` |
+| Gemini CLI | `~/.gemini/settings.json` — top-level `mcpServers` |
+| Cline | the `cline_mcp_settings.json` the extension opens (MCP Servers → Configure MCP Servers) |
+| Continue | `.continue/mcpServers/noirebox.yaml` (workspace) — a Claude/Cursor/Cline JSON dropped there works too |
+
+```json
+{ "mcpServers": { "noirebox": { "command": "noirebox-mcp" } } }
+```
+
+Continue reads YAML (a standalone file needs the metadata block), agent mode only:
+
+```yaml
+name: NoireBox
+version: 0.0.1
+schema: v1
+mcpServers:
+  - name: noirebox
+    command: noirebox-mcp
+```
+
+**Honesty, client by client**: none of these editors exposes hooks or a
+per-call log, so nothing seals itself. NoireBox there is the **on-demand
+custody layer** — the agent calls `noirebox_scan` before acting on a
+transcript, `noirebox_log_event` to seal a decision, `noirebox_verify` /
+`noirebox_attestation` to prove it. If the tool writes a JSONL log anyway,
+`noirebox seal-trajectory --format auto` seals it from the CLI, editor or
+not. Automatic flight-recording exists only where the host gives us hooks
+(the Claude Code plugin) or a log.
+
 ## Use cases — any agent that "decides"
 
 | Agent | What NoireBox brings |
@@ -371,7 +409,7 @@ examples, then `make train`.
 
 ## Tests
 
-473 tests: cryptography (tampering, reordering, wrong key), regex and **ML
+490 tests: cryptography (tampering, reordering, wrong key), regex and **ML
 guardrails on held-out sentences in FR and EN**, the guarded pipeline with a
 stub LLM (no Ollama needed, runs in CI), API agent, MCP server, SDK
 client against a **real uvicorn server** (ephemeral port), real LLM agent
@@ -404,7 +442,12 @@ the integrity of the journal — the verifier ships as a GitHub Action
 What remains. Everything shipped lives in the [CHANGELOG](CHANGELOG.md) and
 the [ADRs](docs/ADRs.md) — this section only holds what is still open.
 
-- [ ] Fleet hub console: scheduled aggregation, alerting — the v0 seal/verify primitives shipped ([ADR 017](docs/ADRs.md))
+- [x] Fleet hub console: scheduled aggregation, alerting — `noirebox
+      fleet-watch` checks every member against the hub's latest seal on a
+      wall-clock cadence, alarms once per drift transition (terminal or
+      webhook), and `--reanchor` re-seals a healthy fleet so the falsifiable
+      window shrinks to the interval; the operational layer around
+      [ADR 017](docs/ADRs.md) is closed
 - [ ] HSM signing on REAL hardware — the PKCS#11 interface is shipped
       (`P11Signer` + `keyholder --pkcs11-*`, CI-proven on SoftHSM2;
       [ADR 020 amendment](docs/ADRs.md)); what remains is a real module

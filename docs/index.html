@@ -69,7 +69,7 @@
     <a href="https://pypi.org/project/noirebox/" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/v/noirebox" alt="PyPI"></a>
     <img src="https://img.shields.io/badge/python-3.11%2B-blue" alt="Python 3.11+">
     <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT">
-    <a href="https://github.com/noirebox/noirebox/actions/workflows/ci.yml" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/tests-473%20·%200%20failing-brightgreen" alt="tests"></a>
+    <a href="https://github.com/noirebox/noirebox/actions/workflows/ci.yml" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/tests-490%20·%200%20failing-brightgreen" alt="tests"></a>
     <a href="https://github.com/noirebox/noirebox/pkgs/container/noirebox" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/GHCR-noirebox%2Fnoirebox-blue" alt="GHCR"></a>
   </div>
   <div class="install-pill">
@@ -411,7 +411,7 @@ python verifier/verifier.py export.json
     <tr><td>Full chain verification, 100 events (incl. JSON load)</td><td class="mono">44 ms</td><td class="mono">verifier/verifier.py</td></tr>
     <tr><td>Bundled detectors, FR + EN</td><td class="mono">293 + 243 KB</td><td class="mono">make train · make train-en</td></tr>
     <tr><td>Held-out attack sentences, FR + EN</td><td class="mono">12/12</td><td class="mono">tests/test_ml_guardrail.py</td></tr>
-    <tr><td>Test suite</td><td class="mono">473 · 0 failing</td><td class="mono">make test</td></tr>
+    <tr><td>Test suite</td><td class="mono">490 · 0 failing</td><td class="mono">make test</td></tr>
   </tbody>
 </table>
 <p class="dim">MacBook M-series, local venv — sealing/verification rows 2026-10-04. Absolute values vary with hardware; <code>make bench</code> on your machine is the reference.</p>
@@ -445,7 +445,7 @@ verifier/verifier.py  standalone third-party verifier (+ tsa_roots/ pinned certi
 bench/                SCAR-BENCH harness + published results (scar114)
 tsa/                  self-hosted OpenSSL witness (root + leaf chain)
 plugins/              VS Code extension · Claude Code hooks · ZCode plugin
-tests/                473 tests — the invariant suite, incl. SCAR replay
+tests/                490 tests — the invariant suite, incl. SCAR replay
 docs/                 SPECS · THREAT-MODEL · ADRs · compliance &amp; bench docs (this site)
 demo/                 runnable end-to-end scenes</pre>
 </section>
@@ -571,7 +571,7 @@ demo/                 runnable end-to-end scenes</pre>
 <h2><a href="#contributing" class="anchor">§</a>Contributing</h2>
 <ul class="tight">
   <li>Branches + pull requests; <code class="mono">main</code> is protected (PR + required checks). No direct pushes.</li>
-  <li><code class="mono">make test</code> — 473 tests, must stay green · <code class="mono">ruff</code> for lint (B/SIM/C4 enforced) · CI runs the suite + Bandit + a stub-LLM coverage pass.</li>
+  <li><code class="mono">make test</code> — 490 tests, must stay green · <code class="mono">ruff</code> for lint (B/SIM/C4 enforced) · CI runs the suite + Bandit + a stub-LLM coverage pass.</li>
   <li>The spec is the contract: a code change that diverges from <code class="mono">docs/SPECS.md</code> updates the spec in the same PR — or it's a bug.</li>
   <li>Numbers cited in docs must be reproducible (<code class="mono">make bench</code>, <code class="mono">make test</code>) — measured, never rounded up.</li>
   <li>MIT. Issues and PRs welcome; security issues go to SECURITY.md, not public issues.</li>

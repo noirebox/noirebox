@@ -24,7 +24,7 @@ via MCP) — we never claim automatic sealing where the app gives us nothing.
 |---|---|---|---|
 | Claude Code | ✅ hooks (`PostToolUse`, `SessionEnd`) + session transcripts | plugin + MCP | **shipped** (`plugins/claude/`) |
 | Hook-native agents (per-call JSONL + hooks) | ✅ `noirebox hook` + `seal-trajectory --rollout` | plugin | shipped (first agent plugin) |
-| MCP-capable agents (Cursor, Windsurf, Gemini CLI, Cline, Continue…) | ➖ on-demand custody (scan, seal, verify, attest) | MCP config snippet | docs (P3) |
+| MCP-capable agents (Cursor, Windsurf, Gemini CLI, Cline, Continue…) | ➖ on-demand custody (scan, seal, verify, attest) | MCP config snippet | **shipped** (the MCP custody matrix, README) |
 | VSCode + Copilot (agent mode) | ✅ published on the VS Marketplace | MCP + VSIX extension | P2 done |
 | Anything else with a JSONL log | ✅ `seal-trajectory --format auto` | one CLI call | shipped |
 
@@ -51,11 +51,11 @@ decision, verify, export the attestation (JSON/PDF). Auto-configures the
 NoireBox MCP server for Copilot agent mode. Sold honestly: in editors that
 do not expose per-call logs, NoireBox is the custody and attestation layer.
 
-### P3 — the docs matrix (multiplicator, near-zero code)
+### P3 — the docs matrix (shipped)
 One README section per MCP-capable client (Cursor, Windsurf, Gemini CLI,
 Cline, Continue, any MCP host): the config snippet, what gets sealed, what
-does not. Plus the CI story: the `noirebox-verify` GitHub Action already
-attests a journal in CI.
+does not — the MCP custody matrix in the README (EN + FR). Plus the CI
+story: the `noirebox-verify` GitHub Action already attests a journal in CI.
 
 ### Later — evaluated on demand
 - Native integrations proposed upstream to agent vendors, one by one,
