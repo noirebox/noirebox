@@ -793,7 +793,8 @@ _LAUUNDERING_BASES = ("presence", "relevance", "plausibility", "usefulness")
 def seal_admission(store, key, *, actor: str, source_origin: str,
                    source_surface: str, transition: str, basis: str,
                    decision: str, participation_ownership: str,
-                   scope: list[str] | None = None) -> dict:
+                   scope: list[str] | None = None,
+                   reach: str | None = None) -> dict:
     """Seals one ADMISSION RECEIPT as an `admission` event (ADR 026 —
     You-An Lin, *Capability Is Not Authority*): the receipt for the
     promotion itself, not the act that followed it. `transition` is one
@@ -810,7 +811,14 @@ def seal_admission(store, key, *, actor: str, source_origin: str,
     `participation_ownership` ∈ {same, foreign, shared} — the
     false-first-person-ownership guard as a field discipline: a receipt
     proves an earlier actor's decision; it never makes it the citing
-    actor's autobiography."""
+    actor's autobiography.
+
+    `reach`, optional (T5-011 of agentic-ai-test-checklist-110), names
+    the boundary the admission check enforced — the tenant it holds
+    within. Without it, an admission is journal-wide; with it, the
+    receipt itself says where the basis was checked, so a
+    tenant-scoped export check passes on evidence instead of a
+    boolean."""
     if not str(actor or "").strip():
         raise ValueError("admission: actor is required — who promotes")
     if not str(source_origin or "").strip():
@@ -855,6 +863,12 @@ def seal_admission(store, key, *, actor: str, source_origin: str,
             raise ValueError("admission: scope must be a non-empty list of "
                              "non-empty paths")
         payload["scope"] = [p.strip() for p in scope]
+    if reach is not None:
+        if not str(reach).strip():
+            raise ValueError("admission: reach, when given, names the "
+                             "boundary the check enforced (the tenant) — "
+                             "not a blank")
+        payload["reach"] = reach.strip()
     return store.append("admission", payload, key)
 
 

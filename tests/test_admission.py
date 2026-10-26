@@ -262,3 +262,29 @@ def test_cli_requires_every_field(tmp_path, monkeypatch):
         cli_main(argv)
     assert exc.value.code == 2
     assert not db.exists() and not db.with_suffix(".db.key").exists()
+
+
+# --- `reach`, optional and tenant-bound (T5-011, ADR 032 train) ------------------
+
+def test_reach_sealed_when_given_absent_stays_valid(tmp_path):
+    """`reach` names the boundary the check enforced (the tenant); it is
+    optional and additive — receipts sealed before it carry no `reach`
+    and stay exactly what they were."""
+    store, key = _journal(tmp_path, "adm-reach")
+    seal_admission(store, key, **_ok())
+    assert "reach" not in store.all()[-1]["payload"]
+    seal_admission(store, key, **_ok(reach="tenant:acme"))
+    assert store.all()[-1]["payload"]["reach"] == "tenant:acme"
+
+
+def test_reach_blank_refused(tmp_path):
+    store, key = _journal(tmp_path, "adm-reach-blank")
+    with pytest.raises(ValueError, match="the boundary the check enforced"):
+        seal_admission(store, key, **_ok(reach="   "))
+
+
+def test_cli_reach_flag_reaches_the_payload(tmp_path, monkeypatch):
+    rc, store = _cli(tmp_path, monkeypatch, extra=["--reach", "tenant:acme"])
+    assert rc == 0
+    assert store.all()[0]["payload"]["reach"] == "tenant:acme"
+

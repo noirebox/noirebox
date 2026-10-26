@@ -272,6 +272,10 @@ def main(argv: list[str] | None = None) -> int:
                      help="participation_ownership: same | foreign | shared")
     adm.add_argument("--scope", action="append", default=None, metavar="PATH",
                      help="what the admission covers (repeatable)")
+    adm.add_argument("--reach", default=None,
+                     help="optional (T5-011): the boundary the admission "
+                          "check enforced — the tenant it holds within; "
+                          "absent = journal-wide")
     adm.add_argument("--db", default=None, help="journal path")
     az = sub.add_parser("seal-authorization",
                         help="seal an AUTHORIZATION receipt (ADR 031) — one "
@@ -333,6 +337,40 @@ def main(argv: list[str] | None = None) -> int:
     mk.add_argument("--detector", default=None,
                     help="how a third party re-detects the mark (tool, version)")
     mk.add_argument("--db", default=None, help="journal path")
+    cs = sub.add_parser("seal-canary-sweep",
+                        help="seal a CANARY-SWEEP receipt (ADR 032) — the "
+                             "proof that a secrets sweep ran becomes a "
+                             "signed event: which canary (by sha256 "
+                             "digest, NEVER the token), how many outputs "
+                             "and turns the sensor scanned, the "
+                             "fail-closed outcome, and — when the canary "
+                             "came back — where, by coordinate and "
+                             "output digest. The sensor stays external; "
+                             "'we scanned' becomes replayable")
+    cs.add_argument("--canary-digest", required=True,
+                    help="sha256 hex of the canary token — the DIGEST, "
+                         "never the token itself (refused verbatim)")
+    cs.add_argument("--outputs-swept", required=True, type=int,
+                    help="how many outputs the sensor scanned — the "
+                         "denominator; 0 is sealable but replays as "
+                         "`vacuous_sweep`")
+    cs.add_argument("--outcome", required=True,
+                    help="clean | canary_resurfaced | sweep_error (fails "
+                         "closed — a sensor that did not run is named, "
+                         "never clean)")
+    cs.add_argument("--turns-swept", type=int, default=None,
+                    help="how many turns the sensor scanned (optional)")
+    cs.add_argument("--finding", action="append", default=None,
+                    metavar="AT#DIGEST",
+                    help="one resurfaced canary (repeatable, REQUIRED "
+                         "with --outcome canary_resurfaced): the "
+                         "coordinate and the sha256 of the offending "
+                         "output, e.g. 'turn=17#<64-hex>'")
+    cs.add_argument("--sensor", default=None,
+                    help="the external sensor that ran the sweep (tool, "
+                         "version)")
+    cs.add_argument("--note", default=None, help="short human context")
+    cs.add_argument("--db", default=None, help="journal path")
     khs = sub.add_parser("keyholder-status",
                          help="describe a running keyholder: its public key "
                               "(the out-of-band pin value) and the peer check")
@@ -798,7 +836,8 @@ def main(argv: list[str] | None = None) -> int:
                 source_surface=args.surface,
                 transition=args.transition.replace("->", "→"),
                 basis=args.basis, decision=args.decision,
-                participation_ownership=args.ownership, scope=args.scope)
+                participation_ownership=args.ownership, scope=args.scope,
+                reach=args.reach)
         except ValueError as exc:
             print(f"[admission] refused: {exc}", file=sys.stderr)
             return 2
@@ -854,6 +893,38 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[marking] sealed seq={event.seq} status={args.status} "
               f"modality={args.modality} "
               f"digest={event.payload['output_digest'][:16]}…")
+        return 0
+
+    if args.command == "seal-canary-sweep":
+        import sys
+
+        from noirebox import locate
+        from noirebox.canary_sweep import seal_canary_sweep
+        from noirebox.chain import load_instance_key
+        from noirebox.store import EventStore
+
+        db = args.db or locate.resolve_journal()
+        store = EventStore(db)
+        key = load_instance_key(db)
+        findings = None
+        if args.finding:
+            findings = []
+            for item in args.finding:
+                at, _, digest = item.rpartition("#")
+                findings.append({"at": at, "output_digest": digest})
+        try:
+            event = seal_canary_sweep(
+                store, key, canary_digest=args.canary_digest,
+                outputs_swept=args.outputs_swept, outcome=args.outcome,
+                turns_swept=args.turns_swept, findings=findings,
+                sensor=args.sensor, note=args.note)
+        except ValueError as exc:
+            print(f"[canary-sweep] refused: {exc}", file=sys.stderr)
+            return 2
+        print(f"[canary-sweep] sealed seq={event.seq} "
+              f"outcome={args.outcome} "
+              f"outputs_swept={args.outputs_swept} "
+              f"canary={event.payload['canary_digest'][:16]}…")
         return 0
 
     if args.command == "keyholder-status":
