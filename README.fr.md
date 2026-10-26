@@ -322,6 +322,44 @@ nb.verify()                            # vérifier la chaîne
 Implémentation JSON-RPC sur stdio sans SDK externe : le protocole reste
 lisible de bout en bout (`demo/demo_mcp.py`).
 
+### La matrice de garde MCP — un serveur, tous les clients
+
+Le même serveur stdio (`noirebox-mcp`, ou `python -m noirebox.mcp_server`)
+se branche dans chaque hôte MCP ; seul le fichier de config change :
+
+| Client | Fichier de config |
+|---|---|
+| Claude Desktop / Claude Code | `claude_desktop_config.json` (ci-dessus) — Claude Code a en plus le plugin complet (`plugins/claude/`) |
+| Cursor | `~/.cursor/mcp.json` (global) ou `.cursor/mcp.json` (projet) |
+| Windsurf | `~/.codeium/windsurf/mcp_config.json` |
+| Gemini CLI | `~/.gemini/settings.json` — objet `mcpServers` de premier niveau |
+| Cline | le `cline_mcp_settings.json` que l'extension ouvre (MCP Servers → Configure MCP Servers) |
+| Continue | `.continue/mcpServers/noirebox.yaml` (workspace) — un JSON Claude/Cursor/Cline déposé là fonctionne aussi |
+
+```json
+{ "mcpServers": { "noirebox": { "command": "noirebox-mcp" } } }
+```
+
+Continue lit du YAML (un fichier autonome exige le bloc de métadonnées), mode agent uniquement :
+
+```yaml
+name: NoireBox
+version: 0.0.1
+schema: v1
+mcpServers:
+  - name: noirebox
+    command: noirebox-mcp
+```
+
+**Honnêteté, client par client** : aucun de ces éditeurs n'expose de hooks
+ni de journal par appel — rien ne se scelle tout seul. NoireBox y est la
+**couche de garde à la demande** : l'agent appelle `noirebox_scan` avant
+d'agir sur un transcript, `noirebox_log_event` pour sceller une décision,
+`noirebox_verify` / `noirebox_attestation` pour la prouver. Si l'outil
+écrit quand même un journal JSONL, `noirebox seal-trajectory --format auto`
+le scelle depuis la CLI, éditeur ou pas. L'enregistrement automatique
+n'existe que là où l'hôte donne des hooks (le plugin Claude Code) ou un journal.
+
 ## Le code — le cœur d'abord, les plugins après
 
 ```
@@ -378,7 +416,7 @@ exemples au dataset, puis `make train`. Architecture par étages :
 
 ## Tests
 
-473 tests : cryptographie (falsification, réordonnancement, mauvaise clé),
+490 tests : cryptographie (falsification, réordonnancement, mauvaise clé),
 garde-fou regex et **ML sur phrases inédites en FR et EN**, le pipeline
 gardé avec un LLM factice (sans Ollama, tourne en CI), agent API,
 serveur MCP, SDK client contre un **vrai serveur uvicorn** (port éphémère),
@@ -428,7 +466,12 @@ domaine = ajouter des exemples au dataset et relancer `make train`.
 Ce qui reste. Tout ce qui est livré vit dans le [CHANGELOG](CHANGELOG.md) et les
 [ADRs](docs/ADRs.md) — cette section ne garde que l'ouvert.
 
-- [ ] Console hub de flotte : agrégation programmée, alerting — les primitives v0 de sceau/vérification existent ([ADR 017](docs/ADRs.md))
+- [x] Console hub de flotte : agrégation programmée, alerting —
+      `noirebox fleet-watch` vérifie chaque membre contre le dernier sceau
+      du hub à cadence horloge, n'alarme qu'une fois par transition de
+      dérive (terminal ou webhook), et `--reanchor` rescelle une flotte
+      saine — la fenêtre falsifiable se réduit à l'intervalle ; la couche
+      opérationnelle de l'[ADR 017](docs/ADRs.md) est fermée
 - [ ] HSM sur du VRAI matériel — l'interface PKCS#11 est livrée (`P11Signer` +
       `keyholder --pkcs11-*`, prouvée en CI sur SoftHSM2 ; [amendement ADR 020](docs/ADRs.md)) ;
       reste le pin d'un vrai module et les claims d'extractabilité que seul le
