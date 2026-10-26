@@ -1,3 +1,63 @@
+## [Unreleased]
+
+### Added
+
+- **`canary-sweep/0.1` — canary-sweep receipts (ADR 032, issue #129's
+  first candidate).** Row T6-011 of agentic-ai-test-checklist-110
+  (Padmanabhuni, CC-BY): a secret the agent has seen must not resurface
+  in its later outputs. The check — plant token secrets, scan every
+  output — runs outside the agent, with the enforcement stack; what it
+  never had is the evidence leg. `seal_canary_sweep()` journals one
+  sweep run: which canary (sha256 DIGEST, never the token — the
+  journal that proves containment must not become the leak's backup
+  copy; a raw token is refused at seal time), the denominator
+  (`outputs_swept` / `turns_swept`, ADR 020's discipline one layer
+  out), a fail-closed outcome (`clean | canary_resurfaced |
+  sweep_error`), and — when the canary came back — findings, each
+  exactly `{at, output_digest}`: the coordinate and the digest, never
+  the content. Findings under `clean` are a lie, findings under an
+  error are ambiguous evidence; both refused. `replay_canary_sweep()`
+  is the auditor's pass: malformed events sealed around the refusals,
+  the consistency breaks, and `vacuous_sweep` — a clean sweep over
+  zero outputs certified nothing, named, never silence. A
+  `canary_resurfaced` outcome is NOT a finding against the journal: it
+  is the sensor's result, exactly what the receipt exists to prove.
+  `noirebox seal-canary-sweep` ships with the schema (lesson of #122),
+  findings as repeatable `AT#DIGEST`, same refusals verbatim, exit 2
+  and no event lands. Honest scope, stated so it can be refused in
+  public: noirebox does NOT sweep — no scanner, no detector, no canary
+  generator; the sensor is the guard's, and a witness inside the thing
+  it witnesses is no witness (ADR 028's refusal, applied to sensors).
+  Multi-canary sweeps are multiple receipts, one per canary.
+- **`reach` on `admission/0.1` (issue #129's second candidate, T5-011).**
+  An optional field naming the boundary the admission check enforced —
+  the tenant it holds within (e.g. `tenant:acme`) — so a tenant-scoped
+  export check passes on a receipt instead of a boolean. Absent means
+  journal-wide, exactly what every receipt sealed before the field
+  already was; a blank is refused. Additive only; ADR 026 amended, in
+  the record.
+- **`docs/CROSSWALK-110.md` (issue #129's third candidate).** The
+  receipts vocabulary mapped against agentic-ai-test-checklist-110
+  (CC-BY), SCAR-BENCH-style: shipped / partial / gap per row, credited
+  and dated, rows move down only. Current score after this train:
+  5 shipped, 5 partial, 1 gap (T7, metamorphic consistency — open and
+  named). Linked from the site's documentation index and
+  RELATED-WORK.md.
+
+### Fixed
+
+- **ADR 031's record backfilled into ADRs.md.** #127 shipped the code,
+  the tests, the site tables and the count (31) — but the ADR record
+  itself never landed in `docs/ADRs.md` (which had 30 records; the
+  docs-index row still said 29). Both now say what the file contains.
+  The record is written back from `noirebox/authorization.py` and the
+  #127 commit, marked as a backfill, unchanged in substance.
+- **Subcommand count catch-up.** The published count said twenty-two;
+  the CLI offered twenty-four before this train (the count was already
+  one behind at the 0.24.0 release, and #127's `seal-authorization`
+  added a command without bumping it), twenty-five with
+  `seal-canary-sweep`. Both language pages now carry the real count.
+
 ## [0.24.0] — 2026-10-21
 
 ### Added

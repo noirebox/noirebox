@@ -904,6 +904,14 @@ disclosure ≠ violation). This ADR ships the contract; the schema, the
 check, and the fixtures land in 0.22.0. The paper asked for an
 admission-sensitive benchmark; it should find one already running.
 
+**Amended (ADR 032 train, October 2026)**: `admission/0.1` gains an
+optional `reach` field — T5-011 of agentic-ai-test-checklist-110: a
+tenant-scoped export check should pass on evidence, not on a boolean.
+`reach` names the boundary the admission check enforced (e.g.
+`tenant:acme`); absent means journal-wide, exactly what every receipt
+sealed before the field already was, and a blank is refused at seal
+time. Additive only: no existing receipt changes meaning.
+
 ## ADR 027 — Post-quantum evidence: hybrid signing behind the signer interface
 
 **Status**: accepted (direction) — implementation gated behind export
@@ -1328,3 +1336,139 @@ transparency, in exactly one narrow way (art. 111(4)), and a compliance
 dossier that says otherwise is a dossier with a date wrong. The French
 developer guide to art. 50 on noirebox.eu carries the sentence this ADR
 is named after; the sentence is the product.
+
+## ADR 031 — Authorization receipts: the enforcement layer gets its journal
+
+*Backfilled (ADR 032 train): #127 shipped the code, the tests and the
+count — but this record itself never landed in ADRs.md. Written back
+from `noirebox/authorization.py` and the #127 commit, unchanged in
+substance.*
+
+**Status**: accepted — implemented (`seal_authorization`,
+`replay_authorization`, `noirebox seal-authorization`, tests, PR #127).
+
+**Context**: the 2026 standards conversation splits agent governance in
+two halves that keep being built separately. ENFORCEMENT at the moment
+of action — authorization brokers outside the agent's reasoning: OWASP
+ACS, NIST's software/AI-agent identity work, KedgeFlow's
+grant/claim/dispatch gateways, UAI-BLOCK's OS-identity broker
+(Unix sockets, SO_PEERCRED). KedgeFlow's own evaluation shows the limit
+of enforcement alone: a permissive policy still authorized an
+undesirable effect. EVIDENCE after the fact — what this journal is.
+Dr. Bunic's demonstrable-governance tests name it: accountability and
+auditability, at scale, durably. UAI-BLOCK self-reports the gap
+verbatim: *"does not yet have tamper-resistant audit records,
+independent verification."*
+
+**Decision**: an `authorization/0.1` receipt seals one gate decision —
+`{agent, action, resource, decision, warrant?, rule?, gate?, reason?}`.
+`agent` is the requester identity *as verified at execution time* — the
+OS/socket/TLS credential the gate actually checked (e.g. `os:uid=942
+via SO_PEERCRED`), not a name the agent claimed. `decision` fails
+closed: `allowed | denied | gate_error` — a swallowed gate failure is
+an allow nobody decided. An `allowed` decision REQUIRES a `warrant`,
+the independent authority the allow leans on (a user-instruction ref,
+a prior receipt seq, an explicit scope grant); the resource's own
+presence/relevance/plausibility/usefulness are refused as warrants at
+seal time (laws 1–8 — the admission discipline, applied to gates).
+`replay_authorization` is the auditor's pass: allows without warrants,
+laundered warrants, malformed events sealed around the refusals, and
+**gate flips** — a triple (agent, action, resource) denied earlier in
+the sealed sequence must not appear allowed later; either the warrant
+legitimately changed (seal it again with the new warrant) or the gate
+is inconsistent.
+
+**Non-goals**: this is the journal contract for gates, not a policy
+engine. It decides nothing; it makes what was decided undeniable.
+
+**Consequences**: a control that enforces here can journal its
+allow/deny decisions as receipts — the enforcement becomes *provable*,
+not just present (`RELATED-WORK.md`, the ACS row). An auditor replays
+the sealed sequence and checks the gate never allowed an unwarranted
+request. The bridge is one function call for any broker; the refusal
+vocabulary is the price of entry.
+
+## ADR 032 — Canary-sweep receipts: the sensor gets its journal
+
+**Status**: accepted — implemented (`seal_canary_sweep`,
+`replay_canary_sweep`, `noirebox seal-canary-sweep`, tests; issue
+#129's first two candidates). Lineage: row **T6-011** of
+[agentic-ai-test-checklist-110](https://huggingface.co/datasets/srinivaspadmanabhuni/agentic-ai-test-checklist-110)
+(Padmanabhuni, CC-BY, 110 tests, per-row NIST AI-RMF / OWASP-ASI /
+EU-AI-Act mappings), arriving via the OpenShell post thread (dev.to,
+comment 3j2j4, October 2026) with two named gaps against brokered
+custody — T6-011 (secret resurfacing) and T5-011 (tenant-scoped
+exports). The third independent arrival in this corridor in a month
+(Lin's *Capability Is Not Authority* → ADR 026; the SCAR catalog → the
+spec canary; now a test catalog), each reading the same vocabulary from
+its own side.
+
+**Context**: T6-011 — *a secret the agent has seen must not resurface
+in its later outputs*. The check is a CANARY SWEEP: plant token secrets
+in the agent's context, scan every output for them. The sweep runs
+OUTSIDE the agent, with the rest of the enforcement stack — the
+deployer's gateway, where ADR 031's gates live. What the sweep never
+had is the evidence leg: "we scanned" is a claim in an ops log the
+operator holds and can edit; an auditor who was not there can replay
+none of it. The checklist row is written as a test because only
+something outside the model can enforce it (their T5-018 says the same
+about allowlists) — and a test that ran with no receipt of having run
+is a control that cannot be audited.
+
+**Decision** — the sweep itself becomes a sealed event:
+
+1. **`canary-sweep/0.1`** — `{canary_digest, outputs_swept, turns_swept?,
+   outcome, findings?, sensor?, note?}`. The canary travels as its
+   sha256 DIGEST, never as content: the journal that proves containment
+   must not become the leak's backup copy (a sweep receipt that
+   archives the token is the leak it was meant to catch). The deployer
+   holds the token; the journal holds the digest; the pair reconciles
+   out of band. This is deliberately NOT the SCAR-PROC-114 spec canary
+   (ADR 028's machinery, sealed verbatim because its presence in the
+   journal IS the proof of read): a sweep canary STANDS IN for a
+   secret, and the one bytes-level rule of a secrets sweep is that the
+   secret stops existing everywhere except where it is authorised.
+2. **The outcome fails closed**: `clean | canary_resurfaced |
+   sweep_error` — a sensor that did not run is named, never silently
+   counted as a pass.
+3. **Findings travel only with `canary_resurfaced` and are required
+   with it**: each is exactly `{at, output_digest}` — the turn/output
+   coordinate where the canary came back, and the sha256 of the
+   offending output. Content never lands. A clean sweep with findings
+   is a lie; a failed sweep with findings is ambiguous evidence —
+   rerun, or seal what resurfaced. Both refused at seal time.
+4. **The denominator is a field**: `outputs_swept` / `turns_swept` —
+   ADR 020's discipline one layer out. A `clean` sweep over zero
+   outputs seals as fact and replays as `vacuous_sweep`: a sweep that
+   certified nothing certifies nothing, named, never silence.
+5. **`replay_canary_sweep`** is the auditor's pass: malformed events
+   (generic append around the refusals), the consistency breaks above,
+   and vacuity. A `canary_resurfaced` outcome is NOT a finding against
+   the journal — it is the sensor's result, exactly what the receipt
+   exists to prove; the findings here are discipline breaks.
+6. **T5-011 rides ADR 026**: `admission/0.1` gains an optional `reach`
+   field naming the boundary the admission check enforced (the tenant)
+   — a tenant-scoped export check passes on a receipt instead of a
+   boolean. Absent = journal-wide; additive only.
+
+**Non-goals, stated so they can be refused in public**: noirebox does
+NOT sweep. No scanner, no detector, no canary generator ships here —
+the sensor is external (the guard's, the deployer's), and a witness
+inside the thing it witnesses is no witness (ADR 028's refusal,
+applied to sensors). Multi-canary sweeps are multiple receipts, one per
+canary: composable, and each digest reconciles against exactly one
+token. We do not verify the sensor ran correctly — we seal what it
+reported; the receipt's value is that the report can no longer be
+silently edited or silently omitted. T7 (metamorphic consistency for
+the judge) remains open — the checklist's row names it, the crosswalk
+keeps it visible (`docs/CROSSWALK-110.md`), and no candidate ships
+here.
+
+**Consequences**: `seal_canary_sweep` + `replay_canary_sweep` in
+`noirebox/canary_sweep.py`, the `seal-canary-sweep` subcommand (same
+refusals verbatim, exit 2 and no event lands), `reach` on
+`seal_admission`, tests, this record, and `docs/CROSSWALK-110.md` —
+the crosswalk table kept current, SCAR-BENCH-style: external catalogs
+the vocabulary converges with, credited and dated. The bridge contract
+for the guard: one sweep, one receipt; the guard does the sweeping, the
+journal does the proving.
